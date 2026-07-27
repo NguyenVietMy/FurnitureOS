@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import furnitureos.registry  # noqa: F401  registers ORM models on Base.metadata
+from furnitureos.modules.catalogue import router as catalogue_router
 from furnitureos.modules.units import router as units_router
 
 app = FastAPI(title="FurnitureOS API", version="0.1.0")
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(units_router)
+app.include_router(catalogue_router)
 
 
 @app.get("/api/health", tags=["ops"])

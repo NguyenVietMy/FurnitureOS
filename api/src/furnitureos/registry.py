@@ -5,6 +5,7 @@ Base.metadata. Importing this module guarantees that regardless of import order,
 a line here whenever a module gains a table.
 """
 
+from furnitureos.modules.catalogue.models import ItemRow
 from furnitureos.modules.units.models import UnitRow
 
-__all__ = ["UnitRow"]
+__all__ = ["ItemRow", "UnitRow"]

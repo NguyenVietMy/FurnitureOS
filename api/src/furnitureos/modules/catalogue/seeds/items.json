@@ -1,0 +1,225 @@
+{
+  "_comment": "PLACEHOLDER CATALOGUE. Invented products, invented prices, plausible dimensions. Issue 13 replaces every row with what the store actually sells. The SCHEMA is permanent; none of these values are. Dimensions are metres, prices are whole VND, preset_ref names an archetype from issue 14's model set.",
+  "items": [
+    {
+      "id": "sofa-3-linen",
+      "name": "Linen 3-seat sofa",
+      "category": "seating",
+      "width_m": 2.1,
+      "depth_m": 0.92,
+      "height_m": 0.84,
+      "price_vnd": 12500000,
+      "preset_ref": "sofa-3"
+    },
+    {
+      "id": "sofa-2-linen",
+      "name": "Linen 2-seat sofa",
+      "category": "seating",
+      "width_m": 1.6,
+      "depth_m": 0.9,
+      "height_m": 0.84,
+      "price_vnd": 9200000,
+      "preset_ref": "sofa-2"
+    },
+    {
+      "id": "armchair-reading",
+      "name": "Reading armchair",
+      "category": "seating",
+      "width_m": 0.78,
+      "depth_m": 0.82,
+      "height_m": 0.95,
+      "price_vnd": 4800000,
+      "preset_ref": "armchair"
+    },
+    {
+      "id": "chair-dining-oak",
+      "name": "Oak dining chair",
+      "category": "seating",
+      "width_m": 0.45,
+      "depth_m": 0.52,
+      "height_m": 0.88,
+      "price_vnd": 1350000,
+      "preset_ref": "dining-chair"
+    },
+    {
+      "id": "stool-counter",
+      "name": "Counter stool",
+      "category": "seating",
+      "width_m": 0.38,
+      "depth_m": 0.38,
+      "height_m": 0.72,
+      "price_vnd": 890000,
+      "preset_ref": "dining-chair"
+    },
+    {
+      "id": "table-dining-6",
+      "name": "Oak dining table, 6 seat",
+      "category": "tables",
+      "width_m": 1.8,
+      "depth_m": 0.9,
+      "height_m": 0.75,
+      "price_vnd": 8900000,
+      "preset_ref": "dining-table"
+    },
+    {
+      "id": "table-dining-round",
+      "name": "Round dining table, 4 seat",
+      "category": "tables",
+      "width_m": 1.1,
+      "depth_m": 1.1,
+      "height_m": 0.75,
+      "price_vnd": 6400000,
+      "preset_ref": "dining-table"
+    },
+    {
+      "id": "table-coffee",
+      "name": "Coffee table",
+      "category": "tables",
+      "width_m": 1.1,
+      "depth_m": 0.6,
+      "height_m": 0.42,
+      "price_vnd": 2700000,
+      "preset_ref": "coffee-table"
+    },
+    {
+      "id": "table-side",
+      "name": "Side table",
+      "category": "tables",
+      "width_m": 0.45,
+      "depth_m": 0.45,
+      "height_m": 0.55,
+      "price_vnd": 1150000,
+      "preset_ref": "side-table"
+    },
+    {
+      "id": "desk-writing",
+      "name": "Writing desk",
+      "category": "tables",
+      "width_m": 1.2,
+      "depth_m": 0.6,
+      "height_m": 0.75,
+      "price_vnd": 4100000,
+      "preset_ref": "desk"
+    },
+    {
+      "id": "wardrobe-2-door",
+      "name": "Two-door wardrobe",
+      "category": "storage",
+      "width_m": 1.2,
+      "depth_m": 0.6,
+      "height_m": 2.1,
+      "price_vnd": 11800000,
+      "preset_ref": "wardrobe"
+    },
+    {
+      "id": "wardrobe-sliding",
+      "name": "Sliding-door wardrobe",
+      "category": "storage",
+      "width_m": 1.8,
+      "depth_m": 0.62,
+      "height_m": 2.2,
+      "price_vnd": 16500000,
+      "preset_ref": "wardrobe"
+    },
+    {
+      "id": "nightstand-oak",
+      "name": "Oak nightstand",
+      "category": "storage",
+      "width_m": 0.45,
+      "depth_m": 0.4,
+      "height_m": 0.55,
+      "price_vnd": 1450000,
+      "preset_ref": "nightstand"
+    },
+    {
+      "id": "chest-drawers",
+      "name": "Chest of drawers",
+      "category": "storage",
+      "width_m": 0.9,
+      "depth_m": 0.45,
+      "height_m": 0.8,
+      "price_vnd": 5300000,
+      "preset_ref": "nightstand"
+    },
+    {
+      "id": "bookshelf-5",
+      "name": "Five-shelf bookcase",
+      "category": "storage",
+      "width_m": 0.8,
+      "depth_m": 0.32,
+      "height_m": 1.8,
+      "price_vnd": 3600000,
+      "preset_ref": "bookshelf"
+    },
+    {
+      "id": "tv-stand-low",
+      "name": "Low TV stand",
+      "category": "storage",
+      "width_m": 1.6,
+      "depth_m": 0.4,
+      "height_m": 0.45,
+      "price_vnd": 3900000,
+      "preset_ref": "tv-stand"
+    },
+    {
+      "id": "bed-double",
+      "name": "Double bed, 1.6m",
+      "category": "beds",
+      "width_m": 1.6,
+      "depth_m": 2.1,
+      "height_m": 0.95,
+      "price_vnd": 9800000,
+      "preset_ref": "bed-double"
+    },
+    {
+      "id": "bed-single",
+      "name": "Single bed, 1.0m",
+      "category": "beds",
+      "width_m": 1.0,
+      "depth_m": 2.05,
+      "height_m": 0.95,
+      "price_vnd": 5600000,
+      "preset_ref": "bed-single"
+    },
+    {
+      "id": "lamp-floor-arc",
+      "name": "Arc floor lamp",
+      "category": "lighting",
+      "width_m": 0.38,
+      "depth_m": 0.38,
+      "height_m": 1.55,
+      "price_vnd": 1900000,
+      "preset_ref": "floor-lamp"
+    },
+    {
+      "id": "rug-wool-large",
+      "name": "Wool rug, 2.4 × 1.7m",
+      "category": "decor",
+      "width_m": 2.4,
+      "depth_m": 1.7,
+      "height_m": 0.02,
+      "price_vnd": 3200000,
+      "preset_ref": "rug"
+    },
+    {
+      "id": "rug-wool-small",
+      "name": "Wool rug, 1.6 × 1.2m",
+      "category": "decor",
+      "width_m": 1.6,
+      "depth_m": 1.2,
+      "height_m": 0.02,
+      "price_vnd": 1800000,
+      "preset_ref": "rug"
+    },
+    {
+      "id": "plant-fig",
+      "name": "Potted fig tree",
+      "category": "decor",
+      "width_m": 0.55,
+      "depth_m": 0.55,
+      "height_m": 1.4,
+      "price_vnd": 950000,
+      "preset_ref": "plant"
+    }
+  ]
+}

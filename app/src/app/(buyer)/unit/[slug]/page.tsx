@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { fetchUnit, UnitScene } from "@/modules/units";
+import { fetchItems } from "@/modules/catalogue";
+import { Planner } from "@/modules/plan";
+import { fetchUnit } from "@/modules/units";
 
 import styles from "./page.module.css";
 
 export default async function UnitPage({ params }: PageProps<"/unit/[slug]">) {
   const { slug } = await params;
-  const unit = await fetchUnit(slug);
+  // The catalogue does not depend on which unit this is, so neither request waits.
+  const [unit, items] = await Promise.all([fetchUnit(slug), fetchItems()]);
 
   if (!unit) notFound();
 
@@ -37,11 +40,13 @@ export default async function UnitPage({ params }: PageProps<"/unit/[slug]">) {
         </dl>
       </header>
 
-      <div className={styles.viewport}>
-        <UnitScene unit={unit} />
+      <div className={styles.body}>
+        <Planner unit={unit} catalogue={items} />
       </div>
 
-      <p className={styles.hint}>Right-drag to orbit · scroll to zoom</p>
+      <p className={styles.hint}>
+        Left-drag furniture to move it · right-drag to orbit · scroll to zoom
+      </p>
     </main>
   );
 }

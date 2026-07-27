@@ -10,6 +10,10 @@
  *   thumbnail.ts        outline + rooms -> SVG paths (pure, no React)
  *   UnitThumbnail.tsx   the gallery card's floorplan
  *   scene/              the react-three-fiber rendering of those boxes
+ *
+ * `toWorld` / `toPlan` / `toWorldRotation` are exported rather than kept internal for
+ * one reason: they are the ONLY place plan coordinates meet three.js, and that stays
+ * true only if every module that draws into this scene uses these and not its own copy.
  */
 
 export { fetchUnit, fetchUnits } from "./api";
@@ -17,4 +21,5 @@ export { deriveWallPieces, type WallPiece } from "./geometry";
 export { deriveThumbnail, type Thumbnail, type ThumbnailShape } from "./thumbnail";
 export { UnitThumbnail } from "./UnitThumbnail";
 export { UnitScene } from "./scene/UnitScene";
+export { toPlan, toWorld, toWorldRotation } from "./scene/coords";
 export type { Opening, Point, Room, Unit, UnitSummary, Wall } from "./types";

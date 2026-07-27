@@ -1,0 +1,134 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 19rem;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.search {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.search:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chip {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+
+.chip[data-active] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+}
+
+.card:hover {
+  background: var(--surface-sunk);
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.thumb {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: var(--surface-sunk);
+}
+
+.footprint {
+  display: block;
+  border-radius: 0.1rem;
+  background: #b9b2a6;
+}
+
+.details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.name {
+  overflow: hidden;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 1rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}

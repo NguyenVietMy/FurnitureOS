@@ -93,10 +93,15 @@ def test_core_does_not_depend_on_modules(path: Path) -> None:
 def test_the_composition_root_uses_only_public_surfaces(path: Path) -> None:
     """main.py and registry.py wire modules together; they still go through the front door.
 
-    registry.py is the one exception: model registration has to name the models module,
-    because that import *is* the side effect being relied on.
+    registry.py is the one exception, and only for `<module>.models`: model registration
+    has to name the models module, because that import *is* the side effect being relied
+    on. Anything deeper, or any other file, is a violation.
     """
-    allowed_depth_3 = {"furnitureos.modules.units.models"} if path.name == "registry.py" else set()
+    allowed_depth_3 = (
+        {f"furnitureos.modules.{module}.models" for module in MODULE_NAMES}
+        if path.name == "registry.py"
+        else set()
+    )
 
     for name in imported_names(path):
         if not name.startswith("furnitureos.modules."):

@@ -2,7 +2,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { MOUSE, Shape, type Mesh } from "three";
 
 import { deriveWallPieces, occludesInterior, outlineCentroid } from "../geometry";
@@ -12,7 +12,14 @@ import { toPlan, toWorld, toWorldRotation } from "./coords";
 const FLOOR_COLOUR = "#d9d2c7";
 const WALL_COLOUR = "#f0ece6";
 
-export function UnitScene({ unit }: { unit: Unit }) {
+/**
+ * The apartment shell, and whatever else belongs in the same canvas.
+ *
+ * `children` render inside the `<Canvas>`, which is how the plan module puts furniture
+ * in the room without this module learning what furniture is. Anything passed in is
+ * subject to the same camera, lights and controls as the walls.
+ */
+export function UnitScene({ unit, children }: { unit: Unit; children?: ReactNode }) {
   const centre = useMemo(() => outlineCentroid(unit.outline), [unit.outline]);
   const radius = useMemo(() => outlineRadius(unit.outline, centre), [unit.outline, centre]);
 
@@ -33,6 +40,8 @@ export function UnitScene({ unit }: { unit: Unit }) {
 
       <Floor unit={unit} />
       <Walls unit={unit} interior={centre} />
+
+      {children}
 
       <OrbitControls
         makeDefault

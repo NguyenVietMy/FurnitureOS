@@ -13,7 +13,8 @@ No emails, no phone calls, no payments.
 It is a **modular monolith** in two deployable pieces: a FastAPI backend (`api/`) and a
 Next.js frontend (`app/`), each internally split into `core/` (shared kernel) and
 `modules/<name>/` (bounded slices). Postgres stores unit layouts as whole JSONB
-documents — read and written as a unit, never queried by their parts.
+documents — read and written as a unit, never queried by their parts — and the catalogue
+as ordinary columns, because it is queried by category and searched by name.
 
 ## Layers / deployable units
 
@@ -39,9 +40,10 @@ Enforced by `api/tests/test_module_boundaries.py` (AST walk over every file) and
 `no-restricted-imports` in `app/eslint.config.mjs`. Both guards were verified
 non-vacuous by planting a deliberate violation and confirming each fails.
 
-The one documented exception: `api/src/furnitureos/registry.py` imports
-`modules.units.models` directly, because Alembic autogenerate needs every ORM model
-registered on `Base.metadata` from a single import point.
+The one documented exception: `api/src/furnitureos/registry.py` imports every
+`modules.<name>.models` directly, because Alembic autogenerate needs every ORM model
+registered on `Base.metadata` from a single import point. The boundary test allows that
+one file to reach exactly that one depth, and nothing else.
 
 ## Key decisions
 
@@ -61,3 +63,27 @@ registered on `Base.metadata` from a single import point.
   and dolly to middle. (2026-07)
 - **Frontend tests run in vitest's node environment** — no jsdom, no testing-library.
   The logic worth testing (geometry, occlusion) is pure. (2026-07)
+- **Catalogue is columns, not JSONB** — the opposite call from unit layouts, for the
+  opposite reason: a catalogue is filtered by category and searched by name, and its
+  shape is stable. (2026-07)
+- **VND is an integer everywhere** — `BIGINT` in Postgres, `int` in Python, `number` of
+  whole dong on the wire. There is no float path to a price, and validation rejects one.
+  (2026-07)
+- **Stock is stored and never served** — `stock_qty` and `lead_time_days` are columns with
+  no field in `ItemOut`. Availability is the store's business; a test asserts the buyer
+  never sees it. (2026-07)
+- **`modules/geometry` decides what may go where, and owns nothing else** — no three.js,
+  no React, no fetching. It is the one module in the app worth exhaustive tests, and it is
+  testable at all only because it holds nothing but polygons and poses. The scene asks it
+  and draws the answer. (2026-07)
+- **Containment before collision** — this slice enforces the outline and the walls only.
+  Item-to-item overlap arrives in issue 04 behind the same `RoomModel` interface, so no
+  caller changes when it does. (2026-07)
+- **Presets are stretched non-uniformly to true dimensions** — one archetype per kind of
+  thing, scaled to each item's real W×D×H, rather than a model per SKU. A 1.6 m sofa and a
+  2.1 m sofa are the same asset at different scales, and the room reads truthfully. Every
+  preset resolves to a box until issue 14 supplies `.glb` files; that fallback is a named
+  seam (`PresetModel`), not a stub to tear out. (2026-07)
+- **The plan is client-only state** — a reducer over item ids and poses, in the browser.
+  Nothing is persisted until issue 05 gives a plan a share token, and no price is summed
+  until issue 06 owns the money. (2026-07)
