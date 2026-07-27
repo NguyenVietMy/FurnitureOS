@@ -25,7 +25,10 @@ export function UnitScene({ unit, children }: { unit: Unit; children?: ReactNode
 
   return (
     <Canvas
-      shadows
+      // "percentage" is PCFShadowMap. r3f's `shadows` boolean asks for
+      // PCFSoftShadowMap, which three deprecated in r183 and now silently
+      // downgrades to this anyway — so naming it costs nothing and drops a warning.
+      shadows="percentage"
       camera={{
         // Off one corner and above, far enough back to hold the whole unit.
         position: toWorld([centre[0] + radius, centre[1] - radius], radius * 1.1),
