@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { fetchUnit, UnitScene } from "@/modules/units";
@@ -14,6 +15,9 @@ export default async function UnitPage({ params }: PageProps<"/unit/[slug]">) {
     <main className={styles.page}>
       <header className={styles.header}>
         <div>
+          <Link className={styles.back} href="/">
+            ← All layouts
+          </Link>
           <h1 className={styles.title}>{unit.name}</h1>
           <p className={styles.subtitle}>{unit.building}</p>
         </div>

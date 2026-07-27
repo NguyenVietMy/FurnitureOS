@@ -13,6 +13,18 @@
   border-bottom: 1px solid var(--line);
 }
 
+.back {
+  display: inline-block;
+  margin-bottom: 0.15rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
 .title {
   font-size: 1.35rem;
   font-weight: 600;

@@ -35,15 +35,25 @@ export interface Room {
   readonly polygon: readonly Point[];
 }
 
-export interface Unit {
+/**
+ * A unit as the gallery lists it: what a card shows, plus the polygons it draws.
+ *
+ * Area and bedroom count are derived server-side from the same plan the detail endpoint
+ * reads, never stored beside it — so a card cannot contradict the page it opens.
+ */
+export interface UnitSummary {
   readonly slug: string;
   readonly name: string;
   readonly building: string;
-  readonly ceiling_height_m: number;
   readonly area_m2: number;
   readonly bedrooms: number;
   readonly outline: readonly Point[];
-  readonly walls: readonly Wall[];
   readonly rooms: readonly Room[];
+}
+
+/** A unit as the renderer needs it: the summary, plus the geometry to extrude. */
+export interface Unit extends UnitSummary {
+  readonly ceiling_height_m: number;
+  readonly walls: readonly Wall[];
   readonly openings: readonly Opening[];
 }

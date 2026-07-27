@@ -23,8 +23,15 @@ def get_unit(session: Session, slug: str) -> UnitPlan | None:
     return parse_unit_plan(row.payload)
 
 
-def list_unit_slugs(session: Session) -> list[str]:
-    return list(session.scalars(select(UnitRow.slug).order_by(UnitRow.slug)))
+def list_units(session: Session) -> list[UnitPlan]:
+    """Every unit, validated, in a stable order.
+
+    Plans rather than rows, because the gallery's metadata — area, bedroom count — is
+    derived from the geometry and not stored beside it. Ordering is fixed here so a
+    reload cannot reshuffle the grid on Postgres's whim.
+    """
+    rows = session.scalars(select(UnitRow).order_by(UnitRow.slug))
+    return [parse_unit_plan(row.payload) for row in rows]
 
 
 def seed_units(session: Session, overrides: dict[str, dict[str, Any]] | None = None) -> list[str]:

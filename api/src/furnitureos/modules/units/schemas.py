@@ -3,11 +3,20 @@
 Kept separate from the domain model in plan.py so the HTTP contract can be changed
 without touching geometry, and so derived values (area, bedrooms, wall lengths) are
 computed server-side and simply read by the client.
+
+Two projections of the same plan: `UnitSummaryOut` for a gallery card and `UnitOut` for
+the renderer. Both read the derived values off `UnitPlan`, so a card can never
+contradict the page it opens.
 """
 
 from pydantic import BaseModel
 
 from furnitureos.modules.units.plan import UnitPlan
+
+# Areas are metres squared derived from traced coordinates. Three decimals is a square
+# millimetre — already past any precision a floorplan carries, but it keeps the two
+# projections byte-identical rather than merely close.
+AREA_DECIMALS = 3
 
 
 class WallOut(BaseModel):
@@ -34,6 +43,37 @@ class RoomOut(BaseModel):
     polygon: list[tuple[float, float]]
 
 
+class UnitSummaryOut(BaseModel):
+    """A gallery card: what it displays, plus the polygons it draws a thumbnail from.
+
+    No walls and no openings. The gallery lists the whole catalogue of layouts at once,
+    and every wall it shipped would be one nobody looks at until they click through.
+    """
+
+    slug: str
+    name: str
+    building: str
+    area_m2: float
+    bedrooms: int
+    outline: list[tuple[float, float]]
+    rooms: list[RoomOut]
+
+    @classmethod
+    def from_plan(cls, plan: UnitPlan) -> "UnitSummaryOut":
+        return cls(
+            slug=plan.slug,
+            name=plan.name,
+            building=plan.building,
+            area_m2=round(plan.area_m2, AREA_DECIMALS),
+            bedrooms=plan.bedrooms,
+            outline=plan.outline,
+            rooms=[
+                RoomOut(key=room.key, name=room.name, type=room.type, polygon=room.polygon)
+                for room in plan.rooms
+            ],
+        )
+
+
 class UnitOut(BaseModel):
     slug: str
     name: str
@@ -53,7 +93,7 @@ class UnitOut(BaseModel):
             name=plan.name,
             building=plan.building,
             ceiling_height_m=plan.ceiling_height_m,
-            area_m2=round(plan.area_m2, 3),
+            area_m2=round(plan.area_m2, AREA_DECIMALS),
             bedrooms=plan.bedrooms,
             outline=plan.outline,
             walls=[

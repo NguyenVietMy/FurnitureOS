@@ -22,8 +22,8 @@ from furnitureos.modules.units.plan import (
     parse_unit_plan,
 )
 from furnitureos.modules.units.router import router
-from furnitureos.modules.units.schemas import UnitOut
-from furnitureos.modules.units.service import get_unit, list_unit_slugs, seed_units
+from furnitureos.modules.units.schemas import UnitOut, UnitSummaryOut
+from furnitureos.modules.units.service import get_unit, list_units, seed_units
 
 __all__ = [
     "Opening",
@@ -31,9 +31,10 @@ __all__ = [
     "UnitOut",
     "UnitPlan",
     "UnitPlanError",
+    "UnitSummaryOut",
     "Wall",
     "get_unit",
-    "list_unit_slugs",
+    "list_units",
     "load_seed_unit",
     "parse_unit_plan",
     "router",

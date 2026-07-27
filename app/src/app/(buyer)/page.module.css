@@ -1,0 +1,82 @@
+.page {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 3.5rem 2rem 4rem;
+}
+
+.header {
+  margin-bottom: 2.5rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.lede {
+  color: var(--ink-soft);
+}
+
+.empty {
+  color: var(--ink-soft);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.5rem;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--ink-soft);
+  box-shadow: 0 2px 12px rgb(22 24 29 / 8%);
+}
+
+.frame {
+  display: block;
+  /* A fixed frame so cards line up in the grid. The plan letterboxes inside it rather
+     than stretching — a distorted floorplan is not recognisably yours. */
+  height: 10rem;
+  padding: 1.25rem;
+  background: var(--surface-sunk);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.9rem 1.1rem 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.name {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.building {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.facts {
+  margin-top: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
