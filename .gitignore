@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# OS
+Thumbs.db
+.DS_Store
