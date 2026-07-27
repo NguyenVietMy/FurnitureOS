@@ -1,0 +1,25 @@
+# Local development services.
+#
+# Host port 5433, not 5432: a local Postgres install already holds 5432 on this
+# machine, and binding it would fail. Connection strings must use 5433.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: furnitureos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: furnitureos
+      POSTGRES_PASSWORD: furnitureos
+      POSTGRES_DB: furnitureos
+    ports:
+      - "5433:5432"
+    volumes:
+      - furnitureos-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U furnitureos -d furnitureos"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  furnitureos-pgdata:

@@ -1,0 +1,13 @@
+# Normalise text files in the repo, check out with native endings.
+* text=auto
+
+# Shell scripts must stay LF or bash fails with $'\r': command not found.
+*.sh text eol=lf
+
+# Binary assets — never touch.
+*.glb binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.pdf binary

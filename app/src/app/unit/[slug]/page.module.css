@@ -1,0 +1,54 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.facts {
+  display: flex;
+  gap: 2.25rem;
+}
+
+.facts dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface-sunk);
+}
+
+.hint {
+  padding: 0.6rem 1.75rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}

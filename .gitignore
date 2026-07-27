@@ -17,6 +17,10 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
+# QA artifacts (browser screenshots taken while verifying a slice)
+.playwright-mcp/
+unit-render.png
+
 # OS
 Thumbs.db
 .DS_Store

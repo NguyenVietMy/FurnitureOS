@@ -1,0 +1,43 @@
+import { notFound } from "next/navigation";
+
+import { fetchUnit, UnitScene } from "@/modules/units";
+
+import styles from "./page.module.css";
+
+export default async function UnitPage({ params }: PageProps<"/unit/[slug]">) {
+  const { slug } = await params;
+  const unit = await fetchUnit(slug);
+
+  if (!unit) notFound();
+
+  return (
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.title}>{unit.name}</h1>
+          <p className={styles.subtitle}>{unit.building}</p>
+        </div>
+        <dl className={styles.facts}>
+          <div>
+            <dt>Floor area</dt>
+            <dd>{unit.area_m2.toFixed(1)} m²</dd>
+          </div>
+          <div>
+            <dt>Bedrooms</dt>
+            <dd>{unit.bedrooms}</dd>
+          </div>
+          <div>
+            <dt>Ceiling</dt>
+            <dd>{unit.ceiling_height_m.toFixed(2)} m</dd>
+          </div>
+        </dl>
+      </header>
+
+      <div className={styles.viewport}>
+        <UnitScene unit={unit} />
+      </div>
+
+      <p className={styles.hint}>Right-drag to orbit · scroll to zoom</p>
+    </main>
+  );
+}
