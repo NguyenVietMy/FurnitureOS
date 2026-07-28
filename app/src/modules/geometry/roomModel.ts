@@ -1,7 +1,8 @@
 /**
  * The room model: the one thing that knows whether furniture fits.
  *
- * `createRoomModel(unit)` turns an apartment into three questions and nothing else:
+ * `createRoomModel(unit, occupants)` turns an apartment into three questions and
+ * nothing else:
  *
  *     canPlace(footprint, pose)              may this stand here?
  *     resolveDrag(footprint, desired, from)  where does it end up if you shove it there?
@@ -11,13 +12,14 @@
  * scene asks these questions and draws the answers, and polygon maths never leaks into
  * the rendering layer where it cannot be tested.
  *
- * This ticket answers containment only — the outline, and the walls inside it. Item to
- * item overlap is issue 04, which extends `canPlace` without changing this interface.
+ * "May this stand here" is one question, not two. The outline, the walls and the
+ * furniture already in the room are all reasons a spot is taken, and a caller that had
+ * to ask about them separately would sooner or later forget one.
  */
 
 import type { Point, Unit, Wall } from "@/modules/units";
 
-import { EPSILON_M, pointInPolygon, polygonToSegment } from "./polygon";
+import { convexOverlap, EPSILON_M, pointInPolygon, polygonToSegment } from "./polygon";
 
 /** An item's true plan size in metres: width across its front, depth back from it. */
 export interface Footprint {
@@ -32,8 +34,22 @@ export interface Pose {
   readonly rotation_rad: number;
 }
 
+/** Something already standing in the unit. `key` is the caller's, and is only compared. */
+export interface Occupant {
+  readonly key: string;
+  readonly footprint: Footprint;
+  readonly pose: Pose;
+}
+
 export interface RoomModel {
-  canPlace(footprint: Footprint, pose: Pose): boolean;
+  /**
+   * May this footprint stand at this pose: inside the outline, clear of every wall, and
+   * not overlapping anything already in the room.
+   *
+   * `ignoreKey` is how an item being moved avoids colliding with where it currently
+   * stands. Without it every drag would be blocked by the item doing the dragging.
+   */
+  canPlace(footprint: Footprint, pose: Pose, ignoreKey?: string): boolean;
   /**
    * The furthest legal pose towards `desired`, starting from the legal pose `from`.
    *
@@ -41,7 +57,7 @@ export interface RoomModel {
    * without re-checking. When nothing between the two is legal — a footprint that fits
    * nowhere near, say — the item stays exactly where it was.
    */
-  resolveDrag(footprint: Footprint, desired: Pose, from: Pose): Pose;
+  resolveDrag(footprint: Footprint, desired: Pose, from: Pose, ignoreKey?: string): Pose;
   /**
    * Somewhere this footprint fits, or null when the room has no room.
    *
@@ -60,16 +76,32 @@ const NUDGE_RADIUS_M = 2;
 const NUDGE_STEP_M = 0.05;
 
 /**
- * Bisection steps for a blocked drag. 24 halvings of a room-sized span land inside a
- * micrometre, which is four orders of magnitude finer than anyone can drag a mouse.
+ * How finely a drag is swept for things in its way.
+ *
+ * A drag has to be walked rather than bisected, because "blocked here" no longer means
+ * "blocked from here on": the far side of a table is perfectly legal floor, and a
+ * pointer that jumps across it in one frame would otherwise put the sofa through it.
+ * 5cm is well under the smallest dimension anything in the catalogue has, so nothing
+ * can hide between two samples.
  */
-const SLIDE_STEPS = 24;
+const SWEEP_STEP_M = 0.05;
 
-export function createRoomModel(unit: Unit): RoomModel {
+/**
+ * Bisection steps that sharpen the last clear sample up to what stopped it. 12 halvings
+ * of a 5cm step land inside 20 micrometres — four orders of magnitude finer than anyone
+ * can drag a mouse, and far finer than a wall is straight.
+ */
+const SLIDE_STEPS = 12;
+
+export function createRoomModel(
+  unit: Unit,
+  occupants: readonly Occupant[] = [],
+): RoomModel {
   const outline = unit.outline;
   const walls = unit.walls;
+  const standing = occupants.map(asObstacle);
 
-  const canPlace = (footprint: Footprint, pose: Pose): boolean => {
+  const canPlace = (footprint: Footprint, pose: Pose, ignoreKey?: string): boolean => {
     const corners = footprintCorners(footprint, pose);
 
     // Inside the apartment at all. A non-convex outline makes this a real question:
@@ -79,27 +111,56 @@ export function createRoomModel(unit: Unit): RoomModel {
     // Clear of every wall's solid face. Walls are drawn centred on their line, so the
     // face is half a thickness in — measuring to the centreline would let a sofa sink
     // 10cm into the plaster, which is exactly the argument this app exists to prevent.
-    return walls.every((wall) => clearsWall(corners, wall));
+    if (!walls.every((wall) => clearsWall(corners, wall))) return false;
+
+    return clearsFurniture(standing, footprint, pose, corners, ignoreKey);
   };
 
-  const resolveDrag = (footprint: Footprint, desired: Pose, from: Pose): Pose => {
-    if (canPlace(footprint, desired)) return desired;
-
+  const resolveDrag = (
+    footprint: Footprint,
+    desired: Pose,
+    from: Pose,
+    ignoreKey?: string,
+  ): Pose => {
     const at = (xM: number, yM: number): Pose => ({
       x_m: xM,
       y_m: yM,
       rotation_rad: desired.rotation_rad,
     });
 
-    /** The furthest point along `origin -> target` that still stands up. */
+    /**
+     * The furthest point along `origin -> target` the item can travel without passing
+     * through anything — `target` itself, exactly, when the whole way is clear.
+     */
     const furthest = (origin: Pose | null, target: Pose): Pose | null => {
-      if (origin === null || !canPlace(footprint, origin)) return null;
+      if (origin === null || !canPlace(footprint, origin, ignoreKey)) return null;
 
-      let low = 0;
-      let high = 1;
+      const samples = Math.max(
+        1,
+        Math.ceil(Math.hypot(target.x_m - origin.x_m, target.y_m - origin.y_m) / SWEEP_STEP_M),
+      );
+
+      let clear = 0;
+      for (let sample = 1; sample <= samples; sample += 1) {
+        const reached = sample / samples;
+        if (!canPlace(footprint, lerp(origin, target, reached), ignoreKey)) {
+          return sharpen(origin, target, clear, reached);
+        }
+        clear = reached;
+      }
+
+      // The target itself, not a lerp to it: an unobstructed drag must land exactly
+      // where the pointer asked, not a rounding error away from it.
+      return target;
+    };
+
+    /** Close the gap between the last clear sample and the one that was blocked. */
+    const sharpen = (origin: Pose, target: Pose, clear: number, blocked: number): Pose => {
+      let low = clear;
+      let high = blocked;
       for (let step = 0; step < SLIDE_STEPS; step += 1) {
         const mid = (low + high) / 2;
-        if (canPlace(footprint, lerp(origin, target, mid))) low = mid;
+        if (canPlace(footprint, lerp(origin, target, mid), ignoreKey)) low = mid;
         else high = mid;
       }
 
@@ -112,7 +173,8 @@ export function createRoomModel(unit: Unit): RoomModel {
      * Spend the drag on one axis, then the other, then whatever diagonal is left.
      *
      * This is what turns "pushed into the south wall while moving east" into an item
-     * that travels east *along* the wall instead of stopping where it touched. Both
+     * that travels east *along* the wall instead of stopping where it touched, and what
+     * lets a drag aimed past a table go round it rather than stop behind it. Both
      * orders are tried because an inside corner blocks whichever axis is taken first.
      */
     const slide = (firstAxis: "x" | "y"): Pose | null => {
@@ -130,7 +192,13 @@ export function createRoomModel(unit: Unit): RoomModel {
       return furthest(afterSecond, desired) ?? afterSecond;
     };
 
-    const reachable = [slide("x"), slide("y"), furthest(start, desired)].filter(
+    // Straight there. `furthest` hands back the target itself only when the whole path
+    // was clear, which is the ordinary case — a pointer moving a centimetre a frame
+    // across open floor — and there is nothing better to look for once it holds.
+    const direct = furthest(start, desired);
+    if (direct === desired) return desired;
+
+    const reachable = [slide("x"), slide("y"), direct].filter(
       (pose): pose is Pose => pose !== null,
     );
     if (reachable.length === 0) return from;
@@ -148,9 +216,10 @@ export function createRoomModel(unit: Unit): RoomModel {
 
     const [minX, minY, maxX, maxY] = bounds(outline);
 
-    // Scanned in a fixed order so inserting the same item twice does not wander. It
-    // returns the first gap rather than the best one; issue 04 makes this smarter once
-    // there are other items to be smart about.
+    // Scanned in a fixed order so inserting the same item twice does not wander: the
+    // second one lands beside the first rather than somewhere arbitrary. It returns the
+    // first gap rather than the best one, which is honest — "first free floor from the
+    // south-west" is a rule a buyer can predict, where "best" is a rule they cannot.
     for (let y = minY; y <= maxY; y += SEARCH_STEP_M) {
       for (let x = minX; x <= maxX; x += SEARCH_STEP_M) {
         const pose = { x_m: x, y_m: y, rotation_rad: 0 };
@@ -162,6 +231,62 @@ export function createRoomModel(unit: Unit): RoomModel {
   };
 
   return { canPlace, resolveDrag, findFreeSpot };
+}
+
+/**
+ * An occupant with the maths already done: its corners, and the circle that contains it.
+ *
+ * Built once per model rather than once per question, because a single drag asks
+ * `canPlace` a hundred times as it bisects its way to the wall.
+ */
+interface Obstacle {
+  readonly key: string;
+  readonly centre: Point;
+  readonly reach_m: number;
+  readonly corners: readonly Point[];
+}
+
+function asObstacle(occupant: Occupant): Obstacle {
+  return {
+    key: occupant.key,
+    centre: [occupant.pose.x_m, occupant.pose.y_m],
+    reach_m: reachOf(occupant.footprint),
+    corners: footprintCorners(occupant.footprint, occupant.pose),
+  };
+}
+
+/** Half the footprint's diagonal: the radius of the circle it stays inside, turned any way. */
+function reachOf(footprint: Footprint): number {
+  return Math.hypot(footprint.width_m, footprint.depth_m) / 2;
+}
+
+/**
+ * Is this footprint clear of everything already in the room?
+ *
+ * The circle test first. It is not an optimisation to be clever about — comparing two
+ * distances rejects the far side of the apartment before the separating axis test does
+ * any work, and it is the reason a drag across a fully furnished plan stays smooth. The
+ * caller is not told it exists; a spatial grid could replace it here and change nothing.
+ */
+function clearsFurniture(
+  standing: readonly Obstacle[],
+  footprint: Footprint,
+  pose: Pose,
+  corners: readonly Point[],
+  ignoreKey?: string,
+): boolean {
+  const reachM = reachOf(footprint);
+
+  for (const obstacle of standing) {
+    if (obstacle.key === ignoreKey) continue;
+
+    const apartM = Math.hypot(pose.x_m - obstacle.centre[0], pose.y_m - obstacle.centre[1]);
+    if (apartM >= reachM + obstacle.reach_m) continue;
+
+    if (convexOverlap(corners, obstacle.corners)) return false;
+  }
+
+  return true;
 }
 
 /**

@@ -7,10 +7,10 @@
  * stops being testable, and "it fits" is the product's only real promise.
  *
  * Internals:
- *   polygon.ts     point-in-polygon, segment and area distances
+ *   polygon.ts     point-in-polygon, segment and area distances, convex overlap
  *   roomModel.ts   the apartment as three questions
  *   fixtures.ts    awkward plans for the tests: an L, a recess, a room too thin
  */
 
 export { createRoomModel, footprintCorners } from "./roomModel";
-export type { Footprint, Pose, RoomModel } from "./roomModel";
+export type { Footprint, Occupant, Pose, RoomModel } from "./roomModel";

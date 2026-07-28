@@ -6,7 +6,8 @@
  * `resolveDrag`. Both are pure functions over polygons, so they are tested here against
  * awkward fixtures rather than by eye against a render.
  *
- * Containment only. Item-to-item overlap is issue 04.
+ * Containment is the walls and the outline; overlap is the furniture already standing
+ * there. Both go through the same `canPlace`, because to a buyer they are one question.
  */
 
 import { describe, expect, it } from "vitest";
@@ -19,12 +20,18 @@ import {
   rectangleUnit,
   unitFrom,
 } from "./fixtures";
-import { createRoomModel, type Footprint, type Pose } from "./roomModel";
+import { createRoomModel, type Footprint, type Occupant, type Pose } from "./roomModel";
 
 const SOFA: Footprint = { width_m: 2.1, depth_m: 0.9 };
+/** A metre square: small enough to leave room to manoeuvre round it in a 10 × 10 hall. */
+const BLOCK: Footprint = { width_m: 1, depth_m: 1 };
 
 function pose(xM: number, yM: number, rotationRad = 0): Pose {
   return { x_m: xM, y_m: yM, rotation_rad: rotationRad };
+}
+
+function standing(key: string, footprint: Footprint, at: Pose): Occupant {
+  return { key, footprint, pose: at };
 }
 
 /** Half the outer wall's thickness: how far the wall's solid face is from its centreline. */
@@ -147,6 +154,77 @@ describe("canPlace — partitions", () => {
   });
 });
 
+describe("canPlace — item against item", () => {
+  const hall = rectangleUnit(10, 10);
+
+  it("accepts a spot clear of everything already standing there", () => {
+    const model = createRoomModel(hall, [standing("a", SOFA, pose(2, 2))]);
+
+    expect(model.canPlace(SOFA, pose(6, 6))).toBe(true);
+  });
+
+  it("refuses to push one item through another", () => {
+    const model = createRoomModel(hall, [standing("a", SOFA, pose(5, 5))]);
+
+    expect(model.canPlace(SOFA, pose(5.5, 5))).toBe(false);
+  });
+
+  it("accepts two items flush side by side, because touching is not overlapping", () => {
+    const model = createRoomModel(hall, [standing("a", SOFA, pose(5, 5))]);
+
+    expect(model.canPlace(SOFA, pose(5, 5 + SOFA.depth_m))).toBe(true);
+    expect(model.canPlace(SOFA, pose(5, 5 + SOFA.depth_m - 0.01))).toBe(false);
+  });
+
+  it("does not let an item collide with itself while it is being moved", () => {
+    const model = createRoomModel(hall, [standing("sofa", SOFA, pose(5, 5))]);
+
+    expect(model.canPlace(SOFA, pose(5, 5))).toBe(false);
+    expect(model.canPlace(SOFA, pose(5, 5), "sofa")).toBe(true);
+  });
+
+  it("still refuses a spot that is clear of the furniture but inside a wall", () => {
+    const model = createRoomModel(hall, [standing("a", SOFA, pose(5, 5))]);
+
+    expect(model.canPlace(SOFA, pose(5, 0))).toBe(false);
+  });
+});
+
+describe("canPlace — overlap once an item is turned", () => {
+  const hall = rectangleUnit(10, 10);
+  const plank: Footprint = { width_m: 2, depth_m: 0.6 };
+  const quarterTurn = Math.PI / 4;
+
+  it("catches an overlap that exists only at 45°", () => {
+    // Two planks 0.3m apart square-on. Turned, the upper one's corner swings down to
+    // (4.51, 3.98) — inside the lower plank. Axis-aligned maths sees no collision here.
+    const model = createRoomModel(hall, [standing("a", plank, pose(5, 4))]);
+
+    expect(model.canPlace(plank, pose(5, 4.9))).toBe(true);
+    expect(model.canPlace(plank, pose(5, 4.9, quarterTurn))).toBe(false);
+  });
+
+  it("clears an overlap that exists only while both are square-on", () => {
+    // Two metre squares overlapping corner to corner. Turn one 45° and its nearest edge
+    // pulls back past the other's corner — while its *bounding box* grows, so the naive
+    // maths reports a collision that is not there and refuses a legal placement.
+    const model = createRoomModel(hall, [standing("a", BLOCK, pose(5, 5))]);
+
+    expect(model.canPlace(BLOCK, pose(5.9, 5.9))).toBe(false);
+    expect(model.canPlace(BLOCK, pose(5.9, 5.9, quarterTurn))).toBe(true);
+  });
+
+  it("collides with a wall at the footprint's true rotated corners", () => {
+    // Centre 0.55m from the south wall's face: square-on the plank clears it, turned it
+    // reaches 0.92m down and does not.
+    const model = createRoomModel(hall);
+    const southM = OUTER_WALL_THICKNESS_M / 2 + 0.55;
+
+    expect(model.canPlace(plank, pose(5, southM))).toBe(true);
+    expect(model.canPlace(plank, pose(5, southM, quarterTurn))).toBe(false);
+  });
+});
+
 describe("canPlace — a room too thin to furnish", () => {
   it("accepts nothing and admits it", () => {
     // 0.6m of clear floor north to south. Nothing in the catalogue is that shallow.
@@ -213,6 +291,39 @@ describe("resolveDrag", () => {
   });
 });
 
+describe("resolveDrag — past other items", () => {
+  const hall = rectangleUnit(10, 10);
+  const table: Footprint = { width_m: 2, depth_m: 2 };
+  const model = createRoomModel(hall, [
+    standing("table", table, pose(5, 5)),
+    standing("mover", BLOCK, pose(5, 2)),
+  ]);
+  const start = pose(5, 2);
+
+  it("stops short of an item dragged straight at it", () => {
+    const resolved = model.resolveDrag(BLOCK, pose(5, 8), start, "mover");
+
+    expect(resolved.y_m).toBeCloseTo(5 - table.depth_m / 2 - BLOCK.depth_m / 2, 3);
+    expect(resolved.x_m).toBeCloseTo(5, 6);
+    expect(model.canPlace(BLOCK, resolved, "mover")).toBe(true);
+  });
+
+  it("slides round an item rather than stopping dead against it", () => {
+    // Aimed diagonally past the table. The table eats the northward half of the drag
+    // only while the mover is behind it; going east first gets the whole drag.
+    const resolved = model.resolveDrag(BLOCK, pose(8, 8), start, "mover");
+
+    expect(resolved.x_m).toBeCloseTo(8, 6);
+    expect(resolved.y_m).toBeCloseTo(8, 6);
+  });
+
+  it("does not treat the moving item's own pose as something to avoid", () => {
+    const resolved = model.resolveDrag(BLOCK, pose(5, 2.5), start, "mover");
+
+    expect(resolved).toEqual(pose(5, 2.5));
+  });
+});
+
 describe("findFreeSpot", () => {
   it("returns a pose the model itself accepts", () => {
     const model = createRoomModel(lShapedUnit());
@@ -259,5 +370,53 @@ describe("findFreeSpot", () => {
     const model = createRoomModel(rectangleUnit(6, 0.8));
 
     expect(model.findFreeSpot(SOFA, [3, 0.4])).toBeNull();
+  });
+
+  it("keeps clear of what is already in the room", () => {
+    const model = createRoomModel(rectangleUnit(6, 4), [standing("a", SOFA, pose(3, 2))]);
+
+    const spot = model.findFreeSpot(SOFA);
+
+    expect(spot).not.toBeNull();
+    expect(model.canPlace(SOFA, spot!)).toBe(true);
+  });
+
+  it("moves off a drop point that is already taken", () => {
+    const model = createRoomModel(rectangleUnit(6, 4), [standing("a", SOFA, pose(3, 2))]);
+
+    const spot = model.findFreeSpot(SOFA, [3, 2]);
+
+    expect(spot).not.toBeNull();
+    expect(model.canPlace(SOFA, spot!)).toBe(true);
+  });
+
+  it("returns null rather than an overlapping pose once the room is full", () => {
+    // 2.8 × 1.8 of clear floor, all but a 10cm border of it taken.
+    const model = createRoomModel(rectangleUnit(3, 2), [
+      standing("a", { width_m: 2.6, depth_m: 1.6 }, pose(1.5, 1)),
+    ]);
+
+    expect(model.findFreeSpot(SOFA)).toBeNull();
+    expect(model.findFreeSpot(SOFA, [1.5, 1])).toBeNull();
+  });
+
+  it("fills a room one sofa at a time and never once overlaps", () => {
+    // The invariant that matters: every pose it hands back is one the model itself
+    // accepts, however full the room has become — and when it stops, it stops with null
+    // rather than with a sofa inside another sofa.
+    const room = rectangleUnit(6, 4);
+    const placed: Occupant[] = [];
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const model = createRoomModel(room, placed);
+      const spot = model.findFreeSpot(SOFA);
+      if (spot === null) break;
+
+      expect(model.canPlace(SOFA, spot)).toBe(true);
+      placed.push(standing(`sofa-${attempt}`, SOFA, spot));
+    }
+
+    expect(placed.length).toBeGreaterThan(1);
+    expect(createRoomModel(room, placed).findFreeSpot(SOFA)).toBeNull();
   });
 });

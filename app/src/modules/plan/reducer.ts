@@ -31,6 +31,7 @@ export interface PlanState {
 export type PlanAction =
   | { readonly type: "add"; readonly item: PlacedItem }
   | { readonly type: "move"; readonly key: string; readonly pose: Pose }
+  | { readonly type: "rotate"; readonly key: string; readonly rotation_rad: number }
   | { readonly type: "remove"; readonly key: string };
 
 export const emptyPlan: PlanState = { items: [] };
@@ -51,6 +52,22 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       return {
         items: state.items.map((item) =>
           item.key === action.key ? { ...item, pose: action.pose } : item,
+        ),
+      };
+    }
+
+    // Rotation is its own action rather than a `move` carrying a new angle. The scene
+    // turns an item about its own centre and never moves it in the same gesture, and
+    // saying so here is what keeps a rotate from quietly nudging a pose.
+    case "rotate": {
+      const turning = state.items.find((item) => item.key === action.key);
+      if (!turning || turning.pose.rotation_rad === action.rotation_rad) return state;
+
+      return {
+        items: state.items.map((item) =>
+          item.key === action.key
+            ? { ...item, pose: { ...item.pose, rotation_rad: action.rotation_rad } }
+            : item,
         ),
       };
     }

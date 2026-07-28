@@ -63,6 +63,29 @@ describe("move", () => {
   });
 });
 
+describe("rotate", () => {
+  it("turns one item and leaves its position and the rest of the plan alone", () => {
+    const state = planWith(SOFA, LAMP);
+
+    const turned = planReducer(state, { type: "rotate", key: "a", rotation_rad: Math.PI / 4 });
+
+    expect(turned.items[0].pose).toEqual({ x_m: 3, y_m: 2, rotation_rad: Math.PI / 4 });
+    expect(turned.items[1]).toBe(state.items[1]);
+  });
+
+  it("is a no-op for a key that is not in the plan", () => {
+    const state = planWith(SOFA);
+
+    expect(planReducer(state, { type: "rotate", key: "gone", rotation_rad: 1 })).toBe(state);
+  });
+
+  it("is a no-op when the item is already at that angle", () => {
+    const state = planWith(SOFA);
+
+    expect(planReducer(state, { type: "rotate", key: "a", rotation_rad: 0 })).toBe(state);
+  });
+});
+
 describe("remove", () => {
   it("drops only the item named", () => {
     const state = planWith(SOFA, LAMP);

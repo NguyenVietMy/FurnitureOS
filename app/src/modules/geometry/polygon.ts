@@ -95,6 +95,58 @@ function cross(from: Point, to: Point, point: Point): number {
  * where the segment lies wholly inside it, which an edges-only comparison would report
  * as a comfortable clearance.
  */
+/** Do two convex polygons share any area? Touching along an edge does not count. */
+export function convexOverlap(a: readonly Point[], b: readonly Point[]): boolean {
+  return !separated(a, b) && !separated(b, a);
+}
+
+/**
+ * Is there a line perpendicular to one of `polygon`'s edges with `other` wholly clear
+ * of it on one side?
+ *
+ * Half of the separating axis test. For convex shapes, no such line existing on either
+ * shape's edges is exactly the same statement as the two shapes overlapping — which is
+ * why this handles a rotated sofa correctly with no special case for the angle, where
+ * comparing bounding boxes is wrong in both directions at once: it invents collisions
+ * between two items turned away from each other and misses real ones between two turned
+ * towards each other.
+ *
+ * Contact counts as clear. Items pushed flush against each other are what a furnished
+ * room looks like, and a buyer sliding a nightstand up to a bed must be able to land it.
+ */
+function separated(polygon: readonly Point[], other: readonly Point[]): boolean {
+  for (let index = 0; index < polygon.length; index += 1) {
+    const [x1, y1] = polygon[index];
+    const [x2, y2] = polygon[(index + 1) % polygon.length];
+
+    // The edge's outward normal, unit length, so the gap below is measured in metres.
+    const length = Math.hypot(x2 - x1, y2 - y1);
+    if (length === 0) continue;
+    const axis: Point = [-(y2 - y1) / length, (x2 - x1) / length];
+
+    const [minSelf, maxSelf] = project(polygon, axis);
+    const [minOther, maxOther] = project(other, axis);
+
+    if (maxSelf <= minOther + EPSILON_M || maxOther <= minSelf + EPSILON_M) return true;
+  }
+
+  return false;
+}
+
+/** The shadow a polygon casts on an axis: how far along it the polygon reaches. */
+function project(polygon: readonly Point[], axis: Point): [number, number] {
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const [x, y] of polygon) {
+    const along = x * axis[0] + y * axis[1];
+    min = Math.min(min, along);
+    max = Math.max(max, along);
+  }
+
+  return [min, max];
+}
+
 export function polygonToSegment(
   polygon: readonly Point[],
   start: Point,

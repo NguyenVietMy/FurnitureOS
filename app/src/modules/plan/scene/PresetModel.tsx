@@ -5,6 +5,8 @@ import { presetScale, resolvePreset, type PresetSize } from "./presets";
 /** The one grey every placeholder item is, until issue 14 makes them furniture. */
 const ITEM_COLOUR = "#a8a196";
 const SELECTED_COLOUR = "#6b7f9e";
+/** Refusal. The same red the delete button uses, because both mean "this is destructive". */
+const BLOCKED_COLOUR = "#9c4b43";
 
 /**
  * An item drawn at its true size — the `loadPresetScaled` seam.
@@ -22,16 +24,19 @@ export function PresetModel({
   presetRef,
   size,
   selected = false,
+  blocked = false,
 }: {
   presetRef: string;
   size: PresetSize;
   selected?: boolean;
+  /** Momentarily refused: pushed into a wall, or into something already standing there. */
+  blocked?: boolean;
 }) {
   const preset = resolvePreset(presetRef);
 
   return (
     <group scale={presetScale(preset, size)}>
-      <BoxBody selected={selected} />
+      <BoxBody selected={selected} blocked={blocked} />
     </group>
   );
 }
@@ -43,18 +48,22 @@ export function PresetModel({
  * sitting on the floor. Lifting the box by half its height puts the placeholder on the
  * same convention, so swapping one for the other does not move anything.
  */
-function BoxBody({ selected }: { selected: boolean }) {
+function BoxBody({ selected, blocked }: { selected: boolean; blocked: boolean }) {
+  // Refusal outranks selection: the buyer is being told something, and it is not which
+  // item they had clicked on.
+  const colour = blocked ? BLOCKED_COLOUR : selected ? SELECTED_COLOUR : ITEM_COLOUR;
+
   return (
     <>
       <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={selected ? SELECTED_COLOUR : ITEM_COLOUR} />
+        <meshStandardMaterial color={colour} />
       </mesh>
 
-      {selected && (
+      {(selected || blocked) && (
         <mesh position={[0, 0.5, 0]} raycast={() => null}>
           <boxGeometry args={[1.02, 1.02, 1.02]} />
-          <meshBasicMaterial color={SELECTED_COLOUR} wireframe />
+          <meshBasicMaterial color={colour} wireframe />
         </mesh>
       )}
     </>

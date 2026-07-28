@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { CataloguePanel, CATALOGUE_ITEM_MIME, type Item } from "@/modules/catalogue";
-import { createRoomModel, type Footprint } from "@/modules/geometry";
+import { createRoomModel } from "@/modules/geometry";
 import { UnitScene, type Point, type Unit } from "@/modules/units";
 
+import { footprintOf, occupantsOf } from "./occupancy";
 import { emptyPlan, planReducer } from "./reducer";
 import { PlanItems, type FloorProjector } from "./scene/PlanItems";
 import styles from "./Planner.module.css";
+
+/** How long a refusal stays on screen. Long enough to read, short enough to forgive. */
+const NOTICE_MS = 3500;
 
 /**
  * The planner: a catalogue on the left, the apartment on the right, furniture in it.
@@ -23,22 +27,29 @@ import styles from "./Planner.module.css";
 export function Planner({ unit, catalogue }: { unit: Unit; catalogue: readonly Item[] }) {
   const [plan, dispatch] = useReducer(planReducer, emptyPlan);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
-  const roomModel = useMemo(() => createRoomModel(unit), [unit]);
   const byId = useMemo(
     () => new Map(catalogue.map((item) => [item.id, item] as const)),
     [catalogue],
   );
+
+  // The room is the apartment plus what is already standing in it, so it is rebuilt
+  // whenever anything moves. Cheap by design: the model holds no state of its own.
+  const occupants = useMemo(() => occupantsOf(plan.items, byId), [plan.items, byId]);
+  const roomModel = useMemo(() => createRoomModel(unit, occupants), [unit, occupants]);
+
   const projectorRef = useRef<FloorProjector | null>(null);
 
   const place = useCallback(
     (item: Item, near?: Point) => {
-      const footprint: Footprint = { width_m: item.width_m, depth_m: item.depth_m };
-
-      // Aim for where they dropped it and settle for the nearest floor that fits. A
-      // room with nowhere left simply refuses; issue 04 gives that refusal a face.
-      const pose = roomModel.findFreeSpot(footprint, near);
-      if (pose === null) return;
+      // Aim for where they dropped it and settle for the nearest floor that fits, clear
+      // of the walls and of everything already in the room.
+      const pose = roomModel.findFreeSpot(footprintOf(item), near);
+      if (pose === null) {
+        setNotice({ text: `No room left for the ${item.name}.`, at: Date.now() });
+        return;
+      }
 
       const key = nextKey(item.id);
       dispatch({ type: "add", item: { key, itemId: item.id, pose } });
@@ -51,6 +62,14 @@ export function Planner({ unit, catalogue }: { unit: Unit; catalogue: readonly I
     dispatch({ type: "remove", key });
     setSelectedKey((selected) => (selected === key ? null : selected));
   }, []);
+
+  // A refusal is a moment, not a state. It says its piece and goes.
+  useEffect(() => {
+    if (notice === null) return;
+
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // Delete and Backspace remove the selection — unless the buyer is typing in the
   // search box, where Backspace means Backspace.
@@ -99,12 +118,19 @@ export function Planner({ unit, catalogue }: { unit: Unit; catalogue: readonly I
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             onMove={(key, pose) => dispatch({ type: "move", key, pose })}
+            onRotate={(key, rotation_rad) => dispatch({ type: "rotate", key, rotation_rad })}
             projectorRef={projectorRef}
           />
         </UnitScene>
 
         {plan.items.length === 0 && (
           <p className={styles.empty}>Drag something in from the catalogue.</p>
+        )}
+
+        {notice && (
+          <p className={styles.notice} role="status">
+            {notice.text}
+          </p>
         )}
 
         {selected && selectedProduct && (
@@ -122,6 +148,17 @@ export function Planner({ unit, catalogue }: { unit: Unit; catalogue: readonly I
       </div>
     </div>
   );
+}
+
+/**
+ * Something the planner could not do, and when it was said.
+ *
+ * The timestamp is what makes two identical refusals two refusals: without it the second
+ * "no room left" would inherit the first one's dismissal timer and vanish immediately.
+ */
+interface Notice {
+  readonly text: string;
+  readonly at: number;
 }
 
 /**

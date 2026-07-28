@@ -48,8 +48,8 @@ cannot contradict the page it opens.
 | `app/` | Routes only. Server components fetch and lay out; no domain logic. | `/`, `/unit/[slug]` — both in the `(buyer)` route group | none yet (no rendering tests) |
 | `core/` | API base URL and `getJson<T>()` — returns `null` on 404, throws `ApiError` otherwise. May not import `modules/`. | `config`, `http.getJson`, `http.ApiError` | exercised through modules |
 | `modules/units/` | The same slice on the client: list units, fetch one, turn walls + openings into solid boxes, render them in 3D or as a flat thumbnail. | `fetchUnits` `fetchUnit` `deriveWallPieces` `WallPiece` `deriveThumbnail` `Thumbnail` `ThumbnailShape` `UnitThumbnail` `UnitScene` `toPlan` `toWorld` `toWorldRotation` and the wire types `Unit` `UnitSummary` `Wall` `Room` `Opening` `Point` | `geometry.test.ts`, `occlusion.test.ts`, `thumbnail.test.ts` — pure functions in vitest's node env |
-| `modules/geometry/` | **The deep module.** What may go where. Given a unit, answers whether a footprint fits at a pose, where a drag actually ends up, and where there is room for something. Pure: no three.js, no React, no DOM. | `createRoomModel` `RoomModel` `Footprint` `Pose` `footprintCorners` | `roomModel.test.ts` — the heart of the suite: polygon fixtures, containment at and just past the boundary, drag clamping and sliding |
-| `modules/plan/` | What the buyer has put in the unit, and the screen they do it on. Client-only state: a list of item ids and poses. | `Planner` `planReducer` `emptyPlan` `PlanState` `PlanAction` `PlacedItem` | `reducer.test.ts` — pure state transitions. The scene and the panel have no tests by design |
+| `modules/geometry/` | **The deep module.** What may go where. Given a unit and what is already standing in it, answers whether a footprint fits at a pose, where a drag actually ends up, and where there is room for something. Pure: no three.js, no React, no DOM. | `createRoomModel` `RoomModel` `Footprint` `Occupant` `Pose` `footprintCorners` | `roomModel.test.ts` — the heart of the suite: polygon fixtures, containment and overlap at and just past the boundary, rotation, drag clamping and sliding |
+| `modules/plan/` | What the buyer has put in the unit, and the screen they do it on. Client-only state: a list of item ids and poses. | `Planner` `planReducer` `emptyPlan` `PlanState` `PlanAction` `PlacedItem` | `reducer.test.ts` — pure state transitions; `occupancy.test.ts`, `rotation.test.ts` — the two joins the scene needs. The scene and the panel have no tests by design |
 | `modules/catalogue/` | Browsing what the store sells: fetch it, filter it by category and search, show it as a panel you can drag out of. | `fetchItems` `CataloguePanel` `CATALOGUE_ITEM_MIME` `filterItems` `categoriesOf` `ALL_CATEGORIES` `CatalogueFilter` `Item` | `filter.test.ts` — chips and search as a pure function |
 
 Internals of `modules/units/`: `types.ts` the wire format, `api.ts` fetching,
@@ -65,31 +65,49 @@ reason: they are the only place plan coordinates meet three.js, and that stays t
 if every module drawing into the scene uses these instead of its own copy.
 
 Internals of `modules/geometry/`: `polygon.ts` the primitives (boundary-inclusive
-point-in-polygon, segment and polygon distances), `roomModel.ts` the interface below,
-`fixtures.ts` the test rooms, built the way the server builds walls so a fixture cannot
-drift from a real unit.
+point-in-polygon, segment and polygon distances, convex overlap by separating axis),
+`roomModel.ts` the interface below, `fixtures.ts` the test rooms, built the way the server
+builds walls so a fixture cannot drift from a real unit.
 
-`createRoomModel(unit)` returns three methods and no data:
+`createRoomModel(unit, occupants)` returns three methods and no data:
 
-- `canPlace(footprint, pose)` — every corner inside the outline, and no wall closer than
-  half its thickness. Exact, including rotation: a 45° sofa is tested as a rotated
-  rectangle, not its bounding box.
-- `resolveDrag(footprint, desired, from)` — the legal pose nearest what the pointer asked
-  for. Blocked head-on it clamps; blocked at an angle it slides along the wall and into
-  the corner. It never returns an illegal pose, and returns `from` when nothing is
-  reachable.
+- `canPlace(footprint, pose, ignoreKey?)` — every corner inside the outline, no wall
+  closer than half its thickness, and no overlap with anything already standing there.
+  Exact, including rotation: a 45° sofa is tested as a rotated rectangle, not its
+  bounding box, in both directions — bounding boxes invent collisions between two items
+  turned away from each other and miss real ones between two turned towards each other.
+  `ignoreKey` is how the item being dragged avoids colliding with where it currently is.
+- `resolveDrag(footprint, desired, from, ignoreKey?)` — the legal pose nearest what the
+  pointer asked for. Blocked head-on it clamps; blocked at an angle it slides along the
+  wall, into the corner, and round a table. It never returns an illegal pose, and returns
+  `from` when nothing is reachable. The path is **swept** in 5cm steps rather than
+  bisected: past a piece of furniture, "blocked here" no longer implies "blocked from
+  here on", and a pointer that jumps across a table in one frame must not take the sofa
+  through it.
 - `findFreeSpot(footprint, near?)` — somewhere it fits, nearest first to `near` if given,
-  otherwise a deterministic scan. `null` when the room is full.
+  otherwise a deterministic scan from the south-west. `null` when the room is full,
+  never an overlapping pose.
 
-This ticket is **containment only**: walls and the outline. Item-to-item overlap is issue
-04, and it lands behind this same interface — callers do not change.
+Overlap is not a second question the caller has to remember to ask. The walls, the
+outline and the furniture are all reasons a spot is taken, and they are all `canPlace`.
+Behind it, a bounding-circle test rejects distant items before any polygon maths runs; a
+spatial grid could replace it without any caller knowing.
 
-Internals of `modules/plan/`: `reducer.ts` (`add`/`move`/`remove`, returning the same
-object on a no-op), `Planner.tsx` the composition, and `scene/` the r3f half —
-`presets.ts` resolves a preset ref and computes the **non-uniform** scale to true W×D×H,
+Internals of `modules/plan/`: `reducer.ts` (`add`/`move`/`rotate`/`remove`, returning the
+same object on a no-op), `occupancy.ts` joins placed items to catalogue dimensions to
+give the room model its occupants, `rotation.ts` turns a pointer angle into a rotation
+snapped to 15°, `Planner.tsx` the composition, and `scene/` the r3f half — `presets.ts`
+resolves a preset ref and computes the **non-uniform** scale to true W×D×H,
 `PresetModel.tsx` is the `loadPresetScaled` seam (a box today; issue 14's `.glb` renders
 in the same place at the same size), `floor.ts` turns a screen point into a spot on the
-floor, `PlanItems.tsx` draws the furniture and handles left-drag.
+floor, `PlanItems.tsx` draws the furniture and handles left-drag and the turn gesture,
+`RotateHandle.tsx` is the ring in front of the selected item, `useBlockedFlash.ts` the
+red flash that answers a refused drag where the buyer is looking.
+
+Rotation is a separate action from a move because the two gestures are separate: the ring
+turns an item about its own centre and never nudges it. A turn that would not fit is
+refused and flashed rather than resolved — an item that shuffled across the room to make
+space for its own corners is not what the buyer asked for.
 
 The plan holds no prices — totals are issue 06's `lib/money` — and is not saved anywhere;
 issue 05 puts it behind a share token.

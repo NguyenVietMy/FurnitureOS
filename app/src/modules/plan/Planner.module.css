@@ -22,6 +22,20 @@
   transform: translateX(-50%);
 }
 
+.notice {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: #9c4b43;
+  color: #fff;
+  font-size: 0.85rem;
+  /* The buyer's next move is in the scene underneath, not in here. */
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .selection {
   position: absolute;
   bottom: 1rem;
