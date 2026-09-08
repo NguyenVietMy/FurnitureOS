@@ -1,0 +1,3 @@
+# FurnitureOS
+
+@AGENTS.md

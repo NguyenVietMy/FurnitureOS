@@ -1,0 +1,27 @@
+{
+  "name": "furnitureos-skills",
+  "version": "0.1.0",
+  "description": "FurnitureOS's local, tweakable skill set: the astra-loop feature workflow plus vendored mattpocock and claudex-loop skills.",
+  "author": {
+    "name": "Viet My"
+  },
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "planning",
+    "cross-model",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "FurnitureOS Skills",
+    "shortDescription": "Local feature workflow and vendored engineering skills",
+    "developerName": "Viet My",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ]
+  }
+}

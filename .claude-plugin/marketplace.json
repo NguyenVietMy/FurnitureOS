@@ -1,0 +1,13 @@
+{
+  "name": "furnitureos",
+  "owner": {
+    "name": "Viet My"
+  },
+  "plugins": [
+    {
+      "name": "furnitureos-skills",
+      "source": "./.claude",
+      "description": "FurnitureOS's local, tweakable skill set: the astra-loop feature workflow plus vendored mattpocock and claudex-loop skills."
+    }
+  ]
+}
