@@ -1,0 +1,20 @@
+@font-face {
+  font-family: 'Manrope Variable';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/roboto-mono/files/roboto-mono-latin-400-normal.woff2') format('woff2');
+}
+:root { --font-manrope: 'Manrope Variable'; --font-roboto-mono: 'Roboto Mono'; color-scheme: light; }
+body { margin: 0; }
+#root:focus { outline: none; }
+.route-message { box-sizing: border-box; min-height: 100vh; padding: 48px 24px; background: #fdfef6; color: #0c0b0a; font: 16px/1.5 system-ui, sans-serif; }
+.route-message a { color: inherit; text-decoration: underline; }
+.route-message :focus-visible { outline: 3px solid #446bce; outline-offset: 3px; }

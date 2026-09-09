@@ -1,0 +1,137 @@
+[
+  {
+    "path": ".gitignore",
+    "sha256": "0C1B1EA890CC93B79602B5A3D7901FCBB2F596A7FFB1E2C3E7963E3A6582D19F",
+    "matches": true
+  },
+  {
+    "path": "AGENTS.md",
+    "sha256": "ABAD35C71BF2C194BB461EDF15903F92DBDC299A70B8C1ABD03D092C41509ED5",
+    "matches": true
+  },
+  {
+    "path": "DESIGN.md",
+    "sha256": "2B0029B7920EB9EDC0630D326707F5A80769B8A43C4B704584458833E1714DFE",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/assets.md",
+    "sha256": "079B4B90D44654C453C5C7DEFCF129C45053B7C454FF2BB3248999CE77E89F05",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/README.md",
+    "sha256": "BEDD6C17C2390742E1E01D71BBF6B5F06EE3ADFFA96F95587A417C78EF1CC00C",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/superwall-desktop.png",
+    "sha256": "67C526DB852537F91BEEF354DE70DB5B54FB6DFB1F69BB9588EF499F0CF534C2",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/superwall-features.png",
+    "sha256": "02AB0F74BA357829F75C7A2F1A1B484E2C8EBB01535BEDA3797E4992B0824400",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/superwall-full.png",
+    "sha256": "D5B1BCDBBA3EDB55A4D74F71A47C97DAB30327ADFC60C3F6A85AE386F298B437",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/superwall-mobile.png",
+    "sha256": "0D22BAB79A61828B2A790392759A84331EC7F533CE1E19328951EF0C228034FE",
+    "matches": true
+  },
+  {
+    "path": "docs/landing/reference/superwall-tablet.png",
+    "sha256": "FC0B4B8B1168DBF42823EB7027020ED08A6497DD6AF08C3D8ABB0D7DD85F3344",
+    "matches": true
+  },
+  {
+    "path": "web/app/globals.css",
+    "sha256": "422F1A24E215C22A4B6110D3846904E531489B47E93CBB2767A9B0737C95BFC1",
+    "matches": true
+  },
+  {
+    "path": "web/app/icon.svg",
+    "sha256": "E95EB6245546FCFB58A39699F5117600A8EF05D68B4806AC026B348646725C16",
+    "matches": true
+  },
+  {
+    "path": "web/app/layout.tsx",
+    "sha256": "AF977F790DCA2291BDBD0A0E9C5662549515FA8A6FBCAFB7CDFF0C5E1C61D3D7",
+    "matches": true
+  },
+  {
+    "path": "web/app/page.tsx",
+    "sha256": "AEF1F5F2D155882915B569D291C63B763CA6628434CE4B2757B6EE771B07F803",
+    "matches": true
+  },
+  {
+    "path": "web/components/LandingPage.tsx",
+    "sha256": "5C3346616D3EB22324458B44F71ADEF987258651D039D7B4A502CA2321224681",
+    "matches": true
+  },
+  {
+    "path": "web/components/RoomSchematic.tsx",
+    "sha256": "1D18A1CFB06F79FAE6F26E31CE25960C104F2548F377DC6CDF6166BFEA4F5B2F",
+    "matches": true
+  },
+  {
+    "path": "web/next.config.ts",
+    "sha256": "E741607CA5360FE316801462B5BB999A509C78B3E394783B1C877AAA5316D713",
+    "matches": true
+  },
+  {
+    "path": "web/next-env.d.ts",
+    "sha256": "1862AC4BBBC5192D4BF562161DF66EA547ED3E67173100656AB606AE9797DB2B",
+    "matches": true
+  },
+  {
+    "path": "web/package.json",
+    "sha256": "20FB4D845DA0EB5AB3FA201590A0C93CBB66883551E1E8CB0913EC5516D1A612",
+    "matches": true
+  },
+  {
+    "path": "web/package-lock.json",
+    "sha256": "B6DB8DE8A4A9691C480B6FCA6A45372D403A588D7746A4EFACFC8AAD510DE079",
+    "matches": true
+  },
+  {
+    "path": "web/playwright.config.ts",
+    "sha256": "7E64A38828E9DE45D10A283605FD7318760E54AF9C3AE1377C31828D6939C415",
+    "matches": true
+  },
+  {
+    "path": "web/public/images/bedroom.jpg",
+    "sha256": "7C4C68A138D94F2E2B690D797B27BC3C93A20DF8389819B9A877FC8DE3DA2D8A",
+    "matches": true
+  },
+  {
+    "path": "web/public/images/living-room.jpg",
+    "sha256": "F465F046810A783CEFD27B0157820F02A6615E575E7BD79898917939B4E63250",
+    "matches": true
+  },
+  {
+    "path": "web/public/images/living-room-detail.jpg",
+    "sha256": "9C3311869804BD73523E615FC8118998EB078997FF03D4DBFEF05B9CF78E0BD2",
+    "matches": true
+  },
+  {
+    "path": "web/README.md",
+    "sha256": "0009844C6A560DFDFE69BA1F29769BED0DF03F06C673E1472FF9ADB7C83D2395",
+    "matches": true
+  },
+  {
+    "path": "web/tests/landing.spec.ts",
+    "sha256": "49ABD3D40BDA5695B74EDC0DD453BC95BE0B8568BAB79A64F20265C2DFC99045",
+    "matches": true
+  },
+  {
+    "path": "web/tsconfig.json",
+    "sha256": "B8B0F0FB8AD525A8C76985C52B9F2D3E8C41E370C060AB78FC8ABE8EE4E2865A",
+    "matches": true
+  }
+]

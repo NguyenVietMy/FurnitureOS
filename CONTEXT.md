@@ -57,7 +57,7 @@ Replacing the Product in an existing Placement with another whose footprint fits
 _Avoid_: Replace, substitute, change
 
 **Nudge**:
-A user-initiated move of an existing Placement. Unlike a Swap, a Nudge must be re-validated by the solver before it is accepted.
+A user-initiated move of an existing Placement. Unlike a Swap, a Nudge must be validated by the FastAPI authority before it is accepted. A future browser preview must have an explicit parity contract; it is not an authority.
 _Avoid_: Drag, move, reposition
 
 ### The furniture

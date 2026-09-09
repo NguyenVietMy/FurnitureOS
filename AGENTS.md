@@ -13,3 +13,7 @@ The five canonical triage roles, using their default label strings. See `docs/ag
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### UI design
+
+Before adding, changing, or reviewing UI, read `DESIGN.md`.

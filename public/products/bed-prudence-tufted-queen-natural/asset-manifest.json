@@ -1,0 +1,187 @@
+{
+  "productId": "bed-prudence-tufted-queen-natural",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/D/B07B4W5T9D.glb",
+    "sha256": "2513916c1a172e6fdd8e43e8f3f0e570955c19ceeaa59ca6bc0cdb52107ff348",
+    "bytes": 2451616,
+    "bounds": {
+      "min": [
+        -0.847913,
+        0,
+        -1.116508
+      ],
+      "max": [
+        0.847913,
+        1.425926,
+        1.116482
+      ],
+      "size": [
+        1.695826,
+        1.425926,
+        2.23299
+      ]
+    },
+    "triangles": 65470
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection guarantees metres, +Y up, +Z front and floor contact at Y=0, so the pipeline applies an identity transform and records measured bounds as evidence that the guarantee held for this Product."
+  },
+  "budget": {
+    "limitBytes": 5242880,
+    "totalCompressedBytes": 1298091,
+    "sharedBytes": 715997
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-eba4181710b1.ktx2",
+      "bytes": 66438,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-33c75c04f83a.ktx2",
+      "bytes": 46869,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-ea6b8f7be83f.ktx2",
+      "bytes": 602690,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/bed-prudence-tufted-queen-natural/lod0.gltf",
+      "simplifyRatio": 1,
+      "triangles": 65470,
+      "vertices": 36801,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 354951,
+      "bounds": {
+        "min": [
+          -0.847913,
+          0,
+          -1.116508
+        ],
+        "max": [
+          0.847912,
+          1.425931,
+          1.116482
+        ],
+        "size": [
+          1.695825,
+          1.425931,
+          2.23299
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/bed-prudence-tufted-queen-natural/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "triangles": 26188,
+      "vertices": 15468,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 165452,
+      "bounds": {
+        "min": [
+          -0.847323,
+          0,
+          -1.116482
+        ],
+        "max": [
+          0.847768,
+          1.425915,
+          1.116482
+        ],
+        "size": [
+          1.69509,
+          1.425915,
+          2.232964
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/bed-prudence-tufted-queen-natural/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "triangles": 7856,
+      "vertices": 5358,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 61691,
+      "bounds": {
+        "min": [
+          -0.845928,
+          0,
+          -1.116482
+        ],
+        "max": [
+          0.84653,
+          1.425928,
+          1.11629
+        ],
+        "size": [
+          1.692457,
+          1.425928,
+          2.232772
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

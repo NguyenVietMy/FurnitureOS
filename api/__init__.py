@@ -1,0 +1,1 @@
+"""FurnitureOS FastAPI application package."""

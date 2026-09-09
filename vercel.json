@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "api/catalogue/providers/asset-manifest.json"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/((?!api(?:/|$)|assets(?:/|$)|products(?:/|$)|decoders(?:/|$)|images(?:/|$)|.*\\.).*)", "destination": "/index.html" }
+  ]
+}
