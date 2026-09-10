@@ -1,0 +1,300 @@
+{
+  "productId": "wardrobe-movian-cinca-five-door",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/Z/B07H8PS4FZ.glb",
+    "sha256": "fee4e4299f7d0e25ef84522a40dffd7c97e0ae3a91f89ef535a58aac3919ab0a",
+    "bytes": 2924812,
+    "bounds": {
+      "min": [
+        -1.079881,
+        0,
+        -0.284514
+      ],
+      "max": [
+        1.079881,
+        2.259839,
+        0.305276
+      ],
+      "size": [
+        2.159762,
+        2.259839,
+        0.58979
+      ]
+    },
+    "triangles": 12660
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -1.079881,
+        0,
+        -0.294895
+      ],
+      "max": [
+        1.079881,
+        2.259839,
+        0.294895
+      ],
+      "size": [
+        2.159762,
+        2.259839,
+        0.58979
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        -0.010381000000000001
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 285999,
+    "sharedBytes": 161643
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-2b45b127b6a8.ktx2",
+      "bytes": 1830,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-6952cae7a549.ktx2",
+      "bytes": 966,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-eb37aeb67e79.ktx2",
+      "bytes": 1270,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-18b4de577119.ktx2",
+      "bytes": 9605,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-61d5ad26ddfd.ktx2",
+      "bytes": 5242,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-b9a05cc6775a.ktx2",
+      "bytes": 2985,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-01988a28a1bd.ktx2",
+      "bytes": 34437,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-2bfce600bebc.ktx2",
+      "bytes": 94433,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-f930e24d6f3b.ktx2",
+      "bytes": 10875,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/wardrobe-movian-cinca-five-door/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 12660,
+      "vertices": 8043,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 71108,
+      "bounds": {
+        "min": [
+          -1.079881,
+          0,
+          -0.294895
+        ],
+        "max": [
+          1.079889,
+          2.259839,
+          0.294901
+        ],
+        "size": [
+          2.15977,
+          2.259839,
+          0.589796
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/wardrobe-movian-cinca-five-door/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 5064,
+      "vertices": 3488,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 35679,
+      "bounds": {
+        "min": [
+          -1.079881,
+          0,
+          -0.294895
+        ],
+        "max": [
+          1.079889,
+          2.259839,
+          0.294694
+        ],
+        "size": [
+          2.15977,
+          2.259839,
+          0.589589
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.00020700000000001273
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/wardrobe-movian-cinca-five-door/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 1518,
+      "vertices": 1345,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 17569,
+      "bounds": {
+        "min": [
+          -1.079885,
+          0,
+          -0.293122
+        ],
+        "max": [
+          1.079885,
+          2.259839,
+          0.293122
+        ],
+        "size": [
+          2.15977,
+          2.259839,
+          0.586244
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          -0.000004000000000004,
+          0,
+          0.0017725000000000102
+        ],
+        "maxAbsTranslationM": 0.0017725000000000102,
+        "maxBoundsDeltaFromLod0M": 0.0017790000000000306
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

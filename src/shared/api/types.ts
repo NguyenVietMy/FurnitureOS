@@ -20,6 +20,14 @@ export interface Attribution {
   readonly materialUrl: string;
   readonly citation: string;
   readonly modifications: string;
+  readonly licenseStatus: "verified" | "unknown" | "conflicting-source-records";
+  readonly licenseNote: string;
+  readonly licenseEvidence: ReadonlyArray<LicenseEvidence>;
+}
+
+export interface CatalogueGallery {
+  readonly catalogueVersion: string;
+  readonly products: ReadonlyArray<Product>;
 }
 
 export interface Dimensions {
@@ -64,6 +72,12 @@ export interface InvalidFit {
   readonly productId: string;
   readonly roomId: string;
   readonly measurements: FitMeasurements;
+}
+
+export interface LicenseEvidence {
+  readonly label: string;
+  readonly recordedLicense: string;
+  readonly url: string;
 }
 
 export interface MeshBounds {
@@ -127,7 +141,6 @@ export interface Product {
   readonly colour: string;
   readonly category: "bed" | "nightstand" | "wardrobe" | "dresser" | "chair" | "sofa" | "table" | "rug" | "lamp";
   readonly roomTypes: ReadonlyArray<"bedroom" | "living-room">;
-  readonly styleTags: ReadonlyArray<string>;
   readonly dimensionsM: Dimensions;
   readonly frontAxis: "+z";
   readonly wallContactFaces: ReadonlyArray<"front" | "back" | "left" | "right">;

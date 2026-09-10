@@ -1,0 +1,273 @@
+{
+  "productId": "rug-stone-beam-jute-natural",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/V/B0723DD7YV.glb",
+    "sha256": "d2dba34249627edcf2e2085d83b055b96410a5018437c1975ef31b70db68c5cf",
+    "bytes": 2471724,
+    "bounds": {
+      "min": [
+        -1.217582,
+        0,
+        -0.760715
+      ],
+      "max": [
+        1.21743,
+        0.006252,
+        0.760406
+      ],
+      "size": [
+        2.435012,
+        0.006252,
+        1.521121
+      ]
+    },
+    "triangles": 2304
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -1.217506,
+        0,
+        -0.76056
+      ],
+      "max": [
+        1.217506,
+        0.006252,
+        0.760561
+      ],
+      "size": [
+        2.435012,
+        0.006252,
+        1.521121
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0.00007599999999996498,
+        0,
+        0.00015450000000000186
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1703146,
+    "sharedBytes": 1669984
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-2b45b127b6a8.ktx2",
+      "bytes": 1830,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-6952cae7a549.ktx2",
+      "bytes": 966,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-eb37aeb67e79.ktx2",
+      "bytes": 1270,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-19be96ffadcc.ktx2",
+      "bytes": 135240,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-414345653806.ktx2",
+      "bytes": 512505,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-ec16aaacc988.ktx2",
+      "bytes": 50113,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-19395c685bb7.ktx2",
+      "bytes": 70010,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-1bba23dc559f.ktx2",
+      "bytes": 704618,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-38324351a205.ktx2",
+      "bytes": 193432,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/rug-stone-beam-jute-natural/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 2304,
+      "vertices": 1254,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 16567,
+      "bounds": {
+        "min": [
+          -1.217506,
+          0,
+          -0.76056
+        ],
+        "max": [
+          1.217505,
+          0.006242,
+          0.760565
+        ],
+        "size": [
+          2.435011,
+          0.006242,
+          1.521125
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/rug-stone-beam-jute-natural/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 920,
+      "vertices": 551,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 10130,
+      "bounds": {
+        "min": [
+          -1.217506,
+          0,
+          -0.76056
+        ],
+        "max": [
+          1.217505,
+          0.006242,
+          0.760565
+        ],
+        "size": [
+          2.435011,
+          0.006242,
+          1.521125
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/rug-stone-beam-jute-natural/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 276,
+      "vertices": 175,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 6465,
+      "bounds": {
+        "min": [
+          -1.217399,
+          0,
+          -0.76056
+        ],
+        "max": [
+          1.217506,
+          0.006242,
+          0.760573
+        ],
+        "size": [
+          2.434905,
+          0.006242,
+          1.521133
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "productId": "rug-ravenna-prospect-moroccan",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/L/B07MJL5QVL.glb",
+    "sha256": "356d319fe6c0afefcfeee50f4c0a22a8149186baecdae697916cccc3de108797",
+    "bytes": 99157308,
+    "bounds": {
+      "min": [
+        -1.144851,
+        0,
+        -0.762758
+      ],
+      "max": [
+        1.144851,
+        0.013627,
+        0.762758
+      ],
+      "size": [
+        2.289702,
+        0.013627,
+        1.525517
+      ]
+    },
+    "triangles": 1340
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -1.144851,
+        0,
+        -0.762758
+      ],
+      "max": [
+        1.144851,
+        0.013627,
+        0.762758
+      ],
+      "size": [
+        2.289702,
+        0.013627,
+        1.525517
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 2197288,
+    "sharedBytes": 2169797
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-532c3d0e7b34.ktx2",
+      "bytes": 667097,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-a245689eab08.ktx2",
+      "bytes": 194946,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-f10ba26cbdbd.ktx2",
+      "bytes": 70111,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-754481a52fc6.ktx2",
+      "bytes": 114308,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-d5c92a0533e4.ktx2",
+      "bytes": 35695,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-daa6ecf31d8a.ktx2",
+      "bytes": 424461,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-42e90c017588.ktx2",
+      "bytes": 137751,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-58af088fa4e8.ktx2",
+      "bytes": 472453,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-9a9e5d14b8cc.ktx2",
+      "bytes": 52975,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/rug-ravenna-prospect-moroccan/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 1340,
+      "vertices": 940,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 12944,
+      "bounds": {
+        "min": [
+          -1.144851,
+          0,
+          -0.762758
+        ],
+        "max": [
+          1.144851,
+          0.013626,
+          0.762766
+        ],
+        "size": [
+          2.289702,
+          0.013626,
+          1.525525
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/rug-ravenna-prospect-moroccan/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 536,
+      "vertices": 413,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 8546,
+      "bounds": {
+        "min": [
+          -1.144851,
+          0,
+          -0.762758
+        ],
+        "max": [
+          1.144851,
+          0.013626,
+          0.762766
+        ],
+        "size": [
+          2.289702,
+          0.013626,
+          1.525525
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/rug-ravenna-prospect-moroccan/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 160,
+      "vertices": 134,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 6001,
+      "bounds": {
+        "min": [
+          -1.142772,
+          0,
+          -0.762032
+        ],
+        "max": [
+          1.142458,
+          0.013634,
+          0.762396
+        ],
+        "size": [
+          2.285231,
+          0.013634,
+          1.524429
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

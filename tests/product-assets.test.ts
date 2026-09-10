@@ -1,41 +1,47 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-
-/**
- * These tests read the published files, not the manifest's word for them. If
- * `npm run assets:build` were ever skipped, or produced uncompressed geometry,
- * or blew the budget, this is where it shows up.
- */
+import { assertManifestMeasurement, assertNormalizedBounds } from '../scripts/lib/asset-validation.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const publicDir = join(repoRoot, 'public');
-const PRODUCT_ID = 'bed-prudence-tufted-queen-natural';
-const productDir = join(publicDir, 'products', PRODUCT_ID);
+const productsDir = join(publicDir, 'products');
+const seed = JSON.parse(readFileSync(join(repoRoot, 'api/catalogue/providers/abo-seed.json'), 'utf8')) as {
+  products: { productId: string; sourceSha256: string; sourceBytes: number }[];
+};
+const BUDGET_BYTES = 5_000_000;
+const KTX2_IDENTIFIER = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a];
 
 interface AssetManifest {
   productId: string;
-  budget: { limitBytes: number; totalCompressedBytes: number };
-  normalization: { frontAxis: string };
-  lods: { level: number; url: string; exclusiveBytes: number }[];
-  sharedTextures: { file: string }[];
+  source: { sha256: string; bytes: number };
+  budget: { limitBytes: number; totalCompressedBytes: number; sharedBytes: number };
+  normalization: { frontAxis: string; bounds: { min: number[]; max: number[]; size: number[] } };
+  lods: {
+    level: number;
+    url: string;
+    exclusiveBytes: number;
+    triangles: number;
+    textureMaxPx: number;
+    files: string[];
+    bounds: { min: number[]; max: number[]; size: number[] };
+  }[];
+  sharedTextures: { file: string; bytes: number; width: number; height: number }[];
 }
 
-const manifest = JSON.parse(
-  readFileSync(join(productDir, 'asset-manifest.json'), 'utf8'),
-) as AssetManifest;
+interface GltfDocument {
+  extensionsRequired?: string[];
+  images?: { uri?: string }[];
+  textures?: { source?: number; extensions?: Record<string, unknown> }[];
+  bufferViews?: { extensions?: Record<string, unknown> }[];
+  buffers?: { uri?: string; byteLength: number }[];
+}
 
-const MAX_TEXTURE_PX = 2048;
-const ACCEPTED_TOTAL_BYTES = 1_298_091;
-const KTX2_IDENTIFIER = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a];
-
-/** Reads the fixed-size KTX2 header. Field offsets are from the KTX 2.0 spec. */
 function ktx2Header(file: string) {
   const buffer = readFileSync(file);
-  const identifier = [...buffer.subarray(0, 12)];
   return {
-    identifierOk: identifier.every((byte, index) => byte === KTX2_IDENTIFIER[index]),
+    identifierOk: [...buffer.subarray(0, 12)].every((byte, index) => byte === KTX2_IDENTIFIER[index]),
     vkFormat: buffer.readUInt32LE(12),
     width: buffer.readUInt32LE(20),
     height: buffer.readUInt32LE(24),
@@ -45,115 +51,132 @@ function ktx2Header(file: string) {
   };
 }
 
-interface GltfImage {
-  uri?: string;
-}
-
-interface GltfTexture {
-  source?: number;
-  extensions?: Record<string, unknown>;
-}
-
-interface GltfDocument {
-  extensionsRequired?: string[];
-  images?: GltfImage[];
-  textures?: GltfTexture[];
-  bufferViews?: { extensions?: Record<string, unknown> }[];
-  buffers?: { uri?: string; byteLength: number }[];
-}
-
-function readLod(level: number): GltfDocument {
-  return JSON.parse(readFileSync(join(productDir, `lod${level}.gltf`), 'utf8')) as GltfDocument;
-}
-
-function publicPath(url: string): string {
-  return join(publicDir, url.replace(/^\//, ''));
-}
-
-function sharedTextureUrls(): string[] {
-  return manifest.sharedTextures.map(({ file }) => `/products/${manifest.productId}/${file}`);
-}
-
-describe('the published Product assets', () => {
-  it('publishes every file the manifest promises', () => {
-    expect(manifest.productId).toBe(PRODUCT_ID);
-    expect(manifest.normalization.frontAxis).toBe('+z');
-    for (const lod of manifest.lods) expect(existsSync(publicPath(lod.url))).toBe(true);
-    for (const url of sharedTextureUrls()) expect(existsSync(publicPath(url))).toBe(true);
+describe('the published Catalogue assets', () => {
+  it('contains exactly the 20 curated Product directories', () => {
+    const published = readdirSync(productsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    expect(published).toEqual(seed.products.map((product) => product.productId).sort());
   });
 
-  it.each([0, 1, 2])('compresses LOD %i with meshopt, quantization and BasisU', (level) => {
-    const gltf = readLod(level);
-    expect(gltf.extensionsRequired).toContain('EXT_meshopt_compression');
-    expect(gltf.extensionsRequired).toContain('KHR_mesh_quantization');
-    expect(gltf.extensionsRequired).toContain('KHR_texture_basisu');
+  for (const record of seed.products) {
+    describe(record.productId, () => {
+      const productDir = join(productsDir, record.productId);
+      const manifest = JSON.parse(readFileSync(join(productDir, 'asset-manifest.json'), 'utf8')) as AssetManifest;
+      const readLod = (level: number) => JSON.parse(
+        readFileSync(join(productDir, `lod${level}.gltf`), 'utf8'),
+      ) as GltfDocument;
 
-    const views = gltf.bufferViews ?? [];
-    expect(views.length).toBeGreaterThan(0);
-    for (const view of views) {
-      expect(Object.keys(view.extensions ?? {})).toContain('EXT_meshopt_compression');
-    }
-  });
+      it('pins source identity and normalized publication metadata', () => {
+        expect(manifest.productId).toBe(record.productId);
+        expect(manifest.source.sha256).toBe(record.sourceSha256);
+        expect(manifest.source.bytes).toBe(record.sourceBytes);
+        expect(manifest.normalization.frontAxis).toBe('+z');
+        expect(manifest.normalization.bounds.min[1]).toBeCloseTo(0, 8);
+        expect(manifest.normalization.bounds.min[0]! + manifest.normalization.bounds.max[0]!).toBeCloseTo(0, 3);
+        expect(manifest.normalization.bounds.min[2]! + manifest.normalization.bounds.max[2]!).toBeCloseTo(0, 3);
+      });
 
-  it('shares one set of external KTX2 textures across all three levels', () => {
-    const uriSets = [0, 1, 2].map((level) =>
-      (readLod(level).images ?? []).map((image) => image.uri ?? '').sort(),
-    );
-    expect(uriSets[0]!.length).toBeGreaterThan(0);
-    expect(uriSets[0]).toEqual(manifest.sharedTextures.map(({ file }) => file).sort());
-    expect(uriSets[1]).toEqual(uriSets[0]);
-    expect(uriSets[2]).toEqual(uriSets[0]);
-    for (const image of readLod(0).images ?? []) expect(image.uri).toMatch(/^textures\/.+\.ktx2$/);
-    for (const texture of readLod(0).textures ?? []) {
-      expect(Object.keys(texture.extensions ?? {})).toContain('KHR_texture_basisu');
-      expect(texture.source).toBeUndefined();
-    }
-  });
-
-  it('caps textures at 2048 px and ships BasisLZ mip chains', () => {
-    for (const url of sharedTextureUrls()) {
-      const header = ktx2Header(publicPath(url));
-      expect(header.identifierOk).toBe(true);
-      expect(header.vkFormat).toBe(0);
-      expect(header.supercompressionScheme).toBe(1);
-      expect(header.faceCount).toBe(1);
-      expect(header.width).toBeLessThanOrEqual(MAX_TEXTURE_PX);
-      expect(header.height).toBeLessThanOrEqual(MAX_TEXTURE_PX);
-      expect(header.levelCount).toBeGreaterThan(1);
-    }
-  });
-
-  it('measures the accepted aggregate bytes with referenced buffers and shared files counted once', () => {
-    let geometry = 0;
-    for (const level of [0, 1, 2]) {
-      geometry += statSync(join(productDir, `lod${level}.gltf`)).size;
-      const buffers = readLod(level).buffers ?? [];
-      expect(buffers.length).toBeGreaterThan(0);
-      let referencedBuffers = 0;
-      for (const buffer of buffers) {
-        if (buffer.uri) {
-          referencedBuffers += 1;
-          geometry += statSync(join(productDir, buffer.uri)).size;
+      it('publishes decreasing meshopt/BasisU LODs with progressive texture caps', () => {
+        expect(manifest.lods.map((lod) => lod.level)).toEqual([0, 1, 2]);
+        expect(manifest.lods.map((lod) => lod.textureMaxPx)).toEqual([2048, 1024, 512]);
+        expect(manifest.lods[0]!.triangles).toBeGreaterThan(manifest.lods[1]!.triangles);
+        expect(manifest.lods[1]!.triangles).toBeGreaterThan(manifest.lods[2]!.triangles);
+        expect(manifest.lods[0]!.exclusiveBytes).toBeGreaterThan(manifest.lods[1]!.exclusiveBytes);
+        expect(manifest.lods[1]!.exclusiveBytes).toBeGreaterThan(manifest.lods[2]!.exclusiveBytes);
+        for (const lod of manifest.lods) {
+          const gltf = readLod(lod.level);
+          expect(gltf.extensionsRequired).toEqual(expect.arrayContaining([
+            'EXT_meshopt_compression', 'KHR_mesh_quantization', 'KHR_texture_basisu',
+          ]));
+          for (const view of gltf.bufferViews ?? []) {
+            expect(Object.keys(view.extensions ?? {})).toContain('EXT_meshopt_compression');
+          }
+          for (const image of gltf.images ?? []) {
+            expect(image.uri).toMatch(/^textures\/.+\.ktx2$/);
+            const header = ktx2Header(join(productDir, image.uri!));
+            expect(header.width).toBeLessThanOrEqual(lod.textureMaxPx);
+            expect(header.height).toBeLessThanOrEqual(lod.textureMaxPx);
+          }
+          for (const texture of gltf.textures ?? []) {
+            expect(Object.keys(texture.extensions ?? {})).toContain('KHR_texture_basisu');
+            expect(texture.source).toBeUndefined();
+          }
         }
-      }
-      expect(referencedBuffers).toBeGreaterThan(0);
-    }
-    const textures = new Set(sharedTextureUrls());
-    const total = geometry + [...textures].reduce((sum, url) => sum + statSync(publicPath(url)).size, 0);
+      });
 
-    expect(total).toBe(ACCEPTED_TOTAL_BYTES);
-    expect(total).toBeLessThan(manifest.budget.limitBytes);
-    expect(manifest.budget.totalCompressedBytes).toBe(total);
-    const [lod0, lod1, lod2] = manifest.lods;
-    expect(lod0!.exclusiveBytes).toBeGreaterThan(lod1!.exclusiveBytes);
-    expect(lod1!.exclusiveBytes).toBeGreaterThan(lod2!.exclusiveBytes);
-  });
+      it('remeasures published bytes with every shared path counted once', () => {
+        let exclusive = 0;
+        const referencedTextures = new Set<string>();
+        for (const lod of manifest.lods) {
+          let lodBytes = 0;
+          for (const file of lod.files) {
+            expect(existsSync(join(productDir, file))).toBe(true);
+            lodBytes += statSync(join(productDir, file)).size;
+          }
+          expect(lodBytes).toBe(lod.exclusiveBytes);
+          exclusive += lodBytes;
+          for (const image of readLod(lod.level).images ?? []) referencedTextures.add(image.uri!);
+        }
+        expect([...referencedTextures].sort()).toEqual(manifest.sharedTextures.map((texture) => texture.file).sort());
+        let shared = 0;
+        for (const file of referencedTextures) shared += statSync(join(productDir, file)).size;
+        const total = exclusive + shared;
+        expect(shared).toBe(manifest.budget.sharedBytes);
+        expect(total).toBe(manifest.budget.totalCompressedBytes);
+        expect(manifest.budget.limitBytes).toBe(BUDGET_BYTES);
+        expect(total).toBeLessThan(BUDGET_BYTES);
+      });
 
-  it('serves the BasisU transcoder from this origin, not a third-party CDN', () => {
+      it('ships valid BasisLZ KTX2 mip chains', () => {
+        for (const texture of manifest.sharedTextures) {
+          const path = join(productDir, texture.file);
+          const header = ktx2Header(path);
+          expect(statSync(path).size).toBe(texture.bytes);
+          expect(header.identifierOk).toBe(true);
+          expect(header.vkFormat).toBe(0);
+          expect(header.supercompressionScheme).toBe(1);
+          expect(header.faceCount).toBe(1);
+          expect(header.levelCount).toBeGreaterThan(1);
+          expect(header.width).toBe(texture.width);
+          expect(header.height).toBe(texture.height);
+        }
+      });
+    });
+  }
+
+  it('serves the BasisU transcoder from this origin', () => {
     for (const file of ['basis_transcoder.js', 'basis_transcoder.wasm']) {
       const path = join(publicDir, 'decoders', 'basis', file);
       expect(existsSync(path)).toBe(true);
       expect(statSync(path).size).toBeGreaterThan(1024);
     }
+  });
+
+  it('rejects measured geometry that drifts outside the floor-centre frame', () => {
+    expect(() => assertNormalizedBounds('drift fixture', {
+      min: [-1, 0.003, -2],
+      max: [1, 1, 2],
+    })).toThrow(/floor-centre normalization/);
+  });
+
+  it('rejects measured triangle and bounds drift from a manifest LOD', () => {
+    const declared = {
+      triangles: 12,
+      bounds: { min: [-1, 0, -2], max: [1, 1, 2], size: [2, 1, 4] },
+    };
+    const measured = {
+      triangles: 11,
+      min: [-1, 0, -2],
+      max: [1, 1, 2],
+      size: [2, 1, 4],
+    };
+    expect(() => assertManifestMeasurement('triangle fixture', declared, measured)).toThrow(/triangles/);
+    expect(() => assertManifestMeasurement('bounds fixture', declared, {
+      ...measured,
+      triangles: 12,
+      max: [1.01, 1, 2],
+    })).toThrow(/bounds\.max/);
   });
 });

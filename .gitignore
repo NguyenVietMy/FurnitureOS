@@ -18,5 +18,6 @@ playwright-report/
 assets/source/
 public/decoders/
 api/catalogue/providers/asset-manifest.json
+api/catalogue/providers/manifests/
 .venv/
 __pycache__/

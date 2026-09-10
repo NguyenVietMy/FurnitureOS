@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
 import {
@@ -30,11 +31,22 @@ import { ensureGltfpack, sha256File } from './lib/ensure-gltfpack.mjs';
 import { measureGltf } from './lib/gltf-measure.mjs';
 import { ktx2Info } from './lib/ktx2-info.mjs';
 import { repoPath } from './lib/paths.mjs';
+import {
+  assertNormalizedBounds,
+  maxBoundsDelta,
+  normalizationTranslation,
+} from './lib/asset-validation.mjs';
 
-const SOURCE_DIR = repoPath('assets', 'source');
-const WORK_DIR = repoPath('assets', 'work');
+// Raw provider downloads and transient unpacked files never live in the
+// checkout. A caller may pin a reusable evidence directory explicitly.
+const SOURCE_DIR = process.env.FURNITUREOS_ASSET_SOURCE_DIR
+  ? path.resolve(process.env.FURNITUREOS_ASSET_SOURCE_DIR)
+  : path.join(tmpdir(), 'furnitureos-assets', 'source');
+const WORK_DIR = process.env.FURNITUREOS_ASSET_WORK_DIR
+  ? path.resolve(process.env.FURNITUREOS_ASSET_WORK_DIR)
+  : path.join(tmpdir(), 'furnitureos-assets', 'work');
 
-async function ensureSource({ sourceUrl, sourceFile, sourceSha256 }) {
+async function ensureSource({ sourceUrl, sourceFile, sourceSha256, sourceBytes }) {
   const target = path.join(SOURCE_DIR, sourceFile);
   if (!existsSync(target)) {
     console.log(`  downloading ${sourceUrl}`);
@@ -50,7 +62,14 @@ async function ensureSource({ sourceUrl, sourceFile, sourceSha256 }) {
         'The upstream asset changed; re-curate before shipping it.',
     );
   }
-  return { path: target, sha256: digest, bytes: (await stat(target)).size };
+  const bytes = (await stat(target)).size;
+  if (bytes !== sourceBytes) {
+    throw new Error(
+      `Byte-size mismatch for ${sourceFile}: expected ${sourceBytes}, got ${bytes}. ` +
+        'The source evidence changed; re-curate before shipping it.',
+    );
+  }
+  return { path: target, sha256: digest, bytes };
 }
 
 /**
@@ -70,9 +89,27 @@ async function unpackSource(sourcePath, workDir) {
       const ext = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : 'bin';
       texture.setURI(`source-tex${index}.${ext}`);
     });
+  const raw = path.join(workDir, 'source-raw.gltf');
+  await io.write(raw, doc);
+  const rawMeasure = await measureGltf(raw);
+  const translation = [
+    -(rawMeasure.min[0] + rawMeasure.max[0]) / 2,
+    -rawMeasure.min[1],
+    -(rawMeasure.min[2] + rawMeasure.max[2]) / 2,
+  ];
+  for (const scene of doc.getRoot().listScenes()) {
+    const children = [...scene.listChildren()];
+    if (!children.length) continue;
+    const normalizationRoot = doc
+      .createNode('FurnitureOS floor-centre normalization')
+      .setTranslation(translation);
+    scene.addChild(normalizationRoot);
+    for (const child of children) normalizationRoot.addChild(child);
+  }
   const unpacked = path.join(workDir, 'source.gltf');
   await io.write(unpacked, doc);
-  return unpacked;
+  const normalizedMeasure = await measureGltf(unpacked);
+  return { unpacked, rawMeasure, normalizedMeasure, translation };
 }
 
 async function buildLod(bin, unpackedSource, workDir, lod) {
@@ -87,7 +124,7 @@ async function buildLod(bin, unpackedSource, workDir, lod) {
       '-o', out,
       '-cc', //                          meshopt compression, higher ratio
       '-tc', //                          KTX2 / BasisU textures
-      '-tl', String(MAX_TEXTURE_PX), //  cap the longest texture edge
+      '-tl', String(lod.textureMaxPx), // cap by refinement level
       '-tq', '8',
       '-si', String(lod.simplifyRatio),
       '-se', String(lod.maxDeviation),
@@ -97,6 +134,38 @@ async function buildLod(bin, unpackedSource, workDir, lod) {
     { stdio: ['ignore', 'pipe', 'inherit'] },
   );
   return { lodDir, gltfPath: out };
+}
+
+function needsNormalization(measure) {
+  try {
+    assertNormalizedBounds('simplified Mesh', measure);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * gltfpack locks border vertices, but aggressive simplification can still move
+ * a sparse LOD's measured floor or footprint extrema by more than 2 mm. A root
+ * translation restores the canonical frame without scaling, rotating or
+ * rewriting compressed geometry.
+ */
+function reanchorSimplifiedGltf(gltf, measure) {
+  if (!needsNormalization(measure)) return [0, 0, 0];
+  const translation = normalizationTranslation(measure);
+  gltf.nodes ??= [];
+  for (const [sceneIndex, scene] of (gltf.scenes ?? []).entries()) {
+    const children = [...(scene.nodes ?? [])];
+    const nodeIndex = gltf.nodes.length;
+    gltf.nodes.push({
+      name: `FurnitureOS post-simplification floor-centre LOD scene ${sceneIndex}`,
+      translation,
+      children,
+    });
+    scene.nodes = [nodeIndex];
+  }
+  return translation;
 }
 
 async function totalBytes(dir, files) {
@@ -135,8 +204,9 @@ async function publishProduct(product) {
   const workDir = path.join(WORK_DIR, product.productId);
   await rm(workDir, { recursive: true, force: true });
   await mkdir(workDir, { recursive: true });
-  const unpacked = await unpackSource(source.path, workDir);
-  const sourceMeasure = await measureGltf(unpacked);
+  const { unpacked, rawMeasure: sourceMeasure, normalizedMeasure, translation } =
+    await unpackSource(source.path, workDir);
+  assertNormalizedBounds(product.productId, normalizedMeasure);
 
   const outDir = repoPath('public', 'products', product.productId);
   const textureDir = path.join(outDir, 'textures');
@@ -150,6 +220,8 @@ async function publishProduct(product) {
   for (const lod of LOD_LEVELS) {
     const { lodDir, gltfPath } = await buildLod(bin, unpacked, workDir, lod);
     const gltf = JSON.parse(await readFile(gltfPath, 'utf8'));
+    const simplifiedMeasure = await measureGltf(gltfPath);
+    const postSimplificationTranslation = reanchorSimplifiedGltf(gltf, simplifiedMeasure);
 
     for (const image of gltf.images ?? []) {
       if (!image.uri) {
@@ -176,6 +248,7 @@ async function publishProduct(product) {
     const publishedGltf = path.join(outDir, `lod${lod.level}.gltf`);
     await writeFile(publishedGltf, `${JSON.stringify(gltf, null, 1)}\n`);
     const measure = await measureGltf(publishedGltf);
+    assertNormalizedBounds(`${product.productId} lod${lod.level}`, measure);
 
     const files = [path.basename(publishedGltf), ...buffers.map((b) => b.uri)];
     const exclusiveBytes = await totalBytes(outDir, files);
@@ -183,11 +256,17 @@ async function publishProduct(product) {
       level: lod.level,
       url: `/products/${product.productId}/lod${lod.level}.gltf`,
       simplifyRatio: lod.simplifyRatio,
+      textureMaxPx: lod.textureMaxPx,
       triangles: measure.triangles,
       vertices: measure.vertices,
       files,
       exclusiveBytes,
       bounds: { min: measure.min, max: measure.max, size: measure.size },
+      postSimplificationNormalization: {
+        translation: postSimplificationTranslation,
+        maxAbsTranslationM: Math.max(...postSimplificationTranslation.map(Math.abs)),
+        maxBoundsDeltaFromLod0M: lods.length ? maxBoundsDelta(measure, lods[0].bounds) : 0,
+      },
       extensionsRequired: measure.extensionsRequired,
     });
     console.log(`  lod${lod.level}: ${measure.triangles} tris, ${exclusiveBytes} geometry bytes`);
@@ -230,11 +309,12 @@ async function publishProduct(product) {
       upAxis: '+y',
       frontAxis: CANONICAL_FRONT_AXIS,
       originRule: 'floor-centre',
-      appliedTransform: { translation: [0, 0, 0], rotationYaw: 0, scale: 1 },
+      bounds: { min: normalizedMeasure.min, max: normalizedMeasure.max, size: normalizedMeasure.size },
+      appliedTransform: { translation, rotationYaw: 0, scale: 1 },
       note:
-        'The upstream collection guarantees metres, +Y up, +Z front and floor contact at Y=0, ' +
-        'so the pipeline applies an identity transform and records measured bounds as evidence ' +
-        'that the guarantee held for this Product.',
+        'The upstream collection declares metres, +Y up and +Z front. The pipeline preserves ' +
+        'scale and yaw, then applies the recorded measured translation so Y=0 is the floor and ' +
+        'the X/Z footprint centre is the local origin.',
     },
     budget: { limitBytes: ASSET_BUDGET_BYTES, totalCompressedBytes, sharedBytes },
     sharedTextures,
@@ -248,6 +328,15 @@ async function publishProduct(product) {
   return manifest;
 }
 
+const requestedIds = process.argv.slice(2);
+const selectedProducts = requestedIds.length
+  ? PRODUCT_ASSET_SOURCES.filter((product) => requestedIds.includes(product.productId))
+  : PRODUCT_ASSET_SOURCES;
+const unknownIds = requestedIds.filter(
+  (productId) => !PRODUCT_ASSET_SOURCES.some((product) => product.productId === productId),
+);
+if (unknownIds.length) throw new Error(`Unknown Product id(s): ${unknownIds.join(', ')}`);
+
 const manifests = [];
-for (const product of PRODUCT_ASSET_SOURCES) manifests.push(await publishProduct(product));
+for (const product of selectedProducts) manifests.push(await publishProduct(product));
 console.log(`\nBuilt ${manifests.length} Product asset set(s).`);

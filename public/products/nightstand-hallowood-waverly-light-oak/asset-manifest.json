@@ -1,0 +1,273 @@
+{
+  "productId": "nightstand-hallowood-waverly-light-oak",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/A/B01D3C7Z4A.glb",
+    "sha256": "75a62a3b9608fa546b44e8cd1ebf3d507bf64f0e5509ac4b59300ada8f350ba7",
+    "bytes": 27802420,
+    "bounds": {
+      "min": [
+        -0.213603,
+        0,
+        -0.209698
+      ],
+      "max": [
+        0.214062,
+        0.613844,
+        0.208406
+      ],
+      "size": [
+        0.427665,
+        0.613844,
+        0.418104
+      ]
+    },
+    "triangles": 4224
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.213833,
+        0,
+        -0.209052
+      ],
+      "max": [
+        0.213832,
+        0.613844,
+        0.209052
+      ],
+      "size": [
+        0.427665,
+        0.613844,
+        0.418104
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        -0.00022950000000000748,
+        0,
+        0.0006459999999999938
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1152028,
+    "sharedBytes": 1084701
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-06ccf989accd.ktx2",
+      "bytes": 257679,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-2e360ab39b78.ktx2",
+      "bytes": 59848,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-a7ec7cd7ab0f.ktx2",
+      "bytes": 13335,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-31fb17823dae.ktx2",
+      "bytes": 1464,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-c8ad95e6eb77.ktx2",
+      "bytes": 2184,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-fb808f1915c2.ktx2",
+      "bytes": 3448,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-aa35a04310aa.ktx2",
+      "bytes": 53996,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-d481b6ca6bd7.ktx2",
+      "bytes": 153413,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-e08400a5ca40.ktx2",
+      "bytes": 539334,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/nightstand-hallowood-waverly-light-oak/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 4224,
+      "vertices": 3323,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 35093,
+      "bounds": {
+        "min": [
+          -0.213833,
+          0,
+          -0.209052
+        ],
+        "max": [
+          0.213831,
+          0.613844,
+          0.209048
+        ],
+        "size": [
+          0.427663,
+          0.613844,
+          0.4181
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/nightstand-hallowood-waverly-light-oak/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 1688,
+      "vertices": 1433,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 19242,
+      "bounds": {
+        "min": [
+          -0.213833,
+          0,
+          -0.209052
+        ],
+        "max": [
+          0.213831,
+          0.613844,
+          0.208767
+        ],
+        "size": [
+          0.427663,
+          0.613844,
+          0.417819
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/nightstand-hallowood-waverly-light-oak/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 648,
+      "vertices": 817,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 12992,
+      "bounds": {
+        "min": [
+          -0.213833,
+          0.000348,
+          -0.208638
+        ],
+        "max": [
+          0.21342,
+          0.613844,
+          0.208355
+        ],
+        "size": [
+          0.427252,
+          0.613496,
+          0.416992
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

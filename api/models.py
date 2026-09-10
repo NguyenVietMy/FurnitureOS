@@ -14,6 +14,10 @@ ProductFace = Literal["front", "back", "left", "right"]
 PlacementClass = Literal["floor-standing", "wall-mounted", "ceiling-hung", "surface-standing"]
 ProductCategory = Literal["bed", "nightstand", "wardrobe", "dresser", "chair", "sofa", "table", "rug", "lamp"]
 RoomType = Literal["bedroom", "living-room"]
+LicenseStatus = Annotated[
+    Literal["verified", "unknown", "conflicting-source-records"],
+    Field(description="verified has evidence; unknown has none; conflicting-source-records has divergent evidence"),
+]
 InvalidFitReason = Literal[
     "product-exceeds-room-bounds", "footprint-outside-room", "access-region-outside-room",
     "wall-contact-face-not-allowed", "not-touching-declared-wall", "wall-shorter-than-product",
@@ -99,6 +103,12 @@ class PurchaseDisclosure(ContractModel):
     note: str = Field(min_length=1)
 
 
+class LicenseEvidence(ContractModel):
+    label: str = Field(min_length=1)
+    recordedLicense: str = Field(min_length=1)
+    url: str = Field(pattern=r"^https://")
+
+
 class Attribution(ContractModel):
     source: str = Field(min_length=1)
     holder: str = Field(min_length=1)
@@ -108,12 +118,24 @@ class Attribution(ContractModel):
     materialUrl: str = Field(pattern=r"^https://")
     citation: str = Field(min_length=1)
     modifications: str = Field(min_length=1)
+    licenseStatus: LicenseStatus
+    licenseNote: str = Field(min_length=1)
+    licenseEvidence: tuple[LicenseEvidence, ...]
 
     @model_validator(mode="after")
     def no_blank_attribution(self) -> "Attribution":
         for name, value in self:
             if not str(value).strip():
                 raise ValueError(f"empty attribution: {name}")
+        if self.licenseStatus == "verified" and not self.licenseEvidence:
+            raise ValueError("verified license status requires at least one evidence record")
+        if self.licenseStatus == "conflicting-source-records":
+            recorded = {evidence.recordedLicense.strip() for evidence in self.licenseEvidence}
+            if len(self.licenseEvidence) < 2 or len(recorded) < 2:
+                raise ValueError(
+                    "conflicting-source-records status requires at least two evidence records "
+                    "that record different licenses"
+                )
         return self
 
 
@@ -124,10 +146,9 @@ class Product(ContractModel):
     colour: str = Field(min_length=1)
     category: ProductCategory
     roomTypes: tuple[RoomType, ...] = Field(min_length=1)
-    styleTags: tuple[str, ...] = Field(min_length=1)
     dimensionsM: Dimensions
     frontAxis: Literal["+z"]
-    wallContactFaces: tuple[ProductFace, ...] = Field(min_length=1)
+    wallContactFaces: tuple[ProductFace, ...]
     placementClass: PlacementClass
     accessRegions: tuple[AccessRegion, ...]
     mesh: MeshRef
@@ -143,8 +164,6 @@ class Product(ContractModel):
             raise ValueError("a purchasable Product must carry an HTTPS purchase URL")
         if self.purchase.availability != "purchasable" and self.purchaseUrl:
             raise ValueError("an unavailable or unknown Product must not claim a purchase URL")
-        if any(not tag.strip() for tag in self.styleTags):
-            raise ValueError("Product style tags cannot be blank")
         return self
 
 
@@ -291,6 +310,11 @@ class PreviewDesign(ContractModel):
     room: RoomShell
     product: Product
     fit: FitResultValue
+
+
+class CatalogueGallery(ContractModel):
+    catalogueVersion: str = Field(min_length=1)
+    products: tuple[Product, ...] = Field(min_length=1)
 
 
 class PlacementValidationRequest(ContractModel):

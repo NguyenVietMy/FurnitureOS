@@ -1,0 +1,40 @@
+html[data-feature="catalogue-gallery"] {
+  color-scheme: light;
+  background: #f6f4ef;
+  color: #23211d;
+  font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html[data-feature="catalogue-gallery"] body,
+html[data-feature="catalogue-gallery"] #root {
+  margin: 0;
+  min-height: 100%;
+}
+
+.catalogue-gallery { padding: 18px; }
+.catalogue-gallery > header { max-width: 1080px; margin: 0 auto 16px; }
+.catalogue-gallery h1 { margin: 2px 0 4px; font-size: clamp(25px, 4vw, 42px); }
+.catalogue-gallery p { margin: 0 0 10px; color: #666158; }
+.gallery-kicker { text-transform: uppercase; letter-spacing: .09em; font-size: 11px; }
+.catalogue-gallery dl { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.catalogue-gallery dl div { display: flex; gap: 6px; }
+.catalogue-gallery dt { color: #777066; }
+.catalogue-gallery dd { margin: 0; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+.gallery-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.gallery-actions button { border: 1px solid #968e82; border-radius: 3px; background: #fffefb; color: inherit; font: inherit; padding: 7px 11px; }
+.gallery-cold-note { font-size: 12px; }
+.catalogue-gallery .gallery-load-error { color: #9d2d25; font-weight: 650; }
+.gallery-stage { height: min(66vh, 720px); min-height: 420px; border: 1px solid #d8d1c5; background: #eeeae2; }
+.gallery-stage canvas { display: block; }
+.gallery-products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; max-width: 1080px; margin: 16px auto 0; padding: 1px; list-style: none; background: #d8d1c5; }
+.gallery-products li { display: grid; gap: 3px; padding: 10px; background: #fffefb; }
+.gallery-products span { color: #766f65; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.gallery-products small { color: #6b665d; font-variant-numeric: tabular-nums; }
+.gallery-message { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.gallery-message button { font: inherit; padding: 7px 14px; }
+
+@media (max-width: 760px) {
+  .catalogue-gallery { padding: 10px; }
+  .gallery-stage { height: 58vh; min-height: 390px; }
+  .gallery-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -1,0 +1,273 @@
+{
+  "productId": "chair-stone-beam-westport-stone-brown",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B075X342T5.glb",
+    "sha256": "d1d0d1222943b2cd77f80e4a8e86b8917fcdc26b34cb9fde6b9c1f8cfe2812f7",
+    "bytes": 53709796,
+    "bounds": {
+      "min": [
+        -0.4572,
+        0,
+        -0.479426
+      ],
+      "max": [
+        0.4572,
+        0.8382,
+        0.479426
+      ],
+      "size": [
+        0.9144,
+        0.8382,
+        0.958851
+      ]
+    },
+    "triangles": 24364
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.4572,
+        0,
+        -0.479426
+      ],
+      "max": [
+        0.4572,
+        0.8382,
+        0.479426
+      ],
+      "size": [
+        0.9144,
+        0.8382,
+        0.958851
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1682283,
+    "sharedBytes": 1414499
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-4fd98eced380.ktx2",
+      "bytes": 68996,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-729dc84881b7.ktx2",
+      "bytes": 18839,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-abf87d455de4.ktx2",
+      "bytes": 494502,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-08ea0efd9d1b.ktx2",
+      "bytes": 33751,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-4ccb12355cd9.ktx2",
+      "bytes": 99472,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-94b7d4f5d10e.ktx2",
+      "bytes": 266662,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-0c0ea0c47edc.ktx2",
+      "bytes": 46992,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-d544e8269e90.ktx2",
+      "bytes": 17668,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-e4f2915ef16e.ktx2",
+      "bytes": 367617,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/chair-stone-beam-westport-stone-brown/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 24364,
+      "vertices": 15120,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 152883,
+      "bounds": {
+        "min": [
+          -0.4572,
+          0,
+          -0.479426
+        ],
+        "max": [
+          0.457202,
+          0.838203,
+          0.479426
+        ],
+        "size": [
+          0.914402,
+          0.838203,
+          0.958851
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/chair-stone-beam-westport-stone-brown/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 9744,
+      "vertices": 7513,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 77888,
+      "bounds": {
+        "min": [
+          -0.4572,
+          0,
+          -0.479407
+        ],
+        "max": [
+          0.457194,
+          0.838205,
+          0.478945
+        ],
+        "size": [
+          0.914393,
+          0.838205,
+          0.958351
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/chair-stone-beam-westport-stone-brown/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 3120,
+      "vertices": 3686,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 37013,
+      "bounds": {
+        "min": [
+          -0.457199,
+          0.00085,
+          -0.479407
+        ],
+        "max": [
+          0.457199,
+          0.838197,
+          0.478766
+        ],
+        "size": [
+          0.914398,
+          0.837347,
+          0.958173
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}
