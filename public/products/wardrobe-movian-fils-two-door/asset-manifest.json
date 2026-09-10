@@ -1,0 +1,273 @@
+{
+  "productId": "wardrobe-movian-fils-two-door",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/G/B07JGMW8DG.glb",
+    "sha256": "6f009475289a6de4983d58d0665a29f064261cd3f328ea81b01fa73ffa900ca6",
+    "bytes": 14243932,
+    "bounds": {
+      "min": [
+        -0.429998,
+        0,
+        -0.3
+      ],
+      "max": [
+        0.430002,
+        2.04,
+        0.3
+      ],
+      "size": [
+        0.86,
+        2.04,
+        0.6
+      ]
+    },
+    "triangles": 9762
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.429998,
+        0,
+        -0.3
+      ],
+      "max": [
+        0.430002,
+        2.04,
+        0.3
+      ],
+      "size": [
+        0.86,
+        2.04,
+        0.6
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        -0.000002000000000002,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 307984,
+    "sharedBytes": 205139
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-2b45b127b6a8.ktx2",
+      "bytes": 1830,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-6952cae7a549.ktx2",
+      "bytes": 966,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-eb37aeb67e79.ktx2",
+      "bytes": 1270,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-84a46b039749.ktx2",
+      "bytes": 8394,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-9f9dae5084a9.ktx2",
+      "bytes": 16009,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-d8d05ac33a86.ktx2",
+      "bytes": 4632,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-305b085ca571.ktx2",
+      "bytes": 45995,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-82b0accaf3d9.ktx2",
+      "bytes": 14255,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-db37887637b3.ktx2",
+      "bytes": 111788,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/wardrobe-movian-fils-two-door/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 9762,
+      "vertices": 6598,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 56957,
+      "bounds": {
+        "min": [
+          -0.429998,
+          0,
+          -0.3
+        ],
+        "max": [
+          0.430018,
+          2.04,
+          0.3
+        ],
+        "size": [
+          0.860016,
+          2.04,
+          0.6
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/wardrobe-movian-fils-two-door/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 3904,
+      "vertices": 3003,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 30320,
+      "bounds": {
+        "min": [
+          -0.429998,
+          0,
+          -0.3
+        ],
+        "max": [
+          0.430018,
+          2.04,
+          0.3
+        ],
+        "size": [
+          0.860016,
+          2.04,
+          0.6
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/wardrobe-movian-fils-two-door/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 1170,
+      "vertices": 1142,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 15568,
+      "bounds": {
+        "min": [
+          -0.429998,
+          0.000019,
+          -0.3
+        ],
+        "max": [
+          0.43001,
+          2.04,
+          0.299995
+        ],
+        "size": [
+          0.860008,
+          2.039981,
+          0.599994
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

@@ -12,6 +12,12 @@ const centimetres = (value: number) => `${Math.round(value * 100)} cm`;
 const kilobytes = (bytes: number) => `${(bytes / 1024).toFixed(0)} kB`;
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 
+export function attributionStatusPresentation(status: Product['attribution']['licenseStatus']) {
+  return status === 'conflicting-source-records'
+    ? { className: 'warning', testId: 'license-conflict' }
+    : { className: 'subtle', testId: 'license-status' };
+}
+
 function WallLabel({ room, wallId }: { room: RoomShell; wallId: string }) {
   const wall = room.walls.find((candidate) => candidate.id === wallId);
   return <>{wall ? wall.label.toLowerCase() : wallId}</>;
@@ -27,7 +33,8 @@ export function DesignPanel({
   fit: FitResult;
 }) {
   const { widthM, heightM, depthM } = product.dimensionsM;
-  const budgetLimit = 5 * 1024 * 1024;
+  const budgetLimit = 5_000_000;
+  const attributionStatus = attributionStatusPresentation(product.attribution.licenseStatus);
 
   return (
     <aside className="panel" data-testid="design-panel">
@@ -38,11 +45,6 @@ export function DesignPanel({
         <p className="subtle">
           {product.brand} · {product.colour}
         </p>
-        <ul className="tags">
-          {product.styleTags.map((tag) => (
-            <li key={tag}>{tag}</li>
-          ))}
-        </ul>
       </header>
 
       <section>
@@ -169,7 +171,7 @@ export function DesignPanel({
           >
             {product.attribution.source}
           </a>
-          , © {product.attribution.holder}, licensed{' '}
+          , © {product.attribution.holder}. The archive records{' '}
           <a
             data-testid="attribution-license"
             href={product.attribution.licenseUrl}
@@ -179,6 +181,12 @@ export function DesignPanel({
             {product.attribution.license}
           </a>
           . {product.attribution.modifications}
+        </p>
+        <p
+          className={attributionStatus.className}
+          data-testid={attributionStatus.testId}
+        >
+          {product.attribution.licenseNote}
         </p>
         <p className="subtle">
           Source file:{' '}

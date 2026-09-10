@@ -1,8 +1,8 @@
 """Catalogue contract and configured implementation."""
-from .contract import Catalogue, CatalogueQuery
-from .providers.abo import abo_products, dimension_evidence
+from .contract import Catalogue, CatalogueEntry, CatalogueQuery
+from .providers.abo import abo_entries, catalogue_version, dimension_evidence
 from .static import StaticCatalogue
 
-catalogue: Catalogue = StaticCatalogue(abo_products())
+catalogue: Catalogue = StaticCatalogue(catalogue_version(), abo_entries())
 
-__all__ = ["Catalogue", "CatalogueQuery", "StaticCatalogue", "catalogue", "dimension_evidence"]
+__all__ = ["Catalogue", "CatalogueEntry", "CatalogueQuery", "StaticCatalogue", "catalogue", "dimension_evidence"]

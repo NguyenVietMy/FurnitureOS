@@ -4,6 +4,9 @@ from copy import deepcopy
 import json
 
 import pytest
+from fastapi.testclient import TestClient
+
+from api.main import create_app
 
 
 def validation_body(design: dict) -> dict:
@@ -30,6 +33,22 @@ def test_preview_is_a_complete_api_backed_design(client) -> None:
 
 def test_preview_is_byte_deterministic(client) -> None:
     assert client.get("/api/preview-design").content == client.get("/api/preview-design").content
+
+
+def test_catalogue_gallery_is_absent_from_the_default_application(client) -> None:
+    assert client.get("/api/catalogue-gallery").status_code == 404
+
+
+def test_controlled_catalogue_gallery_exposes_products_but_not_private_styles() -> None:
+    controlled = TestClient(create_app(enable_catalogue_gallery=True))
+    response = controlled.get("/api/catalogue-gallery")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["catalogueVersion"]
+    assert len(body["products"]) == 20
+    serialized = response.text
+    assert "privateStyle" not in serialized
+    assert "Warm Minimal" not in serialized
 
 
 def test_validation_accepts_the_preview_placement(client, design_body) -> None:

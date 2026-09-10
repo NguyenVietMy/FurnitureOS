@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from math import isfinite
+import os
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import unquote
@@ -13,9 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .catalogue import catalogue
 from .design import bedroom_design
 from .domain import validate_placement
-from .models import FitResult, Health, PlacementValidationRequest, PreviewDesign
+from .models import CatalogueGallery, FitResult, Health, PlacementValidationRequest, PreviewDesign
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,11 +34,16 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def create_app(root: Path = ROOT) -> FastAPI:
+def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) -> FastAPI:
     """Build the API and bind static roots explicitly for tests and deployment."""
     public = root / "public"
     dist = root / "dist"
     application = FastAPI(title="FurnitureOS Preview API", version="0.2.0")
+    gallery_enabled = (
+        os.environ.get("FURNITUREOS_ENABLE_CATALOGUE_GALLERY") == "1"
+        if enable_catalogue_gallery is None
+        else enable_catalogue_gallery
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -56,6 +63,14 @@ def create_app(root: Path = ROOT) -> FastAPI:
     @application.get("/api/preview-design", response_model=PreviewDesign)
     def get_preview_design() -> PreviewDesign:
         return bedroom_design()
+
+    if gallery_enabled:
+        @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)
+        def get_catalogue_gallery() -> CatalogueGallery:
+            return CatalogueGallery(
+                catalogueVersion=catalogue.version,
+                products=catalogue.list(),
+            )
 
     @application.post("/api/placement-validation", response_model=FitResult)
     def placement_validation(request: PlacementValidationRequest) -> FitResult:

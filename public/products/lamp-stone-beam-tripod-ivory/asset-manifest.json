@@ -1,0 +1,273 @@
+{
+  "productId": "lamp-stone-beam-tripod-ivory",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/8/B0742F7GT8.glb",
+    "sha256": "e9fc69142cbf06a815f394cbacc9b153df6323c9df435b2b2c26c8ed94b550ec",
+    "bytes": 1298540,
+    "bounds": {
+      "min": [
+        -0.242272,
+        0,
+        -0.242247
+      ],
+      "max": [
+        0.240984,
+        1.553336,
+        0.240377
+      ],
+      "size": [
+        0.483256,
+        1.553336,
+        0.482623
+      ]
+    },
+    "triangles": 17412
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.241628,
+        0,
+        -0.241312
+      ],
+      "max": [
+        0.241628,
+        1.553336,
+        0.241312
+      ],
+      "size": [
+        0.483256,
+        1.553336,
+        0.482623
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0.0006439999999999918,
+        0,
+        0.0009349999999999914
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 924353,
+    "sharedBytes": 757681
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-a10d213aa6de.ktx2",
+      "bytes": 27747,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-b39bac24ca33.ktx2",
+      "bytes": 2487,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-d7a88ed35169.ktx2",
+      "bytes": 1318,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-14cb2efae3ff.ktx2",
+      "bytes": 11436,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-347dc24e9bb8.ktx2",
+      "bytes": 6090,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-f54485f800f3.ktx2",
+      "bytes": 28050,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-0d8c8ab20fe1.ktx2",
+      "bytes": 54142,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-518d979a8f8e.ktx2",
+      "bytes": 146029,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-8820545cb3b4.ktx2",
+      "bytes": 480382,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/lamp-stone-beam-tripod-ivory/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 17412,
+      "vertices": 11005,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 95235,
+      "bounds": {
+        "min": [
+          -0.241628,
+          0,
+          -0.241312
+        ],
+        "max": [
+          0.241616,
+          1.553336,
+          0.241316
+        ],
+        "size": [
+          0.483244,
+          1.553336,
+          0.482628
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/lamp-stone-beam-tripod-ivory/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 6962,
+      "vertices": 5018,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 49622,
+      "bounds": {
+        "min": [
+          -0.241628,
+          0,
+          -0.241312
+        ],
+        "max": [
+          0.241616,
+          1.553336,
+          0.241316
+        ],
+        "size": [
+          0.483244,
+          1.553336,
+          0.482628
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/lamp-stone-beam-tripod-ivory/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 2088,
+      "vertices": 1793,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 21815,
+      "bounds": {
+        "min": [
+          -0.241628,
+          0,
+          -0.241312
+        ],
+        "max": [
+          0.241616,
+          1.553336,
+          0.241316
+        ],
+        "size": [
+          0.483244,
+          1.553336,
+          0.482628
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

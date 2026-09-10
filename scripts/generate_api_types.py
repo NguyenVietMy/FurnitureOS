@@ -10,7 +10,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from api.main import application as app
+from api.main import create_app  # noqa: E402 - ROOT must be importable first.
+
+# Generate the complete typed contract, including the explicitly gated
+# measurement endpoint. Runtime registration remains disabled by default.
+app = create_app(enable_catalogue_gallery=True)
 
 TARGET = ROOT / "src" / "shared" / "api" / "types.ts"
 

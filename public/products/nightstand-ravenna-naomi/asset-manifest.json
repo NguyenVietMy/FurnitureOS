@@ -1,0 +1,273 @@
+{
+  "productId": "nightstand-ravenna-naomi",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B07DVVKD85.glb",
+    "sha256": "2e5e035df3cce84511b3dd58bb8440602972eaf95f628de181a4d842ee74b1ea",
+    "bytes": 899804,
+    "bounds": {
+      "min": [
+        -0.224785,
+        0,
+        -0.173204
+      ],
+      "max": [
+        0.224785,
+        0.680337,
+        0.176899
+      ],
+      "size": [
+        0.449571,
+        0.680337,
+        0.350103
+      ]
+    },
+    "triangles": 7290
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.224785,
+        0,
+        -0.175052
+      ],
+      "max": [
+        0.224785,
+        0.680337,
+        0.175051
+      ],
+      "size": [
+        0.449571,
+        0.680337,
+        0.350103
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        -0.001847500000000002
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 122440,
+    "sharedBytes": 30457
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-6952cae7a549.ktx2",
+      "bytes": 966,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-ea9ba9d7aac0.ktx2",
+      "bytes": 1853,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-eb37aeb67e79.ktx2",
+      "bytes": 1270,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-1c8c483d765d.ktx2",
+      "bytes": 6767,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-5d15c8432e3a.ktx2",
+      "bytes": 3206,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-71f706d60bef.ktx2",
+      "bytes": 1803,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-0284b3a2dcca.ktx2",
+      "bytes": 1711,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-242cdc51c931.ktx2",
+      "bytes": 9651,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-b124355c1cf7.ktx2",
+      "bytes": 3230,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/nightstand-ravenna-naomi/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 7290,
+      "vertices": 4702,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 49455,
+      "bounds": {
+        "min": [
+          -0.224785,
+          0,
+          -0.175052
+        ],
+        "max": [
+          0.224786,
+          0.680337,
+          0.175046
+        ],
+        "size": [
+          0.449571,
+          0.680337,
+          0.350098
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/nightstand-ravenna-naomi/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 2916,
+      "vertices": 2350,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 27417,
+      "bounds": {
+        "min": [
+          -0.224785,
+          0,
+          -0.175052
+        ],
+        "max": [
+          0.224786,
+          0.680337,
+          0.175046
+        ],
+        "size": [
+          0.449571,
+          0.680337,
+          0.350098
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/nightstand-ravenna-naomi/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 874,
+      "vertices": 1065,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 15111,
+      "bounds": {
+        "min": [
+          -0.224538,
+          0.001272,
+          -0.175052
+        ],
+        "max": [
+          0.224535,
+          0.680337,
+          0.174879
+        ],
+        "size": [
+          0.449073,
+          0.679064,
+          0.34993
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

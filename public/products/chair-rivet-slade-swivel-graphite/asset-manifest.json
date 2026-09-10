@@ -1,0 +1,300 @@
+{
+  "productId": "chair-rivet-slade-swivel-graphite",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/Y/B0854SQFCY.glb",
+    "sha256": "6998191c3fe8da6bac4c38fac7080cd24eeaf2b8e06e65dd16ee558ed849e6da",
+    "bytes": 56629636,
+    "bounds": {
+      "min": [
+        -0.344468,
+        0,
+        -0.344982
+      ],
+      "max": [
+        0.344956,
+        0.719127,
+        0.314889
+      ],
+      "size": [
+        0.689424,
+        0.719127,
+        0.659871
+      ]
+    },
+    "triangles": 22242
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.344712,
+        0,
+        -0.329936
+      ],
+      "max": [
+        0.344712,
+        0.719127,
+        0.329936
+      ],
+      "size": [
+        0.689424,
+        0.719127,
+        0.659871
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        -0.00024399999999999422,
+        0,
+        0.015046500000000018
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1997939,
+    "sharedBytes": 1772436
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-ac56d11bff67.ktx2",
+      "bytes": 161720,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-c750ba0dc012.ktx2",
+      "bytes": 35241,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-f4be6b05f8b4.ktx2",
+      "bytes": 687191,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-10b39e645654.ktx2",
+      "bytes": 2525,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-64792c5ae94f.ktx2",
+      "bytes": 4167,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-689e1949e376.ktx2",
+      "bytes": 7320,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-2103670e281f.ktx2",
+      "bytes": 649845,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-5a82f20de4b4.ktx2",
+      "bytes": 53759,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-d9b65f245b6d.ktx2",
+      "bytes": 170668,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/chair-rivet-slade-swivel-graphite/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 22242,
+      "vertices": 12598,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 135922,
+      "bounds": {
+        "min": [
+          -0.344712,
+          0,
+          -0.329936
+        ],
+        "max": [
+          0.34471,
+          0.719127,
+          0.329936
+        ],
+        "size": [
+          0.689422,
+          0.719127,
+          0.659872
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/chair-rivet-slade-swivel-graphite/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 8896,
+      "vertices": 5322,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 63608,
+      "bounds": {
+        "min": [
+          -0.344706,
+          0,
+          -0.329936
+        ],
+        "max": [
+          0.344712,
+          0.719122,
+          0.329932
+        ],
+        "size": [
+          0.689418,
+          0.719122,
+          0.659867
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.0000060000000000060005
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/chair-rivet-slade-swivel-graphite/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 2668,
+      "vertices": 1847,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 25973,
+      "bounds": {
+        "min": [
+          -0.344693,
+          0,
+          -0.327991
+        ],
+        "max": [
+          0.344692,
+          0.718882,
+          0.327992
+        ],
+        "size": [
+          0.689385,
+          0.718882,
+          0.655983
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0.000013499999999999623,
+          -0.000086,
+          -0.0019405000000000117
+        ],
+        "maxAbsTranslationM": 0.0019405000000000117,
+        "maxBoundsDeltaFromLod0M": 0.00194500000000003
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

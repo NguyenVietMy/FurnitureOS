@@ -32,13 +32,17 @@ Each feature stylesheet nests beneath `html[data-feature]`. App selects that sco
 
 `public/images` and `public/icon.svg` preserve the landing files and [credits](landing/assets.md). Normal image elements retain the previous absolute fill, object fit and aspect ratios; they now deliver the original local JPEGs without an image optimization server. `src/app/global.css` references the exact Fontsource 5.3.0 Latin WOFF2 files previously used by the landing. Vite emits their hashes locally, with the same Manrope 200–800 and Roboto Mono 400 faces and swap behavior.
 
-`public/products` stays byte-identical to the approved snapshot. Prebuild copies the Catalogue manifest for Python packaging and BasisU decoders for same-origin delivery. `npm run assets:report` checks the 1,298,091-byte Product budget. Generated decoder/build output stays ignored.
+`public/products` contains the 20 curated, normalized Product publications. Prebuild copies their Catalogue manifests for Python packaging and BasisU decoders for same-origin delivery. `npm run assets:report` remeasures every Product against the strict decimal `< 5,000,000`-byte threshold and counts shared paths once. Generated decoder/build output stays ignored.
+
+## Controlled Catalogue measurement
+
+The ordinary app does not expose `/catalogue-gallery` or `/api/catalogue-gallery`. Run `npm run build:measurement`, then start FastAPI with `FURNITUREOS_ENABLE_CATALOGUE_GALLERY=1` only for the approved physical-device protocol. The controlled page uses one WebGL context and one shared KTX2 decoder pool, loads LOD2 before LOD1 and LOD0, records actual rendered-frame events in `window.__catalogueMeasurement`, reports asset failures, and exports run JSON. `dist/measurement-build.json` freezes the build and Catalogue identities. See `docs/product-assets.md` and the external ticket protocol before recording evidence.
 
 ## Change and verify
 
 Edit generated API types by changing the authoritative Pydantic contract and running `npm run api:types`; `npm run typecheck` includes freshness validation. Keep direct imports and feature-local state; shared code needs a real consumer rather than a prospective abstraction.
 
-Run root `npm run typecheck`, `npm run test -- --run`, `uv run pytest`, `npm run build`, `npm run assets:report`, and `npm run test:e2e`. The browser runner owns a fresh FastAPI server on port 3101 and stops it afterward. Install Chromium with `npx playwright install chromium` once. Tests include all 24 accepted landing cases, extra boundary frame checks, the three accepted Room cases and integration coverage. Screenshots go to ignored `test-results/screenshots`.
+Run root `npm run typecheck`, `npm run test -- --run`, `uv run pytest`, `npm run build`, `npm run assets:report`, and `npm run test:e2e`. The browser runner owns fresh FastAPI servers on port 3101 and stops them afterward. It runs ordinary regressions against the gallery-free build, then separately runs controlled gallery instrumentation/error tests against a measurement build, and finally restores ordinary `dist`. Install Chromium with `npx playwright install chromium` once. Ticket-specific gallery evidence is written outside the checkout under the artifact directory.
 
 The Vercel config builds this root Vite app, sends `/api/*` to `api/index.py`, and limits SPA fallback to extensionless non-asset app routes. No deployment or project configuration change is implied by this guide. The historical `web/` Next.js app has been retired; old plans and captures under `docs/landing` remain provenance, not startup instructions.
 

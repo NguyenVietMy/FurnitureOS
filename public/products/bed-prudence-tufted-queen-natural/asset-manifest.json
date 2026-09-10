@@ -29,23 +29,51 @@
     "upAxis": "+y",
     "frontAxis": "+z",
     "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.847913,
+        0,
+        -1.116495
+      ],
+      "max": [
+        0.847913,
+        1.425926,
+        1.116495
+      ],
+      "size": [
+        1.695826,
+        1.425926,
+        2.23299
+      ]
+    },
     "appliedTransform": {
       "translation": [
         0,
         0,
-        0
+        0.000013000000000040757
       ],
       "rotationYaw": 0,
       "scale": 1
     },
-    "note": "The upstream collection guarantees metres, +Y up, +Z front and floor contact at Y=0, so the pipeline applies an identity transform and records measured bounds as evidence that the guarantee held for this Product."
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
   },
   "budget": {
-    "limitBytes": 5242880,
-    "totalCompressedBytes": 1298091,
-    "sharedBytes": 715997
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1563719,
+    "sharedBytes": 981377
   },
   "sharedTextures": [
+    {
+      "file": "textures/source-tex0-de66f59dab59.ktx2",
+      "bytes": 8249,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
     {
       "file": "textures/source-tex0-eba4181710b1.ktx2",
       "bytes": 66438,
@@ -54,6 +82,28 @@
       "height": 2048,
       "faceCount": 1,
       "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-f5e3f8ae7a5c.ktx2",
+      "bytes": 22920,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-04fcc0381f64.ktx2",
+      "bytes": 23604,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
       "supercompressionScheme": 1,
       "supercompression": "BasisLZ"
     },
@@ -69,6 +119,28 @@
       "supercompression": "BasisLZ"
     },
     {
+      "file": "textures/source-tex1-90ba4a984e4c.ktx2",
+      "bytes": 11839,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-3e76915a3a0c.ktx2",
+      "bytes": 153130,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
       "file": "textures/source-tex2-ea6b8f7be83f.ktx2",
       "bytes": 602690,
       "vkFormat": 0,
@@ -78,6 +150,17 @@
       "levelCount": 12,
       "supercompressionScheme": 1,
       "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-fa45873f227a.ktx2",
+      "bytes": 45638,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
     }
   ],
   "lods": [
@@ -85,6 +168,7 @@
       "level": 0,
       "url": "/products/bed-prudence-tufted-queen-natural/lod0.gltf",
       "simplifyRatio": 1,
+      "textureMaxPx": 2048,
       "triangles": 65470,
       "vertices": 36801,
       "files": [
@@ -96,12 +180,12 @@
         "min": [
           -0.847913,
           0,
-          -1.116508
+          -1.116495
         ],
         "max": [
           0.847912,
           1.425931,
-          1.116482
+          1.116495
         ],
         "size": [
           1.695825,
@@ -119,23 +203,24 @@
       "level": 1,
       "url": "/products/bed-prudence-tufted-queen-natural/lod1.gltf",
       "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
       "triangles": 26188,
       "vertices": 15468,
       "files": [
         "lod1.gltf",
         "lod1.bin"
       ],
-      "exclusiveBytes": 165452,
+      "exclusiveBytes": 165696,
       "bounds": {
         "min": [
           -0.847323,
           0,
-          -1.116482
+          -1.116469
         ],
         "max": [
           0.847768,
           1.425915,
-          1.116482
+          1.116495
         ],
         "size": [
           1.69509,
@@ -153,23 +238,24 @@
       "level": 2,
       "url": "/products/bed-prudence-tufted-queen-natural/lod2.gltf",
       "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
       "triangles": 7856,
-      "vertices": 5358,
+      "vertices": 5359,
       "files": [
         "lod2.gltf",
         "lod2.bin"
       ],
-      "exclusiveBytes": 61691,
+      "exclusiveBytes": 61695,
       "bounds": {
         "min": [
           -0.845928,
           0,
-          -1.116482
+          -1.116469
         ],
         "max": [
           0.84653,
           1.425928,
-          1.11629
+          1.116303
         ],
         "size": [
           1.692457,

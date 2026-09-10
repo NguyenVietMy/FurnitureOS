@@ -17,7 +17,7 @@
  "buffers": [
   {
    "uri": "lod1.bin",
-   "byteLength": 160932
+   "byteLength": 161176
   },
   {
    "byteLength": 404616,
@@ -39,7 +39,7 @@
     "EXT_meshopt_compression": {
      "buffer": 0,
      "byteOffset": 0,
-     "byteLength": 29587,
+     "byteLength": 29573,
      "byteStride": 4,
      "mode": "ATTRIBUTES",
      "filter": "OCTAHEDRAL",
@@ -56,8 +56,8 @@
    "extensions": {
     "EXT_meshopt_compression": {
      "buffer": 0,
-     "byteOffset": 29588,
-     "byteLength": 66561,
+     "byteOffset": 29576,
+     "byteLength": 66619,
      "byteStride": 8,
      "mode": "ATTRIBUTES",
      "count": 15468
@@ -73,8 +73,8 @@
    "extensions": {
     "EXT_meshopt_compression": {
      "buffer": 0,
-     "byteOffset": 96152,
-     "byteLength": 34345,
+     "byteOffset": 96196,
+     "byteLength": 34474,
      "byteStride": 4,
      "mode": "ATTRIBUTES",
      "count": 15468
@@ -89,8 +89,8 @@
    "extensions": {
     "EXT_meshopt_compression": {
      "buffer": 0,
-     "byteOffset": 130500,
-     "byteLength": 30431,
+     "byteOffset": 130672,
+     "byteLength": 30503,
      "byteStride": 2,
      "mode": "TRIANGLES",
      "count": 78564
@@ -146,15 +146,15 @@
  "images": [
   {
    "name": "Normal_31f0b13e-9011-4951-ac48-e157f015bdb3.png",
-   "uri": "textures/source-tex0-eba4181710b1.ktx2"
+   "uri": "textures/source-tex0-f5e3f8ae7a5c.ktx2"
   },
   {
    "name": "ao_met_rough_Metallic_21f5a0a6-55f7-4f34-8b62-7a31bfbc2c6d_Roughness_e77a9440-c234-481e-8b21-5a89e7e55d8e",
-   "uri": "textures/source-tex1-33c75c04f83a.ktx2"
+   "uri": "textures/source-tex1-04fcc0381f64.ktx2"
   },
   {
    "name": "Albedo_f70fedce-3b4e-475b-8abd-77ca611e6b46.jpg",
-   "uri": "textures/source-tex2-ea6b8f7be83f.ktx2"
+   "uri": "textures/source-tex2-3e76915a3a0c.ktx2"
   }
  ],
  "textures": [
@@ -256,7 +256,7 @@
    "translation": [
     -0.847322524,
     0,
-    -1.11648202
+    -1.11646903
    ],
    "scale": [
     0.0000340728511,

@@ -1,0 +1,273 @@
+{
+  "productId": "nightstand-movian-havel-grey-white",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/H/B07GFRKNNH.glb",
+    "sha256": "ed9c181ca41d8d284c8ebb896737300922c8a98be5cc1725c723893ee2a1b3f9",
+    "bytes": 3150960,
+    "bounds": {
+      "min": [
+        -0.213017,
+        0,
+        -0.172828
+      ],
+      "max": [
+        0.213805,
+        0.447783,
+        0.17414
+      ],
+      "size": [
+        0.426822,
+        0.447783,
+        0.346969
+      ]
+    },
+    "triangles": 1296
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.213411,
+        0,
+        -0.173484
+      ],
+      "max": [
+        0.213411,
+        0.447783,
+        0.173484
+      ],
+      "size": [
+        0.426822,
+        0.447783,
+        0.346969
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        -0.0003939999999999916,
+        0,
+        -0.0006559999999999899
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1792424,
+    "sharedBytes": 1756169
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-1326ff183c81.ktx2",
+      "bytes": 124427,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-51dc86650e90.ktx2",
+      "bytes": 22243,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-dd72c3cb6819.ktx2",
+      "bytes": 494590,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-1853dfab5787.ktx2",
+      "bytes": 521208,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-994e803d84f6.ktx2",
+      "bytes": 50713,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-eccfe1c1675a.ktx2",
+      "bytes": 148277,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-19f1f9f4bd7f.ktx2",
+      "bytes": 282138,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-420becf99d41.ktx2",
+      "bytes": 23797,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-673ce94ad6ec.ktx2",
+      "bytes": 88776,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/nightstand-movian-havel-grey-white/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 1296,
+      "vertices": 1184,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 15580,
+      "bounds": {
+        "min": [
+          -0.213411,
+          0,
+          -0.173484
+        ],
+        "max": [
+          0.21341,
+          0.447783,
+          0.173482
+        ],
+        "size": [
+          0.426821,
+          0.447783,
+          0.346966
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/nightstand-movian-havel-grey-white/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 624,
+      "vertices": 596,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 10919,
+      "bounds": {
+        "min": [
+          -0.213411,
+          0.000205,
+          -0.173484
+        ],
+        "max": [
+          0.213413,
+          0.447783,
+          0.173487
+        ],
+        "size": [
+          0.426824,
+          0.447579,
+          0.346972
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/nightstand-movian-havel-grey-white/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 408,
+      "vertices": 490,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 9756,
+      "bounds": {
+        "min": [
+          -0.213062,
+          0.000142,
+          -0.173484
+        ],
+        "max": [
+          0.213063,
+          0.447783,
+          0.17299
+        ],
+        "size": [
+          0.426125,
+          0.447642,
+          0.346474
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

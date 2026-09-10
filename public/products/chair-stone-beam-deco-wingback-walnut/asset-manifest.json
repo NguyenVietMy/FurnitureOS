@@ -1,0 +1,273 @@
+{
+  "productId": "chair-stone-beam-deco-wingback-walnut",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/8/B0746H7RL8.glb",
+    "sha256": "71545290d439163e1521a140d7fbd754f8b17c05b0c185fd5fa5b2ae0b21aadf",
+    "bytes": 57846120,
+    "bounds": {
+      "min": [
+        -0.3461,
+        0,
+        -0.4572
+      ],
+      "max": [
+        0.3461,
+        1.047798,
+        0.4572
+      ],
+      "size": [
+        0.6922,
+        1.047797,
+        0.914399
+      ]
+    },
+    "triangles": 65384
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.3461,
+        0,
+        -0.4572
+      ],
+      "max": [
+        0.3461,
+        1.047798,
+        0.4572
+      ],
+      "size": [
+        0.6922,
+        1.047797,
+        0.914399
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 2319925,
+    "sharedBytes": 1769228
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-8a6ec537b199.ktx2",
+      "bytes": 53360,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-b8b836edf276.ktx2",
+      "bytes": 656928,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-d76b38b662dd.ktx2",
+      "bytes": 175857,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-1d75e1738566.ktx2",
+      "bytes": 3637,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-3ff29ca69749.ktx2",
+      "bytes": 2199,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-9f066f9a6649.ktx2",
+      "bytes": 6508,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-7f0f64c7e98f.ktx2",
+      "bytes": 683084,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-cc220c53a155.ktx2",
+      "bytes": 155985,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-e607336b9b24.ktx2",
+      "bytes": 31670,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/chair-stone-beam-deco-wingback-walnut/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 65384,
+      "vertices": 34991,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 334626,
+      "bounds": {
+        "min": [
+          -0.3461,
+          0,
+          -0.4572
+        ],
+        "max": [
+          0.3461,
+          1.047798,
+          0.457207
+        ],
+        "size": [
+          0.6922,
+          1.047797,
+          0.914407
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/chair-stone-beam-deco-wingback-walnut/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 26152,
+      "vertices": 14786,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 158026,
+      "bounds": {
+        "min": [
+          -0.345909,
+          0,
+          -0.4572
+        ],
+        "max": [
+          0.346099,
+          1.047798,
+          0.457207
+        ],
+        "size": [
+          0.692008,
+          1.047797,
+          0.914407
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/chair-stone-beam-deco-wingback-walnut/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 7846,
+      "vertices": 4956,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 58045,
+      "bounds": {
+        "min": [
+          -0.345583,
+          0,
+          -0.456838
+        ],
+        "max": [
+          0.345916,
+          1.04734,
+          0.456642
+        ],
+        "size": [
+          0.691498,
+          1.04734,
+          0.91348
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

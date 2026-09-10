@@ -1,0 +1,273 @@
+{
+  "productId": "dresser-stone-beam-brecken-brown",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/G/B07B51N75G.glb",
+    "sha256": "f63683286cef2d135873f0cd607b925862fd3d592a04a61a760669435b665342",
+    "bytes": 4504180,
+    "bounds": {
+      "min": [
+        -0.699871,
+        0,
+        -0.216842
+      ],
+      "max": [
+        0.699871,
+        0.872875,
+        0.228778
+      ],
+      "size": [
+        1.399742,
+        0.872875,
+        0.44562
+      ]
+    },
+    "triangles": 76646
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.699871,
+        0,
+        -0.22281
+      ],
+      "max": [
+        0.699871,
+        0.872875,
+        0.22281
+      ],
+      "size": [
+        1.399742,
+        0.872875,
+        0.44562
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        -0.005968000000000001
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1875036,
+    "sharedBytes": 962648
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-29dc5c343647.ktx2",
+      "bytes": 5849,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-bc725d589368.ktx2",
+      "bytes": 1988,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-e9106954c135.ktx2",
+      "bytes": 1151,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-19ee6b174e89.ktx2",
+      "bytes": 3475,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-b58924150c3c.ktx2",
+      "bytes": 2205,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-f20b0c58c447.ktx2",
+      "bytes": 7098,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-08b08c7e655a.ktx2",
+      "bytes": 65101,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-e2ee85de4860.ktx2",
+      "bytes": 190579,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-f6a6068dae35.ktx2",
+      "bytes": 685202,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/dresser-stone-beam-brecken-brown/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 76646,
+      "vertices": 68743,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 485008,
+      "bounds": {
+        "min": [
+          -0.699871,
+          0,
+          -0.22281
+        ],
+        "max": [
+          0.699871,
+          0.872866,
+          0.222818
+        ],
+        "size": [
+          1.399742,
+          0.872866,
+          0.445628
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/dresser-stone-beam-brecken-brown/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 30658,
+      "vertices": 34612,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 268466,
+      "bounds": {
+        "min": [
+          -0.699871,
+          0,
+          -0.22281
+        ],
+        "max": [
+          0.699871,
+          0.872866,
+          0.222818
+        ],
+        "size": [
+          1.399742,
+          0.872866,
+          0.445628
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/dresser-stone-beam-brecken-brown/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 12088,
+      "vertices": 19163,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 158914,
+      "bounds": {
+        "min": [
+          -0.699871,
+          0.00074,
+          -0.22231
+        ],
+        "max": [
+          0.699871,
+          0.87288,
+          0.222762
+        ],
+        "size": [
+          1.399742,
+          0.87214,
+          0.445072
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

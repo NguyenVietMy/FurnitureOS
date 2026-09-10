@@ -1,0 +1,273 @@
+{
+  "productId": "bed-rivet-jonathan-queen-walnut",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/N/B07B4SBZFN.glb",
+    "sha256": "cd2caacfc8fc5ebbea0b0bfe9b6173e43c273b010b2ca8a68b3cc8df4224a016",
+    "bytes": 2732916,
+    "bounds": {
+      "min": [
+        -0.831541,
+        0,
+        -1.115766
+      ],
+      "max": [
+        0.831541,
+        1.35627,
+        1.115956
+      ],
+      "size": [
+        1.663081,
+        1.35627,
+        2.231722
+      ]
+    },
+    "triangles": 19316
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.831541,
+        0,
+        -1.115861
+      ],
+      "max": [
+        0.831541,
+        1.35627,
+        1.115861
+      ],
+      "size": [
+        1.663081,
+        1.35627,
+        2.231722
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        -0.00009499999999995623
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1430163,
+    "sharedBytes": 1242162
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-8558560213f4.ktx2",
+      "bytes": 13799,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-98ee533551f7.ktx2",
+      "bytes": 407615,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-b607144908c9.ktx2",
+      "bytes": 74725,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-03133c5a0b88.ktx2",
+      "bytes": 2974,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-45c3efc602d7.ktx2",
+      "bytes": 4932,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-872ea47e1473.ktx2",
+      "bytes": 10605,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-26277b02d671.ktx2",
+      "bytes": 147317,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-747917caf019.ktx2",
+      "bytes": 529266,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-d2c4bef205ec.ktx2",
+      "bytes": 50929,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/bed-rivet-jonathan-queen-walnut/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 19316,
+      "vertices": 11136,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 108527,
+      "bounds": {
+        "min": [
+          -0.831541,
+          0,
+          -1.115861
+        ],
+        "max": [
+          0.831549,
+          1.356264,
+          1.115861
+        ],
+        "size": [
+          1.66309,
+          1.356264,
+          2.231722
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/bed-rivet-jonathan-queen-walnut/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 7726,
+      "vertices": 5068,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 54504,
+      "bounds": {
+        "min": [
+          -0.831541,
+          0,
+          -1.115861
+        ],
+        "max": [
+          0.831549,
+          1.356264,
+          1.115861
+        ],
+        "size": [
+          1.66309,
+          1.356264,
+          2.231722
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/bed-rivet-jonathan-queen-walnut/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 2316,
+      "vertices": 2084,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 24970,
+      "bounds": {
+        "min": [
+          -0.831541,
+          0.000582,
+          -1.115861
+        ],
+        "max": [
+          0.83155,
+          1.356275,
+          1.114081
+        ],
+        "size": [
+          1.663091,
+          1.355693,
+          2.229942
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

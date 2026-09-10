@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { repoPath } from './paths.mjs';
 
 /**
  * gltfpack does meshopt compression, LOD simplification and KTX2/BasisU texture
@@ -20,7 +20,9 @@ const RELEASE_ASSETS = {
   darwin: 'gltfpack-macos.zip',
 };
 
-const TOOLS_DIR = repoPath('tools');
+const TOOLS_DIR = process.env.FURNITUREOS_ASSET_TOOLS_DIR
+  ? path.resolve(process.env.FURNITUREOS_ASSET_TOOLS_DIR)
+  : path.join(tmpdir(), 'furnitureos-assets', 'tools');
 
 function binaryName() {
   return process.platform === 'win32' ? 'gltfpack.exe' : 'gltfpack';
@@ -44,7 +46,8 @@ async function extractZip(zipPath, destDir) {
 
 /**
  * Returns the path to a native gltfpack that supports BasisU, downloading the
- * pinned release into `tools/` on first use. Set GLTFPACK_PATH to use your own.
+ * pinned release outside the checkout on first use. Set GLTFPACK_PATH to use
+ * your own or FURNITUREOS_ASSET_TOOLS_DIR to retain a verified tool bundle.
  */
 export async function ensureGltfpack() {
   const override = process.env.GLTFPACK_PATH;

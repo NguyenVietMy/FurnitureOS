@@ -82,6 +82,9 @@ test('unknown routes have an accessible recovery and missing assets/API stay 404
   for (const path of ['/assets/missing.js', '/images/missing.jpg', '/products/missing.gltf', '/decoders/missing.wasm', '/api/missing', '/missing.css']) {
     expect((await request.get(path)).status(), path).toBe(404);
   }
+  await page.goto('/catalogue-gallery');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
+  expect((await request.get('/api/catalogue-gallery')).status()).toBe(404);
   expect((await request.get('/icon.svg')).headers()['content-type']).toContain('image/svg+xml');
 });
 

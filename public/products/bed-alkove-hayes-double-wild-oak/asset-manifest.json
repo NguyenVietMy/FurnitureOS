@@ -1,0 +1,273 @@
+{
+  "productId": "bed-alkove-hayes-double-wild-oak",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/R/B07K7NXVXR.glb",
+    "sha256": "0e83ba06342ebbc845049f7c2a0ec5740700c7088ab825fb3172ce6175f5dd80",
+    "bytes": 24073000,
+    "bounds": {
+      "min": [
+        -0.735965,
+        0,
+        -0.995934
+      ],
+      "max": [
+        0.735965,
+        0.9398,
+        0.995934
+      ],
+      "size": [
+        1.47193,
+        0.9398,
+        1.991868
+      ]
+    },
+    "triangles": 35822
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.735965,
+        0,
+        -0.995934
+      ],
+      "max": [
+        0.735965,
+        0.9398,
+        0.995934
+      ],
+      "size": [
+        1.47193,
+        0.9398,
+        1.991868
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 1164006,
+    "sharedBytes": 837253
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-1b1e70761f72.ktx2",
+      "bytes": 2668,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-30abe41715c4.ktx2",
+      "bytes": 1377,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-b38da4eacc7b.ktx2",
+      "bytes": 5659,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-434caad0abff.ktx2",
+      "bytes": 2499,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-6a450b966362.ktx2",
+      "bytes": 7939,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-d99c4ec29d6c.ktx2",
+      "bytes": 4190,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-0d78fd0e1eef.ktx2",
+      "bytes": 54624,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-9e2fa15c926f.ktx2",
+      "bytes": 162214,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-c85e510c3a49.ktx2",
+      "bytes": 596083,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/bed-alkove-hayes-double-wild-oak/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 35822,
+      "vertices": 21998,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 194966,
+      "bounds": {
+        "min": [
+          -0.735965,
+          0,
+          -0.995934
+        ],
+        "max": [
+          0.735954,
+          0.939812,
+          0.995934
+        ],
+        "size": [
+          1.471919,
+          0.939812,
+          1.991868
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/bed-alkove-hayes-double-wild-oak/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 14328,
+      "vertices": 9997,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 94025,
+      "bounds": {
+        "min": [
+          -0.735965,
+          0,
+          -0.995934
+        ],
+        "max": [
+          0.735954,
+          0.939812,
+          0.995934
+        ],
+        "size": [
+          1.471919,
+          0.939812,
+          1.991868
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/bed-alkove-hayes-double-wild-oak/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 4298,
+      "vertices": 3484,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 37762,
+      "bounds": {
+        "min": [
+          -0.735965,
+          0,
+          -0.995934
+        ],
+        "max": [
+          0.735954,
+          0.939812,
+          0.995934
+        ],
+        "size": [
+          1.471919,
+          0.939812,
+          1.991868
+        ]
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}
