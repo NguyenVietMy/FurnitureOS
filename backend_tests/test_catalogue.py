@@ -185,10 +185,20 @@ def test_product_rejects_blank_attribution(product, field) -> None:
         Product.model_validate(value)
 
 
-def test_every_curated_product_is_a_bedroom_floor_standing_product() -> None:
+def test_every_curated_product_publishes_its_provider_neutral_placement_class() -> None:
     for product in catalogue.list():
         assert product.roomTypes == ("bedroom",)
-        assert product.placementClass == "floor-standing"
+        expected = "floor-covering" if product.category == "rug" else "floor-standing"
+        assert product.placementClass == expected
+
+
+def test_rug_and_lamp_seed_records_declare_placement_class_explicitly() -> None:
+    records = [record for record in seed_catalogue().products if record.category in {"rug", "lamp"}]
+
+    assert len(records) == 5
+    assert all("placementClass" in record.model_fields_set for record in records)
+    assert [record.placementClass for record in records if record.category == "rug"] == ["floor-covering"] * 3
+    assert [record.placementClass for record in records if record.category == "lamp"] == ["floor-standing"] * 2
 
 
 def test_wall_contact_metadata_matches_product_use() -> None:

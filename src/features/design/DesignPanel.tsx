@@ -25,8 +25,13 @@ function WallLabel({ room, wallId }: { room: RoomShell; wallId: string }) {
 function placementVerb(intentKind?: string) {
   if (intentKind === 'centred_on') return 'Centred on';
   if (intentKind === 'in_corner') return 'Placed in the corner at';
+  if (intentKind === 'adjacent_to') return 'Placed adjacent to';
+  if (intentKind === 'facing') return 'Facing';
+  if (intentKind === 'flanking') return 'Flanking';
   return 'Placed against';
 }
+
+const objectRelativeKinds = new Set(['adjacent_to', 'facing', 'flanking']);
 
 export function DesignPanel({
   room,
@@ -42,6 +47,8 @@ export function DesignPanel({
   const { widthM, heightM, depthM } = product.dimensionsM;
   const budgetLimit = 5_000_000;
   const attributionStatus = attributionStatusPresentation(product.attribution.licenseStatus);
+  const requiredAccess = product.accessRegions.filter((region) => region.required);
+  const optionalAccess = product.accessRegions.filter((region) => !region.required);
 
   return (
     <div className="product-facts" data-testid={`product-facts-${product.id}`}>
@@ -73,6 +80,10 @@ export function DesignPanel({
             <dt>Origin</dt>
             <dd>{product.mesh.normalization.originRule}, {product.mesh.normalization.upAxis} up, front {product.frontAxis}</dd>
           </div>
+          <div>
+            <dt>Placement class</dt>
+            <dd>{product.placementClass}</dd>
+          </div>
         </dl>
       </section>
 
@@ -81,8 +92,11 @@ export function DesignPanel({
         {fit.status === 'fits' ? (
           <>
             <p data-testid="fit-status" data-fit="fits">
-              {placementVerb(intentKind)} the{' '}
-              <WallLabel room={room} wallId={fit.placement.wallContact?.wallId ?? ''} /> in this{' '}
+              {objectRelativeKinds.has(intentKind ?? '') ? (
+                <>{placementVerb(intentKind)} the furniture it relates to</>
+              ) : (
+                <>{placementVerb(intentKind)} the{' '}<WallLabel room={room} wallId={fit.placement.wallContact?.wallId ?? ''} /></>
+              )}{' '}in this{' '}
               {room.ceilingHeightM.toFixed(1)} m-high room.
             </p>
             <dl className="rows">
@@ -115,13 +129,23 @@ export function DesignPanel({
             {fit.detail}
           </p>
         )}
-        <p className="subtle">
-          Access kept clear:{' '}
-          {product.accessRegions
-            .map((region) => `${centimetres(region.depthM)} at the ${region.face}`)
-            .join(', ')}
+        <p className="subtle" data-testid="required-clearance">
+          Required clearance:{' '}
+          {requiredAccess.length
+            ? requiredAccess
+                .map((region) => `${centimetres(region.depthM)} at the ${region.face}`)
+                .join(', ')
+            : 'none declared'}
           .
         </p>
+        {optionalAccess.length ? (
+          <p className="subtle" data-testid="optional-access-guidance">
+            Optional access guidance:{' '}
+            {optionalAccess
+              .map((region) => `${centimetres(region.depthM)} at the ${region.face} for ${region.purpose}`)
+              .join(', ')}. This guidance is not required for this fit.
+          </p>
+        ) : null}
       </section>
 
       <section>

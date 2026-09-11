@@ -32,7 +32,7 @@ export interface CatalogueGallery {
 
 export interface DesignFailure {
   readonly status: "failed";
-  readonly reason: "unsupported-intent" | "unknown-fixture-reference" | "unknown-product-reference" | "unknown-wall-reference" | "duplicate-intent-reference" | "product-face-not-supported" | "nonadjacent-corner-walls" | "corner-angle-not-supported" | "product-exceeds-ceiling-height" | "intent-unsatisfiable" | "search-exhausted" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion";
+  readonly reason: "unsupported-intent" | "unknown-fixture-reference" | "unknown-product-reference" | "unknown-wall-reference" | "duplicate-intent-reference" | "unknown-intent-reference" | "self-intent-reference" | "cyclic-intent-reference" | "invalid-flanking-group" | "invalid-relative-gap" | "product-face-not-supported" | "nonadjacent-corner-walls" | "corner-angle-not-supported" | "product-exceeds-ceiling-height" | "intent-unsatisfiable" | "search-exhausted" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion";
   readonly detail: string;
   readonly failedIntentId: string;
   readonly search: SearchReport;
@@ -42,7 +42,7 @@ export interface DesignFixture {
   readonly id: string;
   readonly label: string;
   readonly description: string;
-  readonly intentKind: "against" | "centred_on" | "in_corner";
+  readonly intentKind: "against" | "centred_on" | "in_corner" | "adjacent_to" | "facing" | "flanking";
   readonly expectedOutcome: "solved" | "failed";
 }
 
@@ -177,9 +177,12 @@ export interface PlacementIntent {
   readonly id: string;
   readonly kind: string;
   readonly productId: string;
-  readonly wallId: string;
+  readonly wallId?: string | null;
   readonly face?: "front" | "back" | "left" | "right";
   readonly adjacentWallId?: string | null;
+  readonly referenceId?: string | null;
+  readonly side?: "front" | "back" | "left" | "right" | null;
+  readonly gapM?: number;
 }
 
 export interface PlacementValidationRequest {
@@ -204,7 +207,7 @@ export interface Product {
   readonly dimensionsM: Dimensions;
   readonly frontAxis: "+z";
   readonly wallContactFaces: ReadonlyArray<"front" | "back" | "left" | "right">;
-  readonly placementClass: "floor-standing" | "wall-mounted" | "ceiling-hung" | "surface-standing";
+  readonly placementClass: "floor-standing" | "floor-covering" | "wall-mounted" | "ceiling-hung" | "surface-standing";
   readonly accessRegions: ReadonlyArray<AccessRegion>;
   readonly mesh: MeshRef;
   readonly purchaseUrl: string;

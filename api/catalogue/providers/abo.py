@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from api.catalogue.contract import CatalogueEntry
-from api.models import AccessRegion, Product, ProductCategory, ProductFace
+from api.models import AccessRegion, PlacementClass, Product, ProductCategory, ProductFace
 
 ROOT = Path(__file__).resolve().parents[3]
 SEED_PATH = Path(__file__).with_name("abo-seed.json")
@@ -121,6 +121,7 @@ class SeedProduct(StrictModel):
     brand: str = Field(min_length=1)
     colour: str = Field(min_length=1)
     category: ProductCategory
+    placementClass: PlacementClass = "floor-standing"
     sourcePath: str = Field(pattern=r"^[A-Z0-9]/[A-Z0-9]{10}\.glb$")
     sourceSha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     sourceBytes: int = Field(gt=0)
@@ -256,7 +257,7 @@ def _to_entry(record: SeedProduct) -> CatalogueEntry:
         "dimensionsM": {"widthM": width, "heightM": height, "depthM": depth},
         "frontAxis": manifest.normalization.frontAxis,
         "wallContactFaces": record.wallContactFaces,
-        "placementClass": "floor-standing",
+        "placementClass": record.placementClass,
         "accessRegions": [region.model_dump() for region in record.accessRegions],
         "mesh": {
             "lods": [

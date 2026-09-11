@@ -36,7 +36,7 @@ Vec3 = tuple[Finite, Finite, Finite]
 BoundedVec2 = tuple[BoundedMetres, BoundedMetres]
 BoundedVec3 = tuple[BoundedMetres, BoundedMetres, BoundedMetres]
 ProductFace = Literal["front", "back", "left", "right"]
-PlacementClass = Literal["floor-standing", "wall-mounted", "ceiling-hung", "surface-standing"]
+PlacementClass = Literal["floor-standing", "floor-covering", "wall-mounted", "ceiling-hung", "surface-standing"]
 ProductCategory = Literal["bed", "nightstand", "wardrobe", "dresser", "chair", "sofa", "table", "rug", "lamp"]
 RoomType = Literal["bedroom", "living-room"]
 LicenseStatus = Annotated[
@@ -52,7 +52,9 @@ InvalidFitReason = Literal[
 ]
 DesignFailureReason = Literal[
     "unsupported-intent", "unknown-fixture-reference", "unknown-product-reference", "unknown-wall-reference",
-    "duplicate-intent-reference", "product-face-not-supported",
+    "duplicate-intent-reference", "unknown-intent-reference", "self-intent-reference",
+    "cyclic-intent-reference", "invalid-flanking-group", "invalid-relative-gap",
+    "product-face-not-supported",
     "nonadjacent-corner-walls", "corner-angle-not-supported",
     "product-exceeds-ceiling-height", "intent-unsatisfiable",
     "search-exhausted", "product-collision", "access-region-blocked",
@@ -345,7 +347,7 @@ class Placement(ContractModel):
     position: BoundedVec3
     yaw: Finite
     wallContact: WallContact | None = None
-    wallContacts: tuple[WallContact, ...] = Field(default=(), max_length=2)
+    wallContacts: tuple[WallContact, ...] = Field(default=(), max_length=64)
 
     @model_validator(mode="before")
     @classmethod
@@ -378,9 +380,15 @@ class PlacementIntent(ContractModel):
     id: str = Field(min_length=1)
     kind: str = Field(min_length=1)
     productId: str = Field(min_length=1)
-    wallId: str = Field(min_length=1)
+    wallId: str | None = Field(default=None, min_length=1)
     face: ProductFace = "back"
     adjacentWallId: str | None = None
+    referenceId: str | None = Field(default=None, min_length=1)
+    side: ProductFace | None = None
+    gapM: BoundedMetres = Field(
+        default=0,
+        description="Signed face-to-face gap in metres; zero touches and positive values separate.",
+    )
 
 
 class DesignRequest(ContractModel):
@@ -440,7 +448,7 @@ class DesignFixture(ContractModel):
     id: str = Field(min_length=1)
     label: str = Field(min_length=1)
     description: str = Field(min_length=1)
-    intentKind: Literal["against", "centred_on", "in_corner"]
+    intentKind: Literal["against", "centred_on", "in_corner", "adjacent_to", "facing", "flanking"]
     expectedOutcome: Literal["solved", "failed"]
 
 
