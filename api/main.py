@@ -15,9 +15,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .catalogue import catalogue
-from .design import bedroom_design
-from .domain import validate_placement
-from .models import CatalogueGallery, FitResult, Health, PlacementValidationRequest, PreviewDesign
+from .design import bedroom_design, design_fixtures, resolve_fixture
+from .domain import resolve_design, validate_placement
+from .models import (
+    CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult, FixtureSelectionRequest,
+    Health, PlacementValidationRequest, PreviewDesign,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -63,6 +66,18 @@ def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) 
     @application.get("/api/preview-design", response_model=PreviewDesign)
     def get_preview_design() -> PreviewDesign:
         return bedroom_design()
+
+    @application.get("/api/design-fixtures", response_model=DesignFixtures)
+    def get_design_fixtures() -> DesignFixtures:
+        return design_fixtures()
+
+    @application.post("/api/design-resolution", response_model=DesignResult)
+    def design_resolution(request: FixtureSelectionRequest) -> DesignResult:
+        return DesignResult(root=resolve_fixture(request))
+
+    @application.post("/api/design-solve", response_model=DesignResult)
+    def design_solve(request: DesignRequest) -> DesignResult:
+        return DesignResult(root=resolve_design(catalogue, request))
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)

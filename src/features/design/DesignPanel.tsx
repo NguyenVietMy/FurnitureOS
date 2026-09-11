@@ -1,4 +1,3 @@
-import { Link } from 'react-router';
 import type { FitResult, Product, RoomShell } from '@/shared/api/types';
 
 /**
@@ -23,32 +22,39 @@ function WallLabel({ room, wallId }: { room: RoomShell; wallId: string }) {
   return <>{wall ? wall.label.toLowerCase() : wallId}</>;
 }
 
+function placementVerb(intentKind?: string) {
+  if (intentKind === 'centred_on') return 'Centred on';
+  if (intentKind === 'in_corner') return 'Placed in the corner at';
+  return 'Placed against';
+}
+
 export function DesignPanel({
   room,
   product,
   fit,
+  intentKind,
 }: {
   room: RoomShell;
   product: Product;
   fit: FitResult;
+  intentKind?: string;
 }) {
   const { widthM, heightM, depthM } = product.dimensionsM;
   const budgetLimit = 5_000_000;
   const attributionStatus = attributionStatusPresentation(product.attribution.licenseStatus);
 
   return (
-    <aside className="panel" data-testid="design-panel">
+    <div className="product-facts" data-testid={`product-facts-${product.id}`}>
       <header className="panel-head">
-        <Link className="home-link" to="/">← FurnitureOS home</Link>
         <p className="eyebrow">{product.category} · {product.roomTypes.join(', ')}</p>
-        <h1>{product.displayName}</h1>
+        <h2>{product.displayName}</h2>
         <p className="subtle">
           {product.brand} · {product.colour}
         </p>
       </header>
 
       <section>
-        <h2>Dimensions</h2>
+        <h3>Dimensions</h3>
         <p className="subtle">Measured from the normalized Mesh, not from listing text.</p>
         <dl className="rows" data-testid="dimensions">
           <div>
@@ -71,12 +77,13 @@ export function DesignPanel({
       </section>
 
       <section>
-        <h2>Placement</h2>
+        <h3>Placement</h3>
         {fit.status === 'fits' ? (
           <>
             <p data-testid="fit-status" data-fit="fits">
-              Fits in the {room.ceilingHeightM.toFixed(1)} m Room, headboard against the{' '}
-              <WallLabel room={room} wallId={fit.placement.wallContact?.wallId ?? ''} />.
+              {placementVerb(intentKind)} the{' '}
+              <WallLabel room={room} wallId={fit.placement.wallContact?.wallId ?? ''} /> in this{' '}
+              {room.ceilingHeightM.toFixed(1)} m-high room.
             </p>
             <dl className="rows">
               <div>
@@ -118,7 +125,7 @@ export function DesignPanel({
       </section>
 
       <section>
-        <h2>Mesh</h2>
+        <h3>Mesh</h3>
         <table className="lods" data-testid="lod-table">
           <thead>
             <tr>
@@ -145,7 +152,7 @@ export function DesignPanel({
       </section>
 
       <section>
-        <h2>Availability</h2>
+        <h3>Availability</h3>
         {product.purchaseUrl ? (
           <p data-testid="purchase">
             <a href={product.purchaseUrl} rel="noreferrer noopener" target="_blank">
@@ -160,7 +167,7 @@ export function DesignPanel({
       </section>
 
       <section>
-        <h2>Attribution</h2>
+        <h3>Attribution</h3>
         <p className="subtle" data-testid="attribution">
           Mesh from{' '}
           <a
@@ -204,6 +211,6 @@ export function DesignPanel({
           {product.attribution.citation}
         </p>
       </section>
-    </aside>
+    </div>
   );
 }

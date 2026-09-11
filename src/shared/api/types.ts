@@ -30,10 +30,42 @@ export interface CatalogueGallery {
   readonly products: ReadonlyArray<Product>;
 }
 
+export interface DesignFailure {
+  readonly status: "failed";
+  readonly reason: "unsupported-intent" | "unknown-fixture-reference" | "unknown-product-reference" | "unknown-wall-reference" | "duplicate-intent-reference" | "product-face-not-supported" | "nonadjacent-corner-walls" | "corner-angle-not-supported" | "product-exceeds-ceiling-height" | "intent-unsatisfiable" | "search-exhausted" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion";
+  readonly detail: string;
+  readonly failedIntentId: string;
+  readonly search: SearchReport;
+}
+
+export interface DesignFixture {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly intentKind: "against" | "centred_on" | "in_corner";
+  readonly expectedOutcome: "solved" | "failed";
+}
+
+export interface DesignFixtures {
+  readonly fixtures: ReadonlyArray<DesignFixture>;
+}
+
+export interface DesignRequest {
+  readonly room: RoomShell;
+  readonly intents: ReadonlyArray<PlacementIntent>;
+  readonly maxCandidates?: number;
+}
+
+export type DesignResult = SolvedDesign | DesignFailure;
+
 export interface Dimensions {
   readonly widthM: number;
   readonly heightM: number;
   readonly depthM: number;
+}
+
+export interface DoorSwing {
+  readonly hingeSide: "start" | "end";
 }
 
 export interface FitMeasurements {
@@ -53,6 +85,11 @@ export interface FitSuccess {
   readonly measurements: FitMeasurements;
 }
 
+export interface FixtureSelectionRequest {
+  readonly fixtureId: string;
+  readonly maxCandidates?: number;
+}
+
 export interface Footprint {
   readonly centre: readonly [number, number];
   readonly yaw: number;
@@ -67,7 +104,7 @@ export interface Health {
 
 export interface InvalidFit {
   readonly status: "invalid-fit";
-  readonly reason: "product-exceeds-room-bounds" | "footprint-outside-room" | "access-region-outside-room" | "wall-contact-face-not-allowed" | "not-touching-declared-wall" | "wall-shorter-than-product" | "exceeds-ceiling-height" | "placement-class-cannot-stand-on-floor" | "not-resting-on-floor";
+  readonly reason: "product-exceeds-room-bounds" | "footprint-outside-room" | "access-region-outside-room" | "wall-contact-face-not-allowed" | "not-touching-declared-wall" | "wall-shorter-than-product" | "exceeds-ceiling-height" | "placement-class-cannot-stand-on-floor" | "not-resting-on-floor" | "wall-contact-not-aligned" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion";
   readonly detail: string;
   readonly productId: string;
   readonly roomId: string;
@@ -115,11 +152,34 @@ export interface MeshTransform {
   readonly scale: number;
 }
 
+export interface Opening {
+  readonly id: string;
+  readonly kind: "door" | "window";
+  readonly wallId: string;
+  readonly offsetAlongWallM: number;
+  readonly widthM: number;
+  readonly bottomM: number;
+  readonly heightM: number;
+  readonly clearanceDepthM: number;
+  readonly doorSwing?: DoorSwing | null;
+}
+
 export interface Placement {
+  readonly instanceId?: string | null;
   readonly productId: string;
   readonly position: readonly [number, number, number];
   readonly yaw: number;
   readonly wallContact?: WallContact | null;
+  readonly wallContacts?: ReadonlyArray<WallContact>;
+}
+
+export interface PlacementIntent {
+  readonly id: string;
+  readonly kind: string;
+  readonly productId: string;
+  readonly wallId: string;
+  readonly face?: "front" | "back" | "left" | "right";
+  readonly adjacentWallId?: string | null;
 }
 
 export interface PlacementValidationRequest {
@@ -163,6 +223,23 @@ export interface RoomShell {
   readonly floorPolygon: ReadonlyArray<readonly [number, number]>;
   readonly walls: ReadonlyArray<WallSegment>;
   readonly ceilingHeightM: number;
+  readonly openings?: ReadonlyArray<Opening>;
+}
+
+export interface SearchReport {
+  readonly attemptedCandidates: number;
+  readonly candidateLimit: number;
+  readonly exhaustive: boolean;
+}
+
+export interface SolvedDesign {
+  readonly status: "solved";
+  readonly room: RoomShell;
+  readonly intents: ReadonlyArray<PlacementIntent>;
+  readonly products: ReadonlyArray<Product>;
+  readonly placements: ReadonlyArray<Placement>;
+  readonly fits: ReadonlyArray<FitSuccess>;
+  readonly search: SearchReport;
 }
 
 export interface WallContact {

@@ -49,15 +49,19 @@ function LoadingBounds({ product, placement }: { product: Product; placement: Pl
 
 export default function RoomCanvas({
   room,
-  product,
-  placement,
+  products,
+  placements,
 }: {
   room: RoomShell;
-  product: Product;
-  placement: Placement;
+  products: ReadonlyArray<Product>;
+  placements: ReadonlyArray<Placement>;
 }) {
   // Reset during the first render, before any child effect can report into it.
-  useState(() => resetSceneDebug(product.id));
+  useState(() => resetSceneDebug(products.map((product, index) => ({
+    instanceId: placements[index]?.instanceId ?? `${product.id}-${index}`,
+    productId: product.id,
+  }))));
+  const primaryPlacement = placements[0];
 
   return (
     <Canvas
@@ -84,12 +88,23 @@ export default function RoomCanvas({
         shadow-camera-far={16}
       />
 
-      <RoomShellMesh room={room} contactWallId={placement.wallContact?.wallId ?? null} />
-      <AccessRegions product={product} placement={placement} />
+      <RoomShellMesh room={room} contactWallId={primaryPlacement?.wallContact?.wallId ?? null} />
+      {products.map((product, index) => {
+        const placement = placements[index];
+        const instanceId = placement?.instanceId ?? `${product.id}-${index}`;
+        return placement ? <AccessRegions key={`access-${instanceId}`} product={product} placement={placement} /> : null;
+      })}
 
-      <Suspense fallback={<LoadingBounds product={product} placement={placement} />}>
-        <ProductPlacement product={product} placement={placement} />
-      </Suspense>
+      {products.map((product, index) => {
+        const placement = placements[index];
+        if (!placement) return null;
+        const instanceId = placement.instanceId ?? `${product.id}-${index}`;
+        return (
+          <Suspense key={instanceId} fallback={<LoadingBounds product={product} placement={placement} />}>
+            <ProductPlacement product={product} placement={placement} primary={index === 0} />
+          </Suspense>
+        );
+      })}
 
       <CameraBridge target={ORBIT_TARGET} />
       <OrbitControls

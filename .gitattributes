@@ -1,0 +1,4 @@
+# Published glTF documents are byte-accounted assets. Preserve their exact
+# repository bytes on every platform instead of applying text EOL conversion.
+public/products/**/*.gltf -text
+public/products/**/asset-manifest.json -text

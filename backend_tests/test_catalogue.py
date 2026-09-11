@@ -194,8 +194,24 @@ def test_every_curated_product_is_a_bedroom_floor_standing_product() -> None:
 def test_wall_contact_metadata_matches_product_use() -> None:
     wall_categories = {"bed", "nightstand", "wardrobe", "dresser"}
     for product in catalogue.list():
-        expected = ("back",) if product.category in wall_categories else ()
+        expected = (
+            ("back", "left", "right")
+            if product.id == "nightstand-alkove-hayes-wild-oak"
+            else ("back",) if product.category in wall_categories else ()
+        )
         assert product.wallContactFaces == expected
+
+
+def test_corner_nightstand_side_contacts_preserve_access_and_publication_contract() -> None:
+    product = catalogue.get("nightstand-alkove-hayes-wild-oak")
+
+    assert product is not None
+    assert product.wallContactFaces == ("back", "left", "right")
+    assert [(region.face, region.required, region.purpose) for region in product.accessRegions] == [
+        ("front", True, "opening the drawer"),
+    ]
+    assert product.mesh.boundsM.min == pytest.approx((-0.279908031, 0.0, -0.219964027))
+    assert product.mesh.boundsM.max == pytest.approx((0.279908, 0.4699, 0.219964))
 
 
 def test_access_metadata_is_explicit_where_operation_needs_it() -> None:
