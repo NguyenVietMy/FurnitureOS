@@ -6,7 +6,10 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from api.catalogue import CatalogueEntry, StaticCatalogue
+import api.main as main
 from api.main import create_app
+from api.models import Product
 
 
 def validation_body(design: dict) -> dict:
@@ -192,6 +195,42 @@ def test_validation_enforces_the_floor_centre_origin(client, design_body, y, rea
         assert result["reason"] == reason
 
 
+def test_validation_keeps_thin_floor_covering_out_of_door_swing_at_http_boundary(client, design_body) -> None:
+    body = validation_body(deepcopy(design_body))
+    body["product"].update({
+        "id": "thin-floor-covering",
+        "category": "rug",
+        "placementClass": "floor-covering",
+        "dimensionsM": {"widthM": 1, "heightM": 0.0005, "depthM": 1},
+        "wallContactFaces": [],
+        "accessRegions": [],
+    })
+    body["room"]["openings"] = [{
+        "id": "north-door",
+        "kind": "door",
+        "wallId": "wall-north",
+        "offsetAlongWallM": 0,
+        "widthM": 1,
+        "bottomM": 0,
+        "heightM": 2.1,
+        "clearanceDepthM": 0,
+        "doorSwing": {"hingeSide": "start"},
+    }]
+    body["placement"].update({
+        "instanceId": "thin-floor-covering",
+        "productId": "thin-floor-covering",
+        "position": [0, 0, -1],
+        "yaw": 0,
+        "wallContact": None,
+        "wallContacts": [],
+    })
+
+    response = client.post("/api/placement-validation", json=body)
+
+    assert response.status_code == 200
+    assert response.json()["reason"] == "door-swing-exclusion"
+
+
 def test_validation_uses_the_placed_top_for_ceiling_checks(client, design_body) -> None:
     body = validation_body(design_body)
     body["room"]["ceilingHeightM"] = 1.426
@@ -210,6 +249,17 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "in-corner",
         "door-swing-failure",
         "matching-nightstands",
+        "adjacent-nightstand",
+        "facing-chair",
+        "flanking-nightstands",
+        "rug-under-bed",
+        "floor-lamp",
+        "relative-chain",
+        "complete-bedroom",
+        "missing-relative-reference",
+        "relative-cycle",
+        "malformed-flanking",
+        "furniture-negative-gap",
     ]
     assert [fixture["intentKind"] for fixture in fixtures] == [
         "against",
@@ -217,6 +267,17 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "in_corner",
         "in_corner",
         "centred_on",
+        "adjacent_to",
+        "facing",
+        "flanking",
+        "adjacent_to",
+        "adjacent_to",
+        "adjacent_to",
+        "adjacent_to",
+        "adjacent_to",
+        "adjacent_to",
+        "flanking",
+        "adjacent_to",
     ]
     assert [fixture["expectedOutcome"] for fixture in fixtures] == [
         "solved",
@@ -224,6 +285,17 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "solved",
         "failed",
         "solved",
+        "solved",
+        "solved",
+        "solved",
+        "solved",
+        "solved",
+        "solved",
+        "solved",
+        "failed",
+        "failed",
+        "failed",
+        "failed",
     ]
 
 
@@ -282,6 +354,170 @@ def test_matching_nightstands_fixture_returns_two_instances_of_one_product(clien
         "matching-nightstand-south",
     ]
     assert result["placements"][0]["position"] != result["placements"][1]["position"]
+
+
+@pytest.mark.parametrize(
+    "fixture_id,instance_ids",
+    [
+        ("adjacent-nightstand", ["adjacent-bed", "adjacent-nightstand-right"]),
+        ("facing-chair", ["facing-bed", "chair-facing-bed"]),
+        ("flanking-nightstands", ["flanked-bed", "left-flank", "right-flank"]),
+        ("rug-under-bed", ["rug-bed", "under-bed-rug"]),
+        ("floor-lamp", ["lamp-bed", "standing-lamp"]),
+        ("relative-chain", ["chain-bed", "chain-nightstand", "chain-lamp"]),
+        ("complete-bedroom", [
+            "complete-bed",
+            "complete-left-nightstand",
+            "complete-right-nightstand",
+            "complete-chair",
+            "complete-rug",
+            "complete-lamp",
+        ]),
+    ],
+)
+def test_object_relative_visible_fixtures_publish_floor_anchored_instances(client, fixture_id, instance_ids) -> None:
+    response = client.post("/api/design-resolution", json={"fixtureId": fixture_id, "maxCandidates": 128})
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "solved"
+    assert [placement["instanceId"] for placement in result["placements"]] == instance_ids
+    assert all(placement["position"][1] == 0 for placement in result["placements"])
+    assert result["search"]["attemptedCandidates"] <= 128
+    if fixture_id == "rug-under-bed":
+        assert result["products"][1]["placementClass"] == "floor-covering"
+    if fixture_id == "floor-lamp":
+        assert result["products"][1]["category"] == "lamp"
+        assert result["products"][1]["placementClass"] == "floor-standing"
+        assert result["products"][1]["mesh"]["boundsM"]["min"][1] == pytest.approx(0, abs=0.002)
+
+
+@pytest.mark.parametrize(
+    "fixture_id,reason",
+    [
+        ("missing-relative-reference", "unknown-intent-reference"),
+        ("relative-cycle", "cyclic-intent-reference"),
+        ("malformed-flanking", "invalid-flanking-group"),
+        ("furniture-negative-gap", "invalid-relative-gap"),
+    ],
+)
+def test_object_relative_visible_failures_are_typed_and_pre_search(client, fixture_id, reason) -> None:
+    result = client.post(
+        "/api/design-resolution",
+        json={"fixtureId": fixture_id, "maxCandidates": 128},
+    ).json()
+
+    assert result["status"] == "failed"
+    assert result["reason"] == reason
+    assert result["search"]["attemptedCandidates"] == 0
+    assert "placements" not in result
+
+
+def test_complete_bedroom_fixture_has_every_independently_checked_relationship(client) -> None:
+    response = client.post("/api/design-resolution", json={"fixtureId": "complete-bedroom", "maxCandidates": 128})
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "solved"
+    products = {placement["instanceId"]: product for placement, product in zip(result["placements"], result["products"], strict=True)}
+    placements = {placement["instanceId"]: placement for placement in result["placements"]}
+    bed = placements["complete-bed"]
+    left = placements["complete-left-nightstand"]
+    right = placements["complete-right-nightstand"]
+    chair = placements["complete-chair"]
+    rug = placements["complete-rug"]
+    lamp = placements["complete-lamp"]
+
+    assert left["position"][0] < bed["position"][0] < right["position"][0]
+    bed_rear = bed["position"][2] - products["complete-bed"]["dimensionsM"]["depthM"] / 2
+    for flank in (left, right):
+        flank_rear = flank["position"][2] - products[flank["instanceId"]]["dimensionsM"]["depthM"] / 2
+        assert flank_rear == pytest.approx(bed_rear, abs=1e-6)
+    assert chair["position"][2] > bed["position"][2]
+    assert chair["yaw"] == pytest.approx(3.141592653589793, abs=1e-9)
+    bed_half_depth = products["complete-bed"]["dimensionsM"]["depthM"] / 2
+    rug_half_depth = products["complete-rug"]["dimensionsM"]["depthM"] / 2
+    assert abs(rug["position"][2] - bed["position"][2]) < bed_half_depth + rug_half_depth
+    assert products["complete-rug"]["placementClass"] == "floor-covering"
+    assert lamp["position"][0] < left["position"][0]
+    assert lamp["position"][1] == 0
+    assert products["complete-lamp"]["placementClass"] == "floor-standing"
+
+
+@pytest.mark.parametrize("fixture_id", ["against-wall", "adjacent-nightstand", "flanking-nightstands", "complete-bedroom"])
+def test_normalized_supported_fixture_intents_replay_unchanged_and_reversed(client, fixture_id) -> None:
+    original = client.post("/api/design-resolution", json={"fixtureId": fixture_id, "maxCandidates": 128}).json()
+    assert original["status"] == "solved"
+
+    for intents in (original["intents"], list(reversed(original["intents"]))):
+        replay = client.post("/api/design-solve", json={
+            "room": original["room"],
+            "intents": intents,
+            "maxCandidates": 128,
+        })
+        assert replay.status_code == 200
+        body = replay.json()
+        assert body["status"] == "solved"
+        assert [placement["instanceId"] for placement in body["placements"]] == [intent["id"] for intent in intents]
+
+
+@pytest.mark.parametrize(
+    "depth,allowed_faces,expected_count,forbidden_face",
+    [
+        (1, ["back", "left", "right"], 3, "left"),
+        (2, ["back", "front", "left", "right"], 4, "front"),
+    ],
+)
+def test_http_solver_validates_every_three_or_four_wall_contact(
+    monkeypatch,
+    product,
+    depth,
+    allowed_faces,
+    expected_count,
+    forbidden_face,
+) -> None:
+    def variant(product_id: str, *, product_depth: float, placement_class: str, contact_faces: list[str]) -> Product:
+        value = deepcopy(product.model_dump(mode="json"))
+        value.update({
+            "id": product_id,
+            "displayName": product_id,
+            "dimensionsM": {"widthM": 0.2 if placement_class == "floor-covering" else 2, "heightM": 0.0005 if placement_class == "floor-covering" else 0.5, "depthM": product_depth},
+            "placementClass": placement_class,
+            "wallContactFaces": contact_faces,
+            "accessRegions": [],
+        })
+        return Product.model_validate(value)
+
+    anchor = variant("http-contact-anchor", product_depth=0.2, placement_class="floor-covering", contact_faces=["back"])
+    allowed = variant("http-allowed-contacts", product_depth=depth, placement_class="floor-standing", contact_faces=allowed_faces)
+    forbidden = variant("http-forbidden-contacts", product_depth=depth, placement_class="floor-standing", contact_faces=["back", "right"])
+    monkeypatch.setattr(main, "catalogue", StaticCatalogue("http-contact-test", [
+        CatalogueEntry(product=item, private_style_ids=("fixture-style",))
+        for item in (anchor, allowed, forbidden)
+    ]))
+    http_client = TestClient(create_app())
+    points = [[-1, -1], [-1, 1], [1, 1], [1, -1]]
+    room = {
+        "id": "http-contact-room",
+        "floorPolygon": points,
+        "ceilingHeightM": 3,
+        "walls": [
+            {"id": name, "label": name, "start": points[index], "end": points[(index + 1) % 4]}
+            for index, name in enumerate(("west", "south", "east", "north"))
+        ],
+        "openings": [],
+    }
+    anchor_intent = {"id": "anchor", "kind": "centred_on", "productId": anchor.id, "wallId": "north"}
+    relative = {"id": "relative", "kind": "adjacent_to", "referenceId": "anchor", "side": "front", "gapM": -0.2}
+
+    accepted = http_client.post("/api/design-solve", json={"room": room, "intents": [anchor_intent, {**relative, "productId": allowed.id}]})
+    rejected = http_client.post("/api/design-solve", json={"room": room, "intents": [anchor_intent, {**relative, "productId": forbidden.id}]})
+
+    assert accepted.status_code == rejected.status_code == 200
+    assert accepted.json()["status"] == "solved"
+    assert len(accepted.json()["placements"][1]["wallContacts"]) == expected_count
+    assert rejected.json()["status"] == "failed"
+    assert f"{forbidden_face} face" in rejected.json()["detail"]
 
 
 def test_fastapi_returns_typed_unknown_fixture_and_bounds_search_input(client) -> None:
@@ -568,6 +804,85 @@ def test_fastapi_intent_endpoint_returns_typed_unknown_references(client) -> Non
 
     assert response.status_code == 200
     assert response.json()["reason"] == "unknown-product-reference"
+
+
+def test_design_solve_accepts_reversed_object_reference_order_at_the_http_boundary(client) -> None:
+    body = design_solve_body(client)
+    points = [[-5, -5], [-5, 5], [5, 5], [5, -5]]
+    body["room"].update({
+        "id": "http-object-room",
+        "floorPolygon": points,
+        "walls": [
+            {"id": wall_id, "label": wall_id, "start": points[index], "end": points[(index + 1) % 4]}
+            for index, wall_id in enumerate(("west", "south", "east", "north"))
+        ],
+        "openings": [],
+    })
+    body["intents"] = [
+        {
+            "id": "http-nightstand",
+            "kind": "adjacent_to",
+            "productId": "nightstand-alkove-hayes-wild-oak",
+            "referenceId": "http-bed",
+            "side": "right",
+            "gapM": 0.6,
+        },
+        {
+            "id": "http-bed",
+            "kind": "centred_on",
+            "productId": "bed-prudence-tufted-queen-natural",
+            "wallId": "north",
+        },
+    ]
+    body["maxCandidates"] = 8
+
+    response = client.post("/api/design-solve", json=body)
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "solved"
+    assert [placement["instanceId"] for placement in result["placements"]] == ["http-nightstand", "http-bed"]
+    assert result["placements"][0]["position"] == pytest.approx([1.727821, 0, -3.883505], abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "intents,reason",
+    [
+        ([{"id": "missing", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "nope", "side": "right"}], "unknown-intent-reference"),
+        ([{"id": "self", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "self", "side": "right"}], "self-intent-reference"),
+        ([
+            {"id": "a", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "b", "side": "right"},
+            {"id": "b", "kind": "adjacent_to", "productId": "nightstand-hallowood-waverly-light-oak", "referenceId": "a", "side": "left"},
+        ], "cyclic-intent-reference"),
+    ],
+)
+def test_design_solve_reports_object_reference_graph_failures_before_search(client, intents, reason) -> None:
+    body = design_solve_body(client)
+    body["intents"] = intents
+
+    response = client.post("/api/design-solve", json=body)
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["reason"] == reason
+    assert result["search"]["attemptedCandidates"] == 0
+
+
+def test_design_solve_rejects_unsupported_intent_fields_at_the_http_boundary(client) -> None:
+    body = design_solve_body(client)
+    body["intents"] = [{
+        "id": "unsupported-shape",
+        "kind": "adjacent_to",
+        "productId": "nightstand-alkove-hayes-wild-oak",
+        "referenceId": "another-request",
+        "side": "right",
+        "position": [0, 0, 0],
+    }]
+
+    response = client.post("/api/design-solve", json=body)
+
+    assert response.status_code == 422
+    assert any(error["type"] == "extra_forbidden" for error in response.json()["detail"])
 
 
 def design_solve_body(client) -> dict:

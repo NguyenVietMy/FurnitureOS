@@ -249,7 +249,9 @@ def test_backtracking_revisits_an_earlier_against_placement_for_a_known_fit(prod
     assert result.status == "solved"
     assert result.placements[0].position == pytest.approx((-1.0, 0.0, -1.5), abs=1e-9)
     assert result.placements[1].position == pytest.approx((0.0, 0.0, -1.5), abs=1e-9)
-    assert result.search.attemptedCandidates == 40
+    # Independent graph-ready requests are solved by stable request id, so
+    # reordering the public array cannot change which geometry is chosen.
+    assert result.search.attemptedCandidates == 21
 
 
 def test_full_discrete_against_grid_does_not_claim_continuous_exhaustiveness(product: Product) -> None:
@@ -472,7 +474,9 @@ def test_required_access_remains_free_of_every_other_product(product: Product) -
 
     assert result.status == "failed"
     assert result.reason == "access-region-blocked"
-    assert result.failedIntentId == "blocks-access"
+    # Stable id ordering places blocks-access first; needs-access is the
+    # candidate whose own required region then detects that obstruction.
+    assert result.failedIntentId == "needs-access"
 
 
 def test_required_access_cannot_occupy_a_door_swing(product: Product) -> None:
@@ -520,6 +524,7 @@ def test_required_access_cannot_occupy_a_door_swing(product: Product) -> None:
     "intents,reason",
     [
         ([{"id": "bad-kind", "kind": "floating", "productId": "known", "wallId": "wall-north"}], "unsupported-intent"),
+        ([{"id": "no-surface-placement", "kind": "on_surface", "productId": "known"}], "unsupported-intent"),
         ([{"id": "unknown-product", "kind": "against", "productId": "missing", "wallId": "wall-north"}], "unknown-product-reference"),
         ([{"id": "unknown-wall", "kind": "against", "productId": "known", "wallId": "missing"}], "unknown-wall-reference"),
         ([{"id": "bad-face", "kind": "against", "productId": "known", "wallId": "wall-north", "face": "front"}], "product-face-not-supported"),

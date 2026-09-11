@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import heapq
 from math import atan2, cos, hypot, isfinite, pi, sin
 from typing import Iterator
 
@@ -26,6 +27,7 @@ class Tolerances:
 DEFAULT_TOLERANCES = Tolerances()
 SEARCH_STEP_M = 0.1
 MAX_SEARCH_CANDIDATES = 256
+NUMERIC_NOISE_M = 1e-9
 
 
 def rectangular_room_shell(room_id: str, width_m: float, depth_m: float, ceiling_height_m: float) -> RoomShell:
@@ -51,7 +53,7 @@ def rectangular_room_shell(room_id: str, width_m: float, depth_m: float, ceiling
 
 
 def _round_noise(value: float) -> float:
-    return 0.0 if abs(value) < 1e-9 else value
+    return 0.0 if abs(value) < NUMERIC_NOISE_M else value
 
 
 def yaw_to_forward(yaw: float) -> Vec2:
@@ -286,8 +288,14 @@ def validate_placement(
     footprint = footprint_of(product, centre, placement.yaw)
     clearance = _clearance(room, footprint)
     measurements = _measurements(product, footprint, clearance, placement.position[1])
-    if product.placementClass != "floor-standing":
-        return _invalid("placement-class-cannot-stand-on-floor", f"{product.id} is {product.placementClass}; this path only places floor-standing Products", product, room, measurements)
+    if product.placementClass not in ("floor-standing", "floor-covering"):
+        return _invalid(
+            "placement-class-cannot-stand-on-floor",
+            f"{product.id} is {product.placementClass}; this path only places floor-standing or floor-covering Products",
+            product,
+            room,
+            measurements,
+        )
     if abs(placement.position[1]) > tolerances.floor_contact_m:
         return _invalid("not-resting-on-floor", f"{product.id} floor-centre origin is {placement.position[1]:.3f} m from the floor", product, room, measurements)
     if measurements.topM > room.ceilingHeightM + tolerances.bounds_slack_m:
@@ -324,7 +332,7 @@ def validate_placement(
         reason: InvalidFitReason = "product-exceeds-room-bounds" if _product_exceeds_room_span(product, room, tolerances) else "footprint-outside-room"
         return _invalid(reason, f"{product.id} footprint does not fit inside the Room Shell", product, room, measurements)
     for opening_index, opening in enumerate(room.openings):
-        if not _vertical_intervals_overlap(
+        if opening.kind != "door" and not _vertical_intervals_overlap(
             measurements.floorGapM,
             measurements.topM,
             opening.bottomM,
@@ -386,7 +394,22 @@ def validate_placement(
     for other_product, other_placement in occupied:
         other_centre = (other_placement.position[0], other_placement.position[2])
         other_footprint = footprint_of(other_product, other_centre, other_placement.yaw)
-        if _polygons_overlap(footprint.corners, other_footprint.corners, tolerances.bounds_slack_m):
+        floor_covering_overlap = {
+            product.placementClass,
+            other_product.placementClass,
+        } == {"floor-standing", "floor-covering"}
+        current_is_walkable_covering = (
+            product.placementClass == "floor-covering"
+            and other_product.placementClass == "floor-standing"
+        )
+        other_is_walkable_covering = (
+            other_product.placementClass == "floor-covering"
+            and product.placementClass == "floor-standing"
+        )
+        if (
+            not floor_covering_overlap
+            and _polygons_overlap(footprint.corners, other_footprint.corners, tolerances.bounds_slack_m)
+        ):
             return _invalid(
                 "product-collision",
                 f"{product.id} overlaps Product {other_product.id}",
@@ -398,7 +421,10 @@ def validate_placement(
             access_footprint(other_product, region, other_centre, other_placement.yaw)
             for region in other_product.accessRegions if region.required
         )
-        if any(_polygons_overlap(footprint.corners, region.corners, tolerances.bounds_slack_m) for region in other_access):
+        if (
+            not current_is_walkable_covering
+            and any(_polygons_overlap(footprint.corners, region.corners, tolerances.bounds_slack_m) for region in other_access)
+        ):
             return _invalid(
                 "access-region-blocked",
                 f"{product.id} blocks required access for Product {other_product.id}",
@@ -406,7 +432,10 @@ def validate_placement(
                 room,
                 measurements,
             )
-        if any(_polygons_overlap(other_footprint.corners, region.corners, tolerances.bounds_slack_m) for region in required_access):
+        if (
+            not other_is_walkable_covering
+            and any(_polygons_overlap(other_footprint.corners, region.corners, tolerances.bounds_slack_m) for region in required_access)
+        ):
             return _invalid(
                 "access-region-blocked",
                 f"Product {other_product.id} blocks required access for {product.id}",
@@ -567,16 +596,129 @@ def _design_failure(
 class _PreparedIntent:
     intent: PlacementIntent
     product: Product
-    wall: WallSegment
-    fixed_offset: float | None
-    has_continuous_positions: bool
+    wall: WallSegment | None = None
+    fixed_offset: float | None = None
+    has_continuous_positions: bool = False
     additional_wall_contacts: tuple[WallContact, ...] = ()
 
     def offsets(self) -> Iterator[float]:
+        if self.wall is None:
+            return
         if self.fixed_offset is not None:
             yield self.fixed_offset
         else:
             yield from _wall_offsets(self.product, self.wall, self.intent.face)
+
+
+_WALL_INTENTS = ("against", "centred_on", "in_corner")
+_RELATIVE_INTENTS = ("adjacent_to", "facing", "flanking")
+
+
+def _opposite_face(face: ProductFace) -> ProductFace:
+    return {"front": "back", "back": "front", "left": "right", "right": "left"}[face]
+
+
+def _actual_wall_contacts(
+    product: Product,
+    room: RoomShell,
+    centre: Vec2,
+    yaw: float,
+    tolerances: Tolerances = DEFAULT_TOLERANCES,
+) -> tuple[WallContact, ...]:
+    """Publish every real wall contact made by an object-relative candidate."""
+    contacts: list[WallContact] = []
+    for wall in sorted(room.walls, key=lambda item: item.id):
+        wall_outward = tuple(-value for value in wall_inward_normal(room, wall))
+        for face in ("back", "front", "left", "right"):
+            normal = face_normal(face, yaw)
+            alignment = normal[0] * wall_outward[0] + normal[1] * wall_outward[1]
+            if alignment < 1 - 1e-7:
+                continue
+            half_extent = face_half_extent_m(product, face)
+            contact_point = (
+                centre[0] + normal[0] * half_extent,
+                centre[1] + normal[1] * half_extent,
+            )
+            if abs(signed_distance_to_wall(room, wall, contact_point)) <= tolerances.wall_contact_m:
+                contacts.append(WallContact(wallId=wall.id, face=face))
+    return tuple(contacts)
+
+
+def _place_relative(
+    product: Product,
+    room: RoomShell,
+    intent: PlacementIntent,
+    reference_product: Product,
+    reference_placement: Placement,
+    occupied: tuple[tuple[Product, Placement], ...],
+    tolerances: Tolerances = DEFAULT_TOLERANCES,
+) -> FitResultValue:
+    reference_centre = (reference_placement.position[0], reference_placement.position[2])
+    reference_yaw = reference_placement.yaw
+    if intent.kind == "facing":
+        direction = face_normal("front", reference_yaw)
+        distance = (
+            reference_product.dimensionsM.depthM / 2
+            + product.dimensionsM.depthM / 2
+            + intent.gapM
+        )
+        centre = (
+            reference_centre[0] + direction[0] * distance,
+            reference_centre[1] + direction[1] * distance,
+        )
+        yaw = atan2(sin(reference_yaw + pi), cos(reference_yaw + pi))
+    else:
+        assert intent.side is not None
+        direction = face_normal(intent.side, reference_yaw)
+        distance = (
+            face_half_extent_m(reference_product, intent.side)
+            + face_half_extent_m(product, _opposite_face(intent.side))
+            + intent.gapM
+        )
+        if intent.gapM < 0 and distance < 0:
+            # Prevalidation admits only sub-slack floating-point noise here.
+            distance = 0.0
+        centre = (
+            reference_centre[0] + direction[0] * distance,
+            reference_centre[1] + direction[1] * distance,
+        )
+        yaw = reference_yaw
+        if intent.kind == "flanking":
+            forward = face_normal("front", reference_yaw)
+            rear_alignment = (
+                -reference_product.dimensionsM.depthM / 2
+                + product.dimensionsM.depthM / 2
+            )
+            centre = (
+                centre[0] + forward[0] * rear_alignment,
+                centre[1] + forward[1] * rear_alignment,
+            )
+
+    footprint = footprint_of(product, centre, yaw)
+    clearance = _clearance(room, footprint)
+    if any(abs(value) > MAX_GEOMETRY_M for value in centre):
+        reason: InvalidFitReason = (
+            "product-exceeds-room-bounds"
+            if _product_exceeds_room_span(product, room, tolerances)
+            else "footprint-outside-room"
+        )
+        return _invalid(
+            reason,
+            f"{product.id} object-relative footprint does not fit inside the Room Shell",
+            product,
+            room,
+            _measurements(product, footprint, clearance, 0.0),
+        )
+    contacts = _actual_wall_contacts(product, room, centre, yaw, tolerances)
+    placement = Placement(
+        instanceId=intent.id,
+        productId=product.id,
+        position=(centre[0], 0, centre[1]),
+        yaw=yaw,
+        wallContact=contacts[0] if contacts else None,
+        wallContacts=contacts,
+    )
+    return validate_placement(product, room, placement, tolerances, occupied)
 
 
 def _fit_failure_reason(reason: InvalidFitReason) -> str:
@@ -603,8 +745,11 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
             0,
             request.maxCandidates,
         )
-    prepared: list[_PreparedIntent] = []
-    for intent in request.intents:
+
+    intents_by_id = {intent.id: intent for intent in request.intents}
+    products_by_intent: dict[str, Product] = {}
+    walls_by_intent: dict[str, WallSegment] = {}
+    for intent in sorted(request.intents, key=lambda item: item.id):
         product = source.get(intent.productId)
         if product is None:
             return _design_failure(
@@ -614,7 +759,8 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 0,
                 request.maxCandidates,
             )
-        if intent.kind not in ("against", "centred_on", "in_corner"):
+        products_by_intent[intent.id] = product
+        if intent.kind not in (*_WALL_INTENTS, *_RELATIVE_INTENTS):
             return _design_failure(
                 "unsupported-intent",
                 f'Placement Intent kind "{intent.kind}" is not supported',
@@ -622,25 +768,42 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 0,
                 request.maxCandidates,
             )
-        wall = next((candidate for candidate in request.room.walls if candidate.id == intent.wallId), None)
-        if wall is None:
-            return _design_failure(
-                "unknown-wall-reference",
-                f'Room {request.room.id} has no wall "{intent.wallId}"',
-                intent.id,
-                0,
-                request.maxCandidates,
-            )
-        if intent.face not in product.wallContactFaces:
-            return _design_failure(
-                "product-face-not-supported",
-                f"{product.id} may not contact a wall with its {intent.face} face",
-                intent.id,
-                0,
-                request.maxCandidates,
-            )
-        if intent.kind == "in_corner":
-            if intent.adjacentWallId is None:
+        if intent.kind in _WALL_INTENTS:
+            if intent.referenceId is not None or intent.side is not None or intent.gapM != 0:
+                return _design_failure(
+                    "unsupported-intent",
+                    f"{intent.kind} accepts wall-relative fields only",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.wallId is None:
+                return _design_failure(
+                    "unknown-wall-reference",
+                    f"{intent.kind} requires wallId",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            wall = next((candidate for candidate in request.room.walls if candidate.id == intent.wallId), None)
+            if wall is None:
+                return _design_failure(
+                    "unknown-wall-reference",
+                    f'Room {request.room.id} has no wall "{intent.wallId}"',
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            walls_by_intent[intent.id] = wall
+            if intent.face not in product.wallContactFaces:
+                return _design_failure(
+                    "product-face-not-supported",
+                    f"{product.id} may not contact a wall with its {intent.face} face",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.kind == "in_corner" and intent.adjacentWallId is None:
                 return _design_failure(
                     "nonadjacent-corner-walls",
                     "in_corner requires adjacentWallId",
@@ -648,6 +811,160 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                     0,
                     request.maxCandidates,
                 )
+            if intent.kind != "in_corner" and intent.adjacentWallId is not None:
+                return _design_failure(
+                    "unsupported-intent",
+                    f'{intent.kind} does not accept adjacentWallId',
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+        else:
+            if intent.wallId is not None or intent.adjacentWallId is not None or intent.face != "back":
+                return _design_failure(
+                    "unsupported-intent",
+                    f"{intent.kind} accepts object-relative fields only",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.referenceId is None:
+                return _design_failure(
+                    "unknown-intent-reference",
+                    f"{intent.kind} requires referenceId",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.kind == "adjacent_to" and intent.side is None:
+                return _design_failure(
+                    "unsupported-intent",
+                    "adjacent_to requires side",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.kind == "facing" and intent.side is not None:
+                return _design_failure(
+                    "unsupported-intent",
+                    "facing always uses the referenced Product front and does not accept side",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.kind == "flanking" and intent.side not in ("left", "right"):
+                return _design_failure(
+                    "invalid-flanking-group",
+                    "flanking requires an explicit left or right side",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+
+    for intent in sorted(request.intents, key=lambda item: item.id):
+        if intent.kind not in _RELATIVE_INTENTS:
+            continue
+        assert intent.referenceId is not None
+        if intent.referenceId not in intents_by_id:
+            return _design_failure(
+                "unknown-intent-reference",
+                f'Placement Intent "{intent.id}" references unknown request "{intent.referenceId}"',
+                intent.id,
+                0,
+                request.maxCandidates,
+            )
+        if intent.referenceId == intent.id:
+            return _design_failure(
+                "self-intent-reference",
+                f'Placement Intent "{intent.id}" cannot reference itself',
+                intent.id,
+                0,
+                request.maxCandidates,
+            )
+        if intent.gapM < 0:
+            reference_product = products_by_intent[intent.referenceId]
+            allowed_classes = {
+                products_by_intent[intent.id].placementClass,
+                reference_product.placementClass,
+            }
+            if intent.kind != "adjacent_to" or allowed_classes != {"floor-standing", "floor-covering"}:
+                return _design_failure(
+                    "invalid-relative-gap",
+                    "A negative gap is limited to intentional adjacent floor-covering/floor-standing overlap",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            assert intent.side is not None
+            centre_separation = (
+                face_half_extent_m(reference_product, intent.side)
+                + face_half_extent_m(products_by_intent[intent.id], _opposite_face(intent.side))
+                + intent.gapM
+            )
+            if centre_separation < -NUMERIC_NOISE_M:
+                return _design_failure(
+                    "invalid-relative-gap",
+                    "The negative gap reverses the requested side instead of creating intentional overlap",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+
+    flanking_groups: dict[str, list[PlacementIntent]] = {}
+    for intent in request.intents:
+        if intent.kind == "flanking":
+            assert intent.referenceId is not None
+            flanking_groups.setdefault(intent.referenceId, []).append(intent)
+    for reference_id, members in sorted(flanking_groups.items()):
+        sides = {member.side for member in members}
+        gaps = {member.gapM for member in members}
+        if len(members) != 2 or sides != {"left", "right"} or len(gaps) != 1:
+            failed_id = min((member.id for member in members), default=reference_id)
+            return _design_failure(
+                "invalid-flanking-group",
+                f'Flanking reference "{reference_id}" requires exactly one left and one right request with a shared gapM',
+                failed_id,
+                0,
+                request.maxCandidates,
+            )
+
+    children: dict[str, list[str]] = {intent_id: [] for intent_id in intents_by_id}
+    indegree = {intent_id: 0 for intent_id in intents_by_id}
+    for intent in request.intents:
+        if intent.kind in _RELATIVE_INTENTS:
+            assert intent.referenceId is not None
+            children[intent.referenceId].append(intent.id)
+            indegree[intent.id] += 1
+    ready = [intent_id for intent_id, degree in indegree.items() if degree == 0]
+    heapq.heapify(ready)
+    topological_ids: list[str] = []
+    while ready:
+        intent_id = heapq.heappop(ready)
+        topological_ids.append(intent_id)
+        for child_id in sorted(children[intent_id]):
+            indegree[child_id] -= 1
+            if indegree[child_id] == 0:
+                heapq.heappush(ready, child_id)
+    if len(topological_ids) != len(request.intents):
+        cyclic_id = min(intent_id for intent_id, degree in indegree.items() if degree > 0)
+        return _design_failure(
+            "cyclic-intent-reference",
+            f'Placement Intent reference graph contains a cycle involving "{cyclic_id}"',
+            cyclic_id,
+            0,
+            request.maxCandidates,
+        )
+
+    prepared: list[_PreparedIntent] = []
+    for intent_id in topological_ids:
+        intent = intents_by_id[intent_id]
+        product = products_by_intent[intent_id]
+        if intent.kind in _RELATIVE_INTENTS:
+            prepared.append(_PreparedIntent(intent=intent, product=product))
+            continue
+        wall = walls_by_intent[intent_id]
+        if intent.kind == "in_corner":
+            assert intent.adjacentWallId is not None
             adjacent = next((candidate for candidate in request.room.walls if candidate.id == intent.adjacentWallId), None)
             if adjacent is None:
                 return _design_failure(
@@ -684,43 +1001,24 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                     0,
                     request.maxCandidates,
                 )
-            fixed_offset = offset
-            has_continuous_positions = False
-            additional_wall_contacts = (WallContact(wallId=adjacent.id, face=secondary_face),)
+            prepared.append(_PreparedIntent(
+                intent=intent,
+                product=product,
+                wall=wall,
+                fixed_offset=offset,
+                additional_wall_contacts=(WallContact(wallId=adjacent.id, face=secondary_face),),
+            ))
         elif intent.kind == "centred_on":
-            if intent.adjacentWallId is not None:
-                return _design_failure(
-                    "unsupported-intent",
-                    f'{intent.kind} does not accept adjacentWallId',
-                    intent.id,
-                    0,
-                    request.maxCandidates,
-                )
-            fixed_offset = 0.0
-            has_continuous_positions = False
-            additional_wall_contacts = ()
+            prepared.append(_PreparedIntent(intent=intent, product=product, wall=wall, fixed_offset=0.0))
         else:
-            if intent.adjacentWallId is not None:
-                return _design_failure(
-                    "unsupported-intent",
-                    "against does not accept adjacentWallId",
-                    intent.id,
-                    0,
-                    request.maxCandidates,
-                )
-            fixed_offset = None
             wall_length = hypot(wall.end[0] - wall.start[0], wall.end[1] - wall.start[1])
             product_span = product.dimensionsM.widthM if intent.face in ("front", "back") else product.dimensionsM.depthM
-            has_continuous_positions = wall_length > product_span + DEFAULT_TOLERANCES.bounds_slack_m
-            additional_wall_contacts = ()
-        prepared.append(_PreparedIntent(
-            intent,
-            product,
-            wall,
-            fixed_offset,
-            has_continuous_positions,
-            additional_wall_contacts,
-        ))
+            prepared.append(_PreparedIntent(
+                intent=intent,
+                product=product,
+                wall=wall,
+                has_continuous_positions=wall_length > product_span + DEFAULT_TOLERANCES.bounds_slack_m,
+            ))
 
     attempted = 0
     budget_intent_id: str | None = None
@@ -728,42 +1026,62 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
 
     def search(
         index: int,
-        placements: tuple[Placement, ...],
-        fits: tuple[FitSuccess, ...],
-    ) -> tuple[tuple[Placement, ...], tuple[FitSuccess, ...]] | None:
+        placements: dict[str, Placement],
+        fits: dict[str, FitSuccess],
+    ) -> tuple[dict[str, Placement], dict[str, FitSuccess]] | None:
         nonlocal attempted, budget_intent_id, last_invalid
         if index == len(prepared):
             return placements, fits
         current = prepared[index]
-        for offset in current.offsets():
+        offsets: tuple[float | None, ...] | Iterator[float]
+        offsets = (None,) if current.intent.kind in _RELATIVE_INTENTS else current.offsets()
+        for offset in offsets:
             if attempted >= request.maxCandidates:
                 budget_intent_id = current.intent.id
                 return None
-            fit = place_against_wall(
-                current.product,
-                request.room,
-                current.wall.id,
-                current.intent.face,
-                offset,
-                occupied=tuple(
-                    (prior.product, prior_placement)
-                    for prior, prior_placement in zip(prepared[:index], placements, strict=True)
-                ),
-                instance_id=current.intent.id,
-                additional_wall_contacts=current.additional_wall_contacts,
+            occupied = tuple(
+                (products_by_intent[instance_id], placement)
+                for instance_id, placement in placements.items()
             )
+            if current.intent.kind in _RELATIVE_INTENTS:
+                assert current.intent.referenceId is not None
+                reference_id = current.intent.referenceId
+                fit = _place_relative(
+                    current.product,
+                    request.room,
+                    current.intent,
+                    products_by_intent[reference_id],
+                    placements[reference_id],
+                    occupied,
+                )
+            else:
+                assert current.wall is not None and offset is not None
+                fit = place_against_wall(
+                    current.product,
+                    request.room,
+                    current.wall.id,
+                    current.intent.face,
+                    offset,
+                    occupied=occupied,
+                    instance_id=current.intent.id,
+                    additional_wall_contacts=current.additional_wall_contacts,
+                )
             attempted += 1
             if fit.status != "fits":
                 last_invalid = (current.intent, fit)
                 continue
-            solution = search(index + 1, (*placements, fit.placement), (*fits, fit))
+            solution = search(
+                index + 1,
+                {**placements, current.intent.id: fit.placement},
+                {**fits, current.intent.id: fit},
+            )
             if solution is not None:
                 return solution
             if budget_intent_id is not None:
                 return None
         return None
 
-    solution = search(0, (), ())
+    solution = search(0, {}, {})
     if solution is None:
         if budget_intent_id is not None:
             return _design_failure(
@@ -784,7 +1102,14 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 request.maxCandidates,
                 exhaustive=False,
             )
-        assert last_invalid is not None
+        if last_invalid is None:
+            return _design_failure(
+                "intent-unsatisfiable",
+                "No supported complete assignment could be constructed",
+                request.intents[-1].id,
+                attempted,
+                request.maxCandidates,
+            )
         failed_intent, invalid = last_invalid
         return _design_failure(
             _fit_failure_reason(invalid.reason),
@@ -794,14 +1119,14 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
             request.maxCandidates,
         )
 
-    placements, fits = solution
+    placements_by_id, fits_by_id = solution
     return SolvedDesign(
         status="solved",
         room=request.room,
         intents=request.intents,
-        products=tuple(item.product for item in prepared),
-        placements=placements,
-        fits=fits,
+        products=tuple(products_by_intent[intent.id] for intent in request.intents),
+        placements=tuple(placements_by_id[intent.id] for intent in request.intents),
+        fits=tuple(fits_by_id[intent.id] for intent in request.intents),
         search=SearchReport(
             attemptedCandidates=attempted,
             candidateLimit=request.maxCandidates,

@@ -14,7 +14,7 @@ export function FixtureSelector({
       <p className="eyebrow">Bedroom preview</p>
       <h1 id="fixture-heading">Preview furniture around the bedroom</h1>
       <p className="subtle">
-        Choose an arrangement to see how each piece fits against the walls.
+        Choose an arrangement to see how each Product fits with the room and the furniture around it.
       </p>
       <div className="fixture-options" role="group" aria-label="Bedroom arrangements">
         {fixtures.map((fixture) => (

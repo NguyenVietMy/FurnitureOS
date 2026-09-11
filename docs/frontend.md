@@ -20,6 +20,8 @@ src/
 
 The landing sample remains an illustrative concept. Its tabs, Room Type, Variants and equal-footprint Swap use local state and SVG. The independent Room preview fetches `/api/preview-design`; FastAPI supplies Catalogue, Product, Room Shell and Placement facts. Rendering helpers never become a second placement authority. See ADR-0004 and `CONTEXT.md` before changing those boundaries.
 
+The `/design` fixture rail also resolves controlled wall-relative and object-relative requests through FastAPI. Its object-relative fixtures cover `adjacent_to`, `facing`, `flanking`, a dependency chain, repeated nightstand instances, intentional rug-under-bed overlap, a floor-standing lamp and typed pre-search failures. The complete-bedroom fixture combines the bed, both flanking nightstands, facing chair, under-bed rug and adjacent floor lamp in one solved Design. The browser draws only returned Placements and exposes per-instance Mesh, world-transform and world-bounds evidence through the existing scene-debug contract.
+
 ## Routing and loading
 
 React Router's [declarative router](https://reactrouter.com/start/declarative/routing) owns `/`, `/design` (including a trailing slash), browser history and the not-found screen. Use `Link` for app navigation and normal fragment anchors for landing sections. Titles, descriptions, theme color, focus and top-of-page position update at the route boundary. Unknown extensionless app routes receive the SPA and display an accessible not-found screen; missing file/API URLs remain HTTP 404. Route metadata updates in the browser; the static HTML contains landing metadata. This migration does not add server rendering or crawler-specific HTML.

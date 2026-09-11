@@ -71,6 +71,34 @@ def intent_fixture_room() -> RoomShell:
     })
 
 
+def object_intent_fixture_room() -> RoomShell:
+    """A roomy bedroom for visible related-Product, rug and floor-lamp fixtures."""
+    return RoomShell.model_validate({
+        "id": "room-bedroom-object-intent",
+        "floorPolygon": [[-3.5, -3], [-3.5, 3], [3.5, 3], [3.5, -3]],
+        "ceilingHeightM": 2.5,
+        "walls": [
+            {"id": "wall-north", "label": "North wall", "start": [-3.5, -3], "end": [3.5, -3]},
+            {"id": "wall-east", "label": "East wall", "start": [3.5, -3], "end": [3.5, 3]},
+            {"id": "wall-south", "label": "South wall", "start": [3.5, 3], "end": [-3.5, 3]},
+            {"id": "wall-west", "label": "West wall", "start": [-3.5, 3], "end": [-3.5, -3]},
+        ],
+        "openings": [
+            {
+                "id": "object-room-door",
+                "kind": "door",
+                "wallId": "wall-east",
+                "offsetAlongWallM": -2,
+                "widthM": 1,
+                "bottomM": 0,
+                "heightM": 2.1,
+                "clearanceDepthM": 0,
+                "doorSwing": {"hingeSide": "start"},
+            },
+        ],
+    })
+
+
 _FIXTURES = (
     DesignFixture(
         id="against-wall",
@@ -106,6 +134,83 @@ _FIXTURES = (
         description="Places two matching nightstands at the centres of the north and south walls.",
         intentKind="centred_on",
         expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="adjacent-nightstand",
+        label="Nightstand adjacent to the bed",
+        description="Leaves 60 cm between the bed and a nightstand on its right.",
+        intentKind="adjacent_to",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="facing-chair",
+        label="Chair facing the bed",
+        description="Places the chair in front of the bed and turns it toward the bed.",
+        intentKind="facing",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="flanking-nightstands",
+        label="Matching nightstands flank the bed",
+        description="Places one matching nightstand on each side of the bed with even spacing.",
+        intentKind="flanking",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="rug-under-bed",
+        label="Rug extends under the bed",
+        description="Slides a rug beneath the bed while keeping the walking areas usable.",
+        intentKind="adjacent_to",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="floor-lamp",
+        label="Floor lamp beside the bed",
+        description="Sets a standing lamp on the floor beside the bed.",
+        intentKind="adjacent_to",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="relative-chain",
+        label="Bedside grouping",
+        description="Places a nightstand beside the bed, then a lamp in front of the nightstand.",
+        intentKind="adjacent_to",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="complete-bedroom",
+        label="Complete bedroom arrangement",
+        description="Shows the bed with two nightstands, a facing chair, an under-bed rug and a floor lamp.",
+        intentKind="adjacent_to",
+        expectedOutcome="solved",
+    ),
+    DesignFixture(
+        id="missing-relative-reference",
+        label="Missing related furniture",
+        description="Shows why furniture cannot be placed relative to an arrangement that is missing.",
+        intentKind="adjacent_to",
+        expectedOutcome="failed",
+    ),
+    DesignFixture(
+        id="relative-cycle",
+        label="Furniture dependency loop",
+        description="Shows why two pieces cannot each depend on the other being placed first.",
+        intentKind="adjacent_to",
+        expectedOutcome="failed",
+    ),
+    DesignFixture(
+        id="malformed-flanking",
+        label="Incomplete flanking pair",
+        description="Shows why flanking needs one evenly spaced nightstand on each side.",
+        intentKind="flanking",
+        expectedOutcome="failed",
+    ),
+    DesignFixture(
+        id="furniture-negative-gap",
+        label="Furniture overlap not allowed",
+        description="Shows why two ordinary pieces of furniture cannot occupy the same floor space.",
+        intentKind="adjacent_to",
+        expectedOutcome="failed",
     ),
 )
 
@@ -156,7 +261,75 @@ _FIXTURE_INTENTS = {
             "face": "back",
         },
     ),
+    "adjacent-nightstand": (
+        {"id": "adjacent-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "adjacent-nightstand-right", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "adjacent-bed", "side": "right", "gapM": 0.6},
+    ),
+    "facing-chair": (
+        {"id": "facing-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "chair-facing-bed", "kind": "facing", "productId": "chair-stone-beam-deco-wingback-walnut", "referenceId": "facing-bed", "gapM": 0.8},
+    ),
+    "flanking-nightstands": (
+        {"id": "flanked-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "left-flank", "kind": "flanking", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "flanked-bed", "side": "left", "gapM": 1.0},
+        {"id": "right-flank", "kind": "flanking", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "flanked-bed", "side": "right", "gapM": 1.0},
+    ),
+    "rug-under-bed": (
+        {"id": "rug-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "under-bed-rug", "kind": "adjacent_to", "productId": "rug-rivet-arrow-black-ivory", "referenceId": "rug-bed", "side": "front", "gapM": -1.6},
+    ),
+    "floor-lamp": (
+        {"id": "lamp-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "standing-lamp", "kind": "adjacent_to", "productId": "lamp-rivet-harper-brass", "referenceId": "lamp-bed", "side": "right", "gapM": 0.8},
+    ),
+    "relative-chain": (
+        {"id": "chain-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "chain-nightstand", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "chain-bed", "side": "right", "gapM": 0.6},
+        {"id": "chain-lamp", "kind": "adjacent_to", "productId": "lamp-rivet-harper-brass", "referenceId": "chain-nightstand", "side": "front", "gapM": 0.55},
+    ),
+    "complete-bedroom": (
+        {"id": "complete-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "complete-left-nightstand", "kind": "flanking", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "complete-bed", "side": "left", "gapM": 0.7},
+        {"id": "complete-right-nightstand", "kind": "flanking", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "complete-bed", "side": "right", "gapM": 0.7},
+        {"id": "complete-chair", "kind": "facing", "productId": "chair-stone-beam-deco-wingback-walnut", "referenceId": "complete-bed", "gapM": 0.8},
+        {"id": "complete-rug", "kind": "adjacent_to", "productId": "rug-rivet-arrow-black-ivory", "referenceId": "complete-bed", "side": "front", "gapM": -1.6},
+        {"id": "complete-lamp", "kind": "adjacent_to", "productId": "lamp-rivet-harper-brass", "referenceId": "complete-left-nightstand", "side": "left", "gapM": 0.4},
+    ),
+    "missing-relative-reference": ({
+        "id": "missing-relative",
+        "kind": "adjacent_to",
+        "productId": "nightstand-alkove-hayes-wild-oak",
+        "referenceId": "not-a-request",
+        "side": "right",
+        "gapM": 0.6,
+    },),
+    "relative-cycle": (
+        {"id": "cycle-a", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "cycle-b", "side": "left", "gapM": 0.6},
+        {"id": "cycle-b", "kind": "adjacent_to", "productId": "nightstand-hallowood-waverly-light-oak", "referenceId": "cycle-a", "side": "right", "gapM": 0.6},
+    ),
+    "malformed-flanking": (
+        {"id": "malformed-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "only-left-flank", "kind": "flanking", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "malformed-bed", "side": "left", "gapM": 0.6},
+    ),
+    "furniture-negative-gap": (
+        {"id": "overlap-bed", "kind": "centred_on", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {"id": "overlap-nightstand", "kind": "adjacent_to", "productId": "nightstand-alkove-hayes-wild-oak", "referenceId": "overlap-bed", "side": "right", "gapM": -0.1},
+    ),
 }
+
+_OBJECT_FIXTURES = frozenset({
+    "adjacent-nightstand",
+    "facing-chair",
+    "flanking-nightstands",
+    "rug-under-bed",
+    "floor-lamp",
+    "relative-chain",
+    "complete-bedroom",
+    "missing-relative-reference",
+    "relative-cycle",
+    "malformed-flanking",
+    "furniture-negative-gap",
+})
 
 
 def design_fixtures() -> DesignFixtures:
@@ -178,7 +351,11 @@ def resolve_fixture(selection: FixtureSelectionRequest, source: Catalogue = cata
             ),
         )
     request = DesignRequest.model_validate({
-        "room": intent_fixture_room().model_dump(mode="json"),
+        "room": (
+            object_intent_fixture_room()
+            if selection.fixtureId in _OBJECT_FIXTURES
+            else intent_fixture_room()
+        ).model_dump(mode="json"),
         "intents": intents,
         "maxCandidates": selection.maxCandidates,
     })

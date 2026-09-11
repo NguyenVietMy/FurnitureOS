@@ -10,6 +10,8 @@ SHA-256 hashes are pinned in that seed. The featured bed also retains the
 independent 66 × 56 × 92-inch listing record as sanity-check evidence; measured
 Mesh bounds remain authoritative.
 
+Placement class is explicit provider-neutral adapter metadata: the three rugs publish `floor-covering`, the two lamp records explicitly publish `floor-standing`, and the remaining seed Products default to `floor-standing`. Only `floor-covering` metadata enables the solver's walkable overlap exception; names, category and Mesh thinness do not.
+
 ABO's download page and archive record CC BY 4.0, while the AWS Registry of
 Open Data entry and CVPR 2022 paper record CC BY-NC 4.0. The adapter and UI
 surface this discrepancy as unresolved. They do not infer commercial rights.

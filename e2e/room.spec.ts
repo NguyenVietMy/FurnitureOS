@@ -9,6 +9,11 @@ const manifest = JSON.parse(readFileSync(join(root, 'public', 'products', produc
 const shots = process.env.FURNITUREOS_EVIDENCE_DIR ?? join(root, 'test-results', 'screenshots'); mkdirSync(shots, { recursive: true });
 interface SceneInstance { instanceId: string; productId: string; ready: boolean; worldBounds: { min: number[]; max: number[]; size: number[] } | null; publishedPlacement: { position: number[]; yaw: number; wallId: string | null }; renderedTransform: { position: number[]; yaw: number; matrixWorld: number[] } | null; meshCount: number; }
 interface Scene { ready: boolean; productId: string; activeLod: number; framesRendered: number; worldBounds: { min: number[]; max: number[]; size: number[] } | null; placement: { wallId: string | null } | null; products?: Record<string, { ready: boolean; placement: { position: number[]; yaw: number; wallId: string | null } }>; instances?: Record<string, SceneInstance>; textures: { requested: number; decoded: number; fallback: number }; camera: number[] | null; }
+interface SolvedPayload {
+  status: 'solved';
+  products: Array<{ id: string; category: string; placementClass: string; dimensionsM: { widthM: number; heightM: number; depthM: number }; mesh: { boundsM: { min: number[]; max: number[] } } }>;
+  placements: Array<{ instanceId: string; productId: string; position: number[]; yaw: number; wallContact: { wallId: string } | null }>;
+}
 const scene = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__furnitureos)) as Scene);
 async function waitForProduct(page: Page) { await page.waitForFunction(() => window.__furnitureos?.ready && (window.__furnitureos.framesRendered ?? 0) > 3, undefined, { timeout: 60_000 }); }
 async function expectDefaultCamera(page: Page) {
@@ -29,6 +34,69 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function expectSingleDesignHeading(page: Page) {
   await expect(page.locator('h1')).toHaveCount(1);
   await expect(page.locator('h1')).toHaveText('Preview furniture around the bedroom');
+}
+
+async function centreCameraAtDistance(page: Page, distance: number) {
+  const canvas = (await page.locator('canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width / 2 + 105, canvas.y + canvas.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(async () => Math.abs((await scene(page)).camera?.[0] ?? 10)).toBeLessThan(0.8);
+  await page.evaluate((metres) => window.__furnitureos?.setCameraDistanceM?.(metres), distance);
+  await expect.poll(async () => {
+    const camera = (await scene(page)).camera;
+    return camera ? Math.round(Math.hypot(camera[0]!, camera[1]! - 0.7, camera[2]!) * 10) / 10 : null;
+  }).toBe(distance);
+}
+
+function expectedWorldBounds(
+  bounds: { min: number[]; max: number[] },
+  placement: { position: number[]; yaw: number },
+) {
+  const cosine = Math.cos(placement.yaw);
+  const sine = Math.sin(placement.yaw);
+  const corners = [bounds.min[0]!, bounds.max[0]!].flatMap((x) =>
+    [bounds.min[1]!, bounds.max[1]!].flatMap((y) =>
+      [bounds.min[2]!, bounds.max[2]!].map((z) => [
+        placement.position[0]! + x * cosine + z * sine,
+        placement.position[1]! + y,
+        placement.position[2]! - x * sine + z * cosine,
+      ]),
+    ),
+  );
+  const min = [0, 1, 2].map((axis) => Math.min(...corners.map((corner) => corner[axis]!)));
+  const max = [0, 1, 2].map((axis) => Math.max(...corners.map((corner) => corner[axis]!)));
+  return { min, max, size: max.map((value, axis) => value - min[axis]!) };
+}
+
+async function expectRenderedPayload(page: Page, payload: SolvedPayload) {
+  const ids = payload.placements.map(({ instanceId }) => instanceId);
+  await page.waitForFunction(
+    (instanceIds) => instanceIds.every((id) => window.__furnitureos?.instances?.[id]?.ready),
+    ids,
+    { timeout: 60_000 },
+  );
+  const rendered = await scene(page);
+  for (const [index, placement] of payload.placements.entries()) {
+    const product = payload.products[index]!;
+    const actual = rendered.instances?.[placement.instanceId];
+    const expectedBounds = expectedWorldBounds(product.mesh.boundsM, placement);
+    expect(actual?.instanceId).toBe(placement.instanceId);
+    expect(actual?.productId).toBe(placement.productId);
+    expect(actual?.publishedPlacement.position).toEqual(placement.position);
+    expect(actual?.publishedPlacement.yaw).toBe(placement.yaw);
+    expect(actual?.renderedTransform?.position).toEqual(placement.position);
+    expect(actual?.renderedTransform?.yaw).toBe(placement.yaw);
+    expect(actual?.renderedTransform?.matrixWorld).toHaveLength(16);
+    expect(actual?.meshCount).toBeGreaterThan(0);
+    for (const key of ['min', 'max', 'size'] as const) {
+      for (const axis of [0, 1, 2]) {
+        expect(actual?.worldBounds?.[key][axis]).toBeCloseTo(expectedBounds[key][axis]!, 4);
+      }
+    }
+  }
+  return rendered;
 }
 
 test('keeps one page heading and a discoverable subordinate hierarchy in every Design result state', async ({ page }) => {
@@ -258,4 +326,149 @@ test('selects wall-relative fixtures and renders the exact server-returned Place
   await expect(page.getByTestId('design-failure')).toContainText('bedroom-door');
   await expect(page.getByTestId('room-canvas')).toHaveCount(0);
   await page.screenshot({ path: join(shots, 'ticket-3-door-swing-failure-tablet.png'), fullPage: true });
+});
+
+test('renders ticket-4 related Products, floor covering and floor lamp from exact server Placements', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/design');
+  await waitForProduct(page);
+  const evidence: Record<string, unknown> = {};
+
+  for (const fixtureId of [
+    'adjacent-nightstand',
+    'facing-chair',
+    'flanking-nightstands',
+    'rug-under-bed',
+    'floor-lamp',
+    'relative-chain',
+  ]) {
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/design-resolution') && response.request().method() === 'POST');
+    await page.getByTestId(`fixture-${fixtureId}`).click();
+    const payload = await (await responsePromise).json() as SolvedPayload;
+    expect(payload.status).toBe('solved');
+    const rendered = await expectRenderedPayload(page, payload);
+    evidence[fixtureId] = {
+      products: payload.products.map(({ id, category, placementClass, mesh }) => ({ id, category, placementClass, boundsM: mesh.boundsM })),
+      placements: payload.placements,
+      renderedInstances: Object.fromEntries(payload.placements.map(({ instanceId }) => [instanceId, rendered.instances?.[instanceId]])),
+    };
+
+    if (fixtureId === 'flanking-nightstands') {
+      expect(payload.products.map(({ id }) => id)).toEqual([
+        'bed-prudence-tufted-queen-natural',
+        'nightstand-alkove-hayes-wild-oak',
+        'nightstand-alkove-hayes-wild-oak',
+      ]);
+      await centreCameraAtDistance(page, 7);
+      await page.screenshot({ path: join(shots, 'ticket-4-flanking-desktop.png') });
+      await page.reload();
+      await waitForProduct(page);
+    }
+    if (fixtureId === 'rug-under-bed') {
+      expect(payload.products[1]?.placementClass).toBe('floor-covering');
+      await page.screenshot({ path: join(shots, 'ticket-4-rug-under-bed-desktop.png') });
+    }
+    if (fixtureId === 'floor-lamp') {
+      expect(payload.products[1]?.category).toBe('lamp');
+      expect(payload.products[1]?.placementClass).toBe('floor-standing');
+      expect(payload.placements[1]?.position[1]).toBe(0);
+      expect(rendered.instances?.['standing-lamp']?.worldBounds?.min[1]).toBeCloseTo(0, 4);
+    }
+  }
+
+  writeFileSync(join(shots, 'ticket-4-object-relative-scene.json'), JSON.stringify(evidence, null, 2));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId('fixture-facing-chair').click();
+  await page.waitForFunction(() => window.__furnitureos?.instances?.['chair-facing-bed']?.ready, undefined, { timeout: 60_000 });
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: join(shots, 'ticket-4-facing-mobile.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.getByTestId('fixture-floor-lamp').click();
+  await page.waitForFunction(() => window.__furnitureos?.instances?.['standing-lamp']?.ready, undefined, { timeout: 60_000 });
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: join(shots, 'ticket-4-floor-lamp-tablet.png'), fullPage: true });
+});
+
+test('renders the complete ticket-4 bedroom with every relationship in one Design', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/design');
+  await waitForProduct(page);
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes('/api/design-resolution') && response.request().method() === 'POST');
+  await page.getByTestId('fixture-complete-bedroom').click();
+  const payload = await (await responsePromise).json() as SolvedPayload;
+  expect(payload.status).toBe('solved');
+  const rendered = await expectRenderedPayload(page, payload);
+  expect(payload.placements.map(({ instanceId }) => instanceId)).toEqual([
+    'complete-bed',
+    'complete-left-nightstand',
+    'complete-right-nightstand',
+    'complete-chair',
+    'complete-rug',
+    'complete-lamp',
+  ]);
+
+  const placements = Object.fromEntries(payload.placements.map((placement) => [placement.instanceId, placement]));
+  const products = Object.fromEntries(payload.placements.map((placement, index) => [placement.instanceId, payload.products[index]!]));
+  const bed = placements['complete-bed']!;
+  const left = placements['complete-left-nightstand']!;
+  const right = placements['complete-right-nightstand']!;
+  const chair = placements['complete-chair']!;
+  const rugBounds = rendered.instances?.['complete-rug']?.worldBounds;
+  const bedBounds = rendered.instances?.['complete-bed']?.worldBounds;
+  const lampBounds = rendered.instances?.['complete-lamp']?.worldBounds;
+  const bedRear = bed.position[2]! - products['complete-bed']!.dimensionsM.depthM / 2;
+  expect(left.position[0]).toBeLessThan(bed.position[0]!);
+  expect(right.position[0]).toBeGreaterThan(bed.position[0]!);
+  for (const flank of [left, right]) {
+    expect(flank.position[2]! - products[flank.instanceId]!.dimensionsM.depthM / 2).toBeCloseTo(bedRear, 5);
+  }
+  expect(chair.position[2]).toBeGreaterThan(bed.position[2]!);
+  expect(chair.yaw).toBeCloseTo(Math.PI, 8);
+  expect(products['complete-rug']!.placementClass).toBe('floor-covering');
+  expect(Math.min(rugBounds!.max[0]!, bedBounds!.max[0]!) - Math.max(rugBounds!.min[0]!, bedBounds!.min[0]!)).toBeGreaterThan(0);
+  expect(Math.min(rugBounds!.max[2]!, bedBounds!.max[2]!) - Math.max(rugBounds!.min[2]!, bedBounds!.min[2]!)).toBeGreaterThan(0);
+  expect(products['complete-lamp']!.placementClass).toBe('floor-standing');
+  expect(lampBounds?.min[1]).toBeCloseTo(0, 4);
+  const lampFacts = page.getByTestId('product-facts-lamp-rivet-harper-brass');
+  await expect(lampFacts.getByTestId('required-clearance')).toContainText('none declared');
+  await expect(lampFacts.getByTestId('optional-access-guidance')).toContainText('not required for this fit');
+  await expect(lampFacts).not.toContainText('Access kept clear');
+
+  writeFileSync(join(shots, 'ticket-4-complete-bedroom-scene.json'), JSON.stringify({
+    products: payload.products,
+    placements: payload.placements,
+    renderedInstances: Object.fromEntries(payload.placements.map(({ instanceId }) => [instanceId, rendered.instances?.[instanceId]])),
+  }, null, 2));
+
+  await centreCameraAtDistance(page, 8.5);
+  await page.screenshot({ path: join(shots, 'ticket-4-complete-bedroom-desktop.png') });
+  for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
+    await page.setViewportSize(viewport);
+    await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: join(shots, `ticket-4-complete-bedroom-${viewport.width === 390 ? 'mobile' : 'tablet'}.png`) });
+  }
+});
+
+test('shows ticket-4 object-relative failures without a stale Room canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/design');
+  await waitForProduct(page);
+  const cases = [
+    ['missing-relative-reference', 'unknown-intent-reference'],
+    ['relative-cycle', 'cyclic-intent-reference'],
+    ['malformed-flanking', 'invalid-flanking-group'],
+    ['furniture-negative-gap', 'invalid-relative-gap'],
+  ] as const;
+
+  for (const [fixtureId, reason] of cases) {
+    await page.getByTestId(`fixture-${fixtureId}`).click();
+    await expect(page.getByTestId('design-failure')).toHaveAttribute('data-reason', reason);
+    await expect(page.getByTestId('room-canvas')).toHaveCount(0);
+    await expectSingleDesignHeading(page);
+    await page.screenshot({ path: join(shots, `ticket-4-${fixtureId}-failure.png`) });
+  }
 });
