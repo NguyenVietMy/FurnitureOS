@@ -11,8 +11,9 @@ from .models import (
     AccessRegion, DesignFailure, DesignRequest, DesignResultValue, FitMeasurements,
     FitResultValue, FitSuccess, Footprint, InvalidFit, InvalidFitReason, Placement,
     PlacementIntent, MAX_GEOMETRY_M, Product, ProductFace, RoomShell, SearchReport,
-    SolvedDesign, Vec2, WallContact, WallSegment,
+    SolvedDesign, Vec2, WallContact, WallSegment, Zone,
 )
+from .zones import ZoneDerivationError, derive_zones
 
 CANONICAL_FRONT_AXIS = "+z"
 
@@ -600,6 +601,7 @@ class _PreparedIntent:
     fixed_offset: float | None = None
     has_continuous_positions: bool = False
     additional_wall_contacts: tuple[WallContact, ...] = ()
+    zone: Zone | None = None
 
     def offsets(self) -> Iterator[float]:
         if self.wall is None:
@@ -612,6 +614,7 @@ class _PreparedIntent:
 
 _WALL_INTENTS = ("against", "centred_on", "in_corner")
 _RELATIVE_INTENTS = ("adjacent_to", "facing", "flanking")
+_ZONE_INTENTS = ("in_zone",)
 
 
 def _opposite_face(face: ProductFace) -> ProductFace:
@@ -731,6 +734,76 @@ def _fit_failure_reason(reason: InvalidFitReason) -> str:
     }.get(reason, "intent-unsatisfiable")
 
 
+def _zone_axis_centres(low: float, high: float) -> tuple[float, ...]:
+    if high < low - DEFAULT_TOLERANCES.bounds_slack_m:
+        return ()
+    if high - low <= DEFAULT_TOLERANCES.bounds_slack_m:
+        return ((low + high) / 2,)
+    values = {round(low, 9), round(high, 9), round((low + high) / 2, 9)}
+    value = low
+    while value < high:
+        values.add(round(value, 9))
+        value += SEARCH_STEP_M
+    midpoint = (low + high) / 2
+    return tuple(sorted(values, key=lambda item: (abs(item - midpoint), item)))
+
+
+def _zone_candidates(product: Product, zone: Zone) -> Iterator[tuple[Vec2, float]]:
+    bounds = zone.bounds
+    for yaw in (0.0, pi / 2, pi, -pi / 2):
+        rotated = abs(sin(yaw)) > 0.5
+        span_x = product.dimensionsM.depthM if rotated else product.dimensionsM.widthM
+        span_z = product.dimensionsM.widthM if rotated else product.dimensionsM.depthM
+        xs = _zone_axis_centres(bounds.minX + span_x / 2, bounds.maxX - span_x / 2)
+        zs = _zone_axis_centres(bounds.minZ + span_z / 2, bounds.maxZ - span_z / 2)
+        # xs and zs are already centre-out. Enumerate their rank grid in
+        # expanding squares so the global candidate cap can stop this lazily.
+        for rank in range(max(len(xs), len(zs))):
+            if rank < len(xs):
+                for z_index in range(min(rank + 1, len(zs))):
+                    yield (xs[rank], zs[z_index]), yaw
+            if rank < len(zs):
+                for x_index in range(min(rank, len(xs))):
+                    yield (xs[x_index], zs[rank]), yaw
+
+
+def _place_in_zone(
+    product: Product,
+    room: RoomShell,
+    intent: PlacementIntent,
+    zone: Zone,
+    centre: Vec2,
+    yaw: float,
+    occupied: tuple[tuple[Product, Placement], ...],
+    tolerances: Tolerances = DEFAULT_TOLERANCES,
+) -> FitResultValue:
+    footprint = footprint_of(product, centre, yaw)
+    bounds = zone.bounds
+    inside_zone = all(
+        bounds.minX - tolerances.bounds_slack_m <= x <= bounds.maxX + tolerances.bounds_slack_m
+        and bounds.minZ - tolerances.bounds_slack_m <= z <= bounds.maxZ + tolerances.bounds_slack_m
+        for x, z in footprint.corners
+    )
+    if not inside_zone:
+        return _invalid(
+            "footprint-outside-room",
+            f'{product.id} footprint does not fit inside offered Zone "{zone.id}"',
+            product,
+            room,
+            _measurements(product, footprint, _clearance(room, footprint), 0.0),
+        )
+    contacts = _actual_wall_contacts(product, room, centre, yaw, tolerances)
+    placement = Placement(
+        instanceId=intent.id,
+        productId=product.id,
+        position=(centre[0], 0, centre[1]),
+        yaw=yaw,
+        wallContact=contacts[0] if contacts else None,
+        wallContacts=contacts,
+    )
+    return validate_placement(product, room, placement, tolerances, occupied)
+
+
 def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultValue:
     """Resolve coordinate-free Placement Intents with bounded deterministic backtracking."""
     if request.maxCandidates > MAX_SEARCH_CANDIDATES:
@@ -747,6 +820,24 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
         )
 
     intents_by_id = {intent.id: intent for intent in request.intents}
+    zone_offer = None
+    if any(intent.kind in _ZONE_INTENTS for intent in request.intents):
+        try:
+            zone_offer = derive_zones(request.room)
+        except ZoneDerivationError as error:
+            zoned_intent = min(
+                (intent for intent in request.intents if intent.kind in _ZONE_INTENTS),
+                key=lambda item: item.id,
+            )
+            return _design_failure(
+                "zone-derivation-unsupported",
+                str(error),
+                zoned_intent.id,
+                0,
+                request.maxCandidates,
+                exhaustive=False,
+            )
+    zones_by_id = {zone.id: zone for zone in zone_offer.zones} if zone_offer is not None else {}
     products_by_intent: dict[str, Product] = {}
     walls_by_intent: dict[str, WallSegment] = {}
     for intent in sorted(request.intents, key=lambda item: item.id):
@@ -760,7 +851,7 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 request.maxCandidates,
             )
         products_by_intent[intent.id] = product
-        if intent.kind not in (*_WALL_INTENTS, *_RELATIVE_INTENTS):
+        if intent.kind not in (*_WALL_INTENTS, *_RELATIVE_INTENTS, *_ZONE_INTENTS):
             return _design_failure(
                 "unsupported-intent",
                 f'Placement Intent kind "{intent.kind}" is not supported',
@@ -769,7 +860,7 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 request.maxCandidates,
             )
         if intent.kind in _WALL_INTENTS:
-            if intent.referenceId is not None or intent.side is not None or intent.gapM != 0:
+            if intent.referenceId is not None or intent.side is not None or intent.gapM != 0 or intent.zoneId is not None:
                 return _design_failure(
                     "unsupported-intent",
                     f"{intent.kind} accepts wall-relative fields only",
@@ -819,8 +910,8 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                     0,
                     request.maxCandidates,
                 )
-        else:
-            if intent.wallId is not None or intent.adjacentWallId is not None or intent.face != "back":
+        elif intent.kind in _RELATIVE_INTENTS:
+            if intent.wallId is not None or intent.adjacentWallId is not None or intent.face != "back" or intent.zoneId is not None:
                 return _design_failure(
                     "unsupported-intent",
                     f"{intent.kind} accepts object-relative fields only",
@@ -856,6 +947,30 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 return _design_failure(
                     "invalid-flanking-group",
                     "flanking requires an explicit left or right side",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+        else:
+            if (
+                intent.wallId is not None
+                or intent.adjacentWallId is not None
+                or intent.referenceId is not None
+                or intent.side is not None
+                or intent.face != "back"
+                or intent.gapM != 0
+            ):
+                return _design_failure(
+                    "unsupported-intent",
+                    "in_zone accepts a server-offered zoneId and neutral defaults only",
+                    intent.id,
+                    0,
+                    request.maxCandidates,
+                )
+            if intent.zoneId is None or intent.zoneId not in zones_by_id:
+                return _design_failure(
+                    "unknown-zone-reference",
+                    f'Room {request.room.id} offered no Zone "{intent.zoneId or ""}"',
                     intent.id,
                     0,
                     request.maxCandidates,
@@ -962,6 +1077,27 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
         if intent.kind in _RELATIVE_INTENTS:
             prepared.append(_PreparedIntent(intent=intent, product=product))
             continue
+        if intent.kind in _ZONE_INTENTS:
+            assert intent.zoneId is not None
+            zone = zones_by_id[intent.zoneId]
+            bounds = zone.bounds
+            has_continuous_positions = any(
+                (
+                    bounds.maxX - bounds.minX > span_x + DEFAULT_TOLERANCES.bounds_slack_m
+                    or bounds.maxZ - bounds.minZ > span_z + DEFAULT_TOLERANCES.bounds_slack_m
+                )
+                for span_x, span_z in (
+                    (product.dimensionsM.widthM, product.dimensionsM.depthM),
+                    (product.dimensionsM.depthM, product.dimensionsM.widthM),
+                )
+            )
+            prepared.append(_PreparedIntent(
+                intent=intent,
+                product=product,
+                zone=zone,
+                has_continuous_positions=has_continuous_positions,
+            ))
+            continue
         wall = walls_by_intent[intent_id]
         if intent.kind == "in_corner":
             assert intent.adjacentWallId is not None
@@ -1033,9 +1169,15 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
         if index == len(prepared):
             return placements, fits
         current = prepared[index]
-        offsets: tuple[float | None, ...] | Iterator[float]
-        offsets = (None,) if current.intent.kind in _RELATIVE_INTENTS else current.offsets()
-        for offset in offsets:
+        candidates: Iterator[tuple[str, object | None]]
+        if current.intent.kind in _RELATIVE_INTENTS:
+            candidates = iter((("relative", None),))
+        elif current.intent.kind in _ZONE_INTENTS:
+            assert current.zone is not None
+            candidates = (("zone", candidate) for candidate in _zone_candidates(current.product, current.zone))
+        else:
+            candidates = (("wall", offset) for offset in current.offsets())
+        for candidate_kind, candidate in candidates:
             if attempted >= request.maxCandidates:
                 budget_intent_id = current.intent.id
                 return None
@@ -1043,7 +1185,7 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                 (products_by_intent[instance_id], placement)
                 for instance_id, placement in placements.items()
             )
-            if current.intent.kind in _RELATIVE_INTENTS:
+            if candidate_kind == "relative":
                 assert current.intent.referenceId is not None
                 reference_id = current.intent.referenceId
                 fit = _place_relative(
@@ -1054,14 +1196,26 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
                     placements[reference_id],
                     occupied,
                 )
+            elif candidate_kind == "zone":
+                assert current.zone is not None and candidate is not None
+                centre, yaw = candidate
+                fit = _place_in_zone(
+                    current.product,
+                    request.room,
+                    current.intent,
+                    current.zone,
+                    centre,
+                    yaw,
+                    occupied,
+                )
             else:
-                assert current.wall is not None and offset is not None
+                assert current.wall is not None and candidate is not None
                 fit = place_against_wall(
                     current.product,
                     request.room,
                     current.wall.id,
                     current.intent.face,
-                    offset,
+                    candidate,
                     occupied=occupied,
                     instance_id=current.intent.id,
                     additional_wall_contacts=current.additional_wall_contacts,
@@ -1132,4 +1286,5 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
             candidateLimit=request.maxCandidates,
             exhaustive=True,
         ),
+        zones=zone_offer.zones if zone_offer is not None else (),
     )

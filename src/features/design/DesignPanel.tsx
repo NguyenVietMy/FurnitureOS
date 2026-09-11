@@ -28,6 +28,7 @@ function placementVerb(intentKind?: string) {
   if (intentKind === 'adjacent_to') return 'Placed adjacent to';
   if (intentKind === 'facing') return 'Facing';
   if (intentKind === 'flanking') return 'Flanking';
+  if (intentKind === 'in_zone') return 'Placed inside';
   return 'Placed against';
 }
 
@@ -92,7 +93,9 @@ export function DesignPanel({
         {fit.status === 'fits' ? (
           <>
             <p data-testid="fit-status" data-fit="fits">
-              {objectRelativeKinds.has(intentKind ?? '') ? (
+              {intentKind === 'in_zone' ? (
+                <>Placed inside a Placement Zone</>
+              ) : objectRelativeKinds.has(intentKind ?? '') ? (
                 <>{placementVerb(intentKind)} the furniture it relates to</>
               ) : (
                 <>{placementVerb(intentKind)} the{' '}<WallLabel room={room} wallId={fit.placement.wallContact?.wallId ?? ''} /></>

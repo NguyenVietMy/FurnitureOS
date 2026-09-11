@@ -472,3 +472,135 @@ test('shows ticket-4 object-relative failures without a stale Room canvas', asyn
     await page.screenshot({ path: join(shots, `ticket-4-${fixtureId}-failure.png`) });
   }
 });
+
+test('renders the repairable zoned Design and honest exhausted feedback at every evidence viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/design');
+  await waitForProduct(page);
+
+  const repairedResponse = page.waitForResponse((response) =>
+    response.url().includes('/api/design-resolution') && response.request().method() === 'POST');
+  await page.getByTestId('fixture-zoned-repairable').click();
+  const repaired = await (await repairedResponse).json() as SolvedPayload & {
+    zones: Array<{ id: string; bounds: { minX: number; minZ: number; maxX: number; maxZ: number } }>;
+    circulation: { status: string; clearanceWidthM: number; accessRegions: Array<{ id: string }> };
+    arrangementHistory: { attempts: Array<{ stage: string; outcome: string; changedRequestIds: string[] }> };
+  };
+  expect(repaired.status).toBe('solved');
+  expect(repaired.zones).toHaveLength(3);
+  expect(repaired.circulation.status).toBe('clear');
+  expect(repaired.circulation.clearanceWidthM).toBe(0.6);
+  expect(repaired.circulation.accessRegions.map(({ id }) => id)).toContain('door:bedroom-south-door');
+  expect(repaired.arrangementHistory.attempts.map(({ outcome }) => outcome)).toEqual([
+    'circulation-blocked',
+    'solved',
+  ]);
+  expect(repaired.arrangementHistory.attempts[1]?.changedRequestIds).toEqual(['c-barrier-right']);
+  expect(repaired.placements.map(({ instanceId }) => instanceId)).toEqual([
+    'a-bed',
+    'b-barrier-left',
+    'c-barrier-right',
+    'z-zone-rug',
+  ]);
+  const repairedScene = await expectRenderedPayload(page, repaired);
+  await expect(page.getByTestId('arrangement-feedback')).toContainText('A connected walking route is clear');
+  await expect(page.getByTestId('arrangement-feedback')).toContainText('0.60 m clearance');
+  await expect(page.getByTestId('arrangement-attempts')).toContainText('Repair selection');
+  await expect(page.getByTestId('stage-arrangement-outcome')).toContainText('Walking route clear');
+  expect(repairedScene.camera?.[0]).toBeGreaterThan(6);
+  expect(repairedScene.camera?.[1]).toBeGreaterThan(8);
+  expect(repairedScene.camera?.[2]).toBeLessThan(-8);
+  writeFileSync(join(shots, 'ticket-5-repairable-scene.json'), JSON.stringify({
+    response: repaired,
+    renderedInstances: Object.fromEntries(repaired.placements.map(({ instanceId }) => [
+      instanceId,
+      repairedScene.instances?.[instanceId],
+    ])),
+  }, null, 2));
+
+  for (const viewport of [
+    { width: 1440, height: 1000, label: 'desktop' },
+    { width: 390, height: 844, label: 'mobile' },
+    { width: 768, height: 1024, label: 'tablet' },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByTestId('design-panel').evaluate((panel) => { panel.scrollTop = 0; });
+    await expectNoHorizontalOverflow(page);
+    await expect(page.getByTestId('stage-arrangement-outcome')).toBeVisible();
+    await page.screenshot({ path: join(shots, `ticket-5-repairable-${viewport.label}.png`) });
+    if (viewport.label === 'mobile') {
+      await page.getByTestId('arrangement-feedback').scrollIntoViewIfNeeded();
+      await expect(page.getByTestId('arrangement-feedback')).toBeVisible();
+      await page.screenshot({ path: join(shots, `ticket-5-repairable-${viewport.label}-feedback.png`) });
+    }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const exhaustedResponse = page.waitForResponse((response) =>
+    response.url().includes('/api/design-resolution') && response.request().method() === 'POST');
+  await page.getByTestId('fixture-zoned-exhausted').click();
+  const exhausted = await (await exhaustedResponse).json() as {
+    status: 'failed';
+    reason: string;
+    detail: string;
+    zones: Array<{ id: string }>;
+    limitingConstraint: {
+      code: string;
+      disconnectedAccessIds: string[];
+      implicatedRequestIds: string[];
+      attributionLimited: boolean;
+      attributionLimitation: string;
+      gridResolutionM: number;
+    };
+    arrangementHistory: { attempts: Array<{ stage: string; outcome: string; droppedRequestIds: string[] }> };
+  };
+  expect(exhausted.status).toBe('failed');
+  expect(exhausted.reason).toBe('NO_VALID_DESIGN');
+  expect(exhausted.limitingConstraint.code).toBe('CIRCULATION_BLOCKED');
+  expect(exhausted.limitingConstraint.disconnectedAccessIds.length).toBeGreaterThan(0);
+  expect(exhausted.limitingConstraint.implicatedRequestIds).toEqual([...exhausted.limitingConstraint.implicatedRequestIds].sort());
+  expect(exhausted.limitingConstraint.attributionLimited).toBe(true);
+  expect(exhausted.limitingConstraint.attributionLimitation).toBeTruthy();
+  expect(exhausted.limitingConstraint.gridResolutionM).toBe(0.05);
+  expect(exhausted.arrangementHistory.attempts.map(({ stage }) => stage)).toEqual([
+    'initial',
+    'repair',
+    'repair',
+    'drop',
+  ]);
+  expect(exhausted.arrangementHistory.attempts.at(-1)?.droppedRequestIds).toEqual(['z-zone-rug']);
+  await expect(page.getByTestId('design-failure')).toHaveAttribute('data-reason', 'NO_VALID_DESIGN');
+  await expect(page.getByTestId('arrangement-feedback')).toContainText('No traversable arrangement was found');
+  await expect(page.getByTestId('attribution-limitation')).toContainText('could not be attributed to one Product');
+  await expect(page.getByTestId('stage-invalid-fit')).toContainText('No connected walking route was found');
+  await expect(page.getByTestId('stage-invalid-fit').locator('details')).not.toHaveAttribute('open', '');
+  await expect(page.getByTestId('stage-invalid-fit').locator('details')).toContainText('CIRCULATION_BLOCKED');
+  await expect(page.getByTestId('room-canvas')).toHaveCount(0);
+  await expect(page.locator('.product-facts')).toHaveCount(0);
+  writeFileSync(join(shots, 'ticket-5-exhausted-response.json'), JSON.stringify(exhausted, null, 2));
+
+  for (const viewport of [
+    { width: 1440, height: 1000, label: 'desktop' },
+    { width: 390, height: 844, label: 'mobile' },
+    { width: 768, height: 1024, label: 'tablet' },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.getByTestId('design-panel').evaluate((panel) => { panel.scrollTop = 0; });
+    await expectNoHorizontalOverflow(page);
+    await expect(page.getByTestId('room-canvas')).toHaveCount(0);
+    await expect(page.getByTestId('stage-invalid-fit')).toBeVisible();
+    await page.screenshot({ path: join(shots, `ticket-5-exhausted-${viewport.label}.png`) });
+    if (viewport.label === 'mobile') {
+      await page.getByTestId('arrangement-feedback').scrollIntoViewIfNeeded();
+      await expect(page.getByTestId('arrangement-feedback')).toBeVisible();
+      await page.screenshot({ path: join(shots, `ticket-5-exhausted-${viewport.label}-feedback.png`) });
+    }
+  }
+
+  await page.goto('/');
+  await expect(page.getByTestId('room-canvas')).toHaveCount(0);
+  await expect(page.getByText('Interactive concept preview. Illustrative furnishings; no live Catalogue or room generation.').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /catalogue gallery/i })).toHaveCount(0);
+});

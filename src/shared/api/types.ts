@@ -11,6 +11,41 @@ export interface AccessRegion {
   readonly purpose: string;
 }
 
+export interface ArrangementAttempt {
+  readonly id: string;
+  readonly stage: "initial" | "repair" | "drop" | "skipped-drop";
+  readonly selectionId: string;
+  readonly outcome: "solved" | "placement-failed" | "circulation-blocked" | "unsupported" | "skipped";
+  readonly changedRequestIds?: ReadonlyArray<string>;
+  readonly droppedRequestIds?: ReadonlyArray<string>;
+  readonly detail: string;
+  readonly limitingConstraint?: LimitingConstraint | null;
+  readonly attemptedCandidates: number;
+}
+
+export interface ArrangementHistory {
+  readonly initialSelectionId: string;
+  readonly attempts: ReadonlyArray<ArrangementAttempt>;
+  readonly repairLimit?: 2;
+  readonly optionalRequestLimit: number;
+  readonly maxSolveAttempts: number;
+  readonly maxCandidatesPerSolve: number;
+  readonly totalAttemptedCandidates: number;
+}
+
+export interface ArrangementRequest {
+  readonly room: RoomShell;
+  readonly selections: ReadonlyArray<ArrangementSelection>;
+  readonly policies: ReadonlyArray<PlacementPolicy>;
+  readonly clearanceWidthM: number;
+  readonly maxCandidates?: number;
+}
+
+export interface ArrangementSelection {
+  readonly id: string;
+  readonly intents: ReadonlyArray<PlacementIntent>;
+}
+
 export interface Attribution {
   readonly source: string;
   readonly holder: string;
@@ -30,20 +65,40 @@ export interface CatalogueGallery {
   readonly products: ReadonlyArray<Product>;
 }
 
+export interface CirculationClear {
+  readonly status: "clear";
+  readonly clearanceWidthM: number;
+  readonly accessRegions: ReadonlyArray<CirculationRegion>;
+  readonly gridResolutionM: number;
+  readonly validatedNodes: number;
+  readonly exhaustive: boolean;
+}
+
+export interface CirculationRegion {
+  readonly id: string;
+  readonly ownerType: "door" | "product";
+  readonly ownerId: string;
+  readonly corners: readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]];
+}
+
 export interface DesignFailure {
   readonly status: "failed";
-  readonly reason: "unsupported-intent" | "unknown-fixture-reference" | "unknown-product-reference" | "unknown-wall-reference" | "duplicate-intent-reference" | "unknown-intent-reference" | "self-intent-reference" | "cyclic-intent-reference" | "invalid-flanking-group" | "invalid-relative-gap" | "product-face-not-supported" | "nonadjacent-corner-walls" | "corner-angle-not-supported" | "product-exceeds-ceiling-height" | "intent-unsatisfiable" | "search-exhausted" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion";
+  readonly reason: "unsupported-intent" | "unknown-fixture-reference" | "unknown-product-reference" | "unknown-wall-reference" | "duplicate-intent-reference" | "unknown-intent-reference" | "self-intent-reference" | "cyclic-intent-reference" | "invalid-flanking-group" | "invalid-relative-gap" | "product-face-not-supported" | "nonadjacent-corner-walls" | "corner-angle-not-supported" | "product-exceeds-ceiling-height" | "intent-unsatisfiable" | "search-exhausted" | "product-collision" | "access-region-blocked" | "opening-exclusion" | "door-swing-exclusion" | "unknown-zone-reference" | "zone-derivation-unsupported" | "NO_VALID_DESIGN";
   readonly detail: string;
   readonly failedIntentId: string;
   readonly search: SearchReport;
+  readonly zones?: ReadonlyArray<Zone>;
+  readonly limitingConstraint?: LimitingConstraint | null;
+  readonly arrangementHistory?: ArrangementHistory | null;
 }
 
 export interface DesignFixture {
   readonly id: string;
   readonly label: string;
   readonly description: string;
-  readonly intentKind: "against" | "centred_on" | "in_corner" | "adjacent_to" | "facing" | "flanking";
+  readonly intentKind: "against" | "centred_on" | "in_corner" | "adjacent_to" | "facing" | "flanking" | "in_zone";
   readonly expectedOutcome: "solved" | "failed";
+  readonly arrangement?: boolean;
 }
 
 export interface DesignFixtures {
@@ -117,6 +172,19 @@ export interface LicenseEvidence {
   readonly url: string;
 }
 
+export interface LimitingConstraint {
+  readonly code: string;
+  readonly detail: string;
+  readonly failedRequestId?: string;
+  readonly disconnectedAccessIds?: ReadonlyArray<string>;
+  readonly implicatedRequestIds?: ReadonlyArray<string>;
+  readonly clearanceWidthM?: number | null;
+  readonly attributionLimited?: boolean;
+  readonly attributionLimitation?: string | null;
+  readonly gridResolutionM?: number | null;
+  readonly exhaustive: boolean;
+}
+
 export interface MeshBounds {
   readonly min: readonly [number, number, number];
   readonly max: readonly [number, number, number];
@@ -180,9 +248,17 @@ export interface PlacementIntent {
   readonly wallId?: string | null;
   readonly face?: "front" | "back" | "left" | "right";
   readonly adjacentWallId?: string | null;
+  readonly zoneId?: string | null;
   readonly referenceId?: string | null;
   readonly side?: "front" | "back" | "left" | "right" | null;
   readonly gapM?: number;
+}
+
+export interface PlacementPolicy {
+  readonly requestId: string;
+  readonly required: boolean;
+  readonly anchor: boolean;
+  readonly optionalKind?: "decoration" | "secondary-furniture" | null;
 }
 
 export interface PlacementValidationRequest {
@@ -243,6 +319,9 @@ export interface SolvedDesign {
   readonly placements: ReadonlyArray<Placement>;
   readonly fits: ReadonlyArray<FitSuccess>;
   readonly search: SearchReport;
+  readonly zones?: ReadonlyArray<Zone>;
+  readonly circulation?: CirculationClear | null;
+  readonly arrangementHistory?: ArrangementHistory | null;
 }
 
 export interface WallContact {
@@ -256,3 +335,45 @@ export interface WallSegment {
   readonly start: readonly [number, number];
   readonly end: readonly [number, number];
 }
+
+export interface Zone {
+  readonly id: string;
+  readonly label: string;
+  readonly bounds: ZoneBounds;
+  readonly coordinateOrder?: "minX,minZ,maxX,maxZ";
+}
+
+export interface ZoneBounds {
+  readonly minX: number;
+  readonly minZ: number;
+  readonly maxX: number;
+  readonly maxZ: number;
+}
+
+export interface ZoneDerivationFailure {
+  readonly status: "ZONE_DERIVATION_UNSUPPORTED";
+  readonly detail: string;
+}
+
+export interface ZoneDerivationReport {
+  readonly method?: "axis-aligned-subdivide-merge-v1";
+  readonly subdivisionM: number;
+  readonly boundaryToleranceM: number;
+  readonly minimumWidthM: number;
+  readonly minimumDepthM: number;
+  readonly maxIntervalsPerAxis: number;
+  readonly maxAtomicCells: number;
+}
+
+export interface ZoneOffer {
+  readonly status?: "offered";
+  readonly roomId: string;
+  readonly zones: ReadonlyArray<Zone>;
+  readonly derivation: ZoneDerivationReport;
+}
+
+export interface ZoneRequest {
+  readonly room: RoomShell;
+}
+
+export type ZoneResult = ZoneOffer | ZoneDerivationFailure;
