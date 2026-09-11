@@ -15,12 +15,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .catalogue import catalogue
+from .arrangement import resolve_arrangement
 from .design import bedroom_design, design_fixtures, resolve_fixture
 from .domain import resolve_design, validate_placement
 from .models import (
-    CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult, FixtureSelectionRequest,
-    Health, PlacementValidationRequest, PreviewDesign,
+    ArrangementRequest, CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult,
+    FixtureSelectionRequest, Health, PlacementValidationRequest, PreviewDesign, ZoneDerivationFailure,
+    ZoneRequest, ZoneResult,
 )
+from .zones import ZoneDerivationError, derive_zones
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -78,6 +81,20 @@ def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) 
     @application.post("/api/design-solve", response_model=DesignResult)
     def design_solve(request: DesignRequest) -> DesignResult:
         return DesignResult(root=resolve_design(catalogue, request))
+
+    @application.post("/api/zones", response_model=ZoneResult)
+    def zones(request: ZoneRequest) -> ZoneResult:
+        try:
+            return ZoneResult(root=derive_zones(request.room))
+        except ZoneDerivationError as error:
+            return ZoneResult(root=ZoneDerivationFailure(
+                status=error.code,
+                detail=str(error),
+            ))
+
+    @application.post("/api/arrangement-solve", response_model=DesignResult)
+    def arrangement_solve(request: ArrangementRequest) -> DesignResult:
+        return DesignResult(root=resolve_arrangement(catalogue, request))
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)

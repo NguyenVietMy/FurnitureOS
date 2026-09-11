@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from .catalogue import Catalogue, catalogue
+from .arrangement import resolve_arrangement
 from .domain import place_against_wall, resolve_design
 from .models import (
-    DesignFailure, DesignFixture, DesignFixtures, DesignRequest, DesignResultValue,
+    ArrangementRequest, DesignFailure, DesignFixture, DesignFixtures, DesignRequest, DesignResultValue,
     FixtureSelectionRequest, PreviewDesign, RoomShell, SearchReport,
 )
+from .zones import derive_zones
 
 FEATURED_PRODUCT_ID = "bed-prudence-tufted-queen-natural"
 
@@ -96,6 +98,32 @@ def object_intent_fixture_room() -> RoomShell:
                 "doorSwing": {"hingeSide": "start"},
             },
         ],
+    })
+
+
+def zoned_fixture_room() -> RoomShell:
+    """A 4.8 x 8 m bedroom with a 1 m south-door approach."""
+    return RoomShell.model_validate({
+        "id": "room-bedroom-zoned-circulation",
+        "floorPolygon": [[-2.4, -4], [-2.4, 4], [2.4, 4], [2.4, -4]],
+        "ceilingHeightM": 2.6,
+        "walls": [
+            {"id": "wall-north", "label": "North wall", "start": [-2.4, -4], "end": [2.4, -4]},
+            {"id": "wall-east", "label": "East wall", "start": [2.4, -4], "end": [2.4, 4]},
+            {"id": "wall-south", "label": "South wall", "start": [2.4, 4], "end": [-2.4, 4]},
+            {"id": "wall-west", "label": "West wall", "start": [-2.4, 4], "end": [-2.4, -4]},
+        ],
+        "openings": [{
+            "id": "bedroom-south-door",
+            "kind": "door",
+            "wallId": "wall-south",
+            "offsetAlongWallM": 0,
+            "widthM": 1.0,
+            "bottomM": 0,
+            "heightM": 2.1,
+            "clearanceDepthM": 0,
+            "doorSwing": {"hingeSide": "start"},
+        }],
     })
 
 
@@ -211,6 +239,22 @@ _FIXTURES = (
         description="Shows why two ordinary pieces of furniture cannot occupy the same floor space.",
         intentKind="adjacent_to",
         expectedOutcome="failed",
+    ),
+    DesignFixture(
+        id="zoned-repairable",
+        label="Traversable bedroom after one repair",
+        description="Changes one optional wardrobe to a slim floor lamp so every required access point connects to the door.",
+        intentKind="in_zone",
+        expectedOutcome="solved",
+        arrangement=True,
+    ),
+    DesignFixture(
+        id="zoned-exhausted",
+        label="Bedroom with no traversable Design",
+        description="Shows the honest result when required furniture keeps a walking route blocked after two repairs and bounded optional drops.",
+        intentKind="in_zone",
+        expectedOutcome="failed",
+        arrangement=True,
     ),
 )
 
@@ -330,6 +374,96 @@ _OBJECT_FIXTURES = frozenset({
     "malformed-flanking",
     "furniture-negative-gap",
 })
+_ARRANGEMENT_FIXTURES = frozenset({"zoned-repairable", "zoned-exhausted"})
+
+
+def _zoned_arrangement_request(fixture_id: str, max_candidates: int) -> ArrangementRequest:
+    room = zoned_fixture_room()
+    zones = derive_zones(room).zones
+    largest_zone = max(
+        zones,
+        key=lambda zone: (
+            (zone.bounds.maxX - zone.bounds.minX) * (zone.bounds.maxZ - zone.bounds.minZ),
+            zone.id,
+        ),
+    )
+    base = (
+        {"id": "a-bed", "kind": "against", "productId": FEATURED_PRODUCT_ID, "wallId": "wall-north"},
+        {
+            "id": "b-barrier-left",
+            "kind": "facing",
+            "productId": "wardrobe-movian-cinca-five-door",
+            "referenceId": "a-bed",
+            "gapM": 1.472115,
+        },
+        {
+            "id": "c-barrier-right",
+            "kind": "adjacent_to",
+            "productId": "wardrobe-movian-cinca-five-door",
+            "referenceId": "b-barrier-left",
+            "side": "right",
+            "gapM": 0,
+        },
+    )
+    if fixture_id == "zoned-repairable":
+        selections = (
+            {
+                "id": "initial",
+                "intents": (*base, {
+                    "id": "z-zone-rug",
+                    "kind": "in_zone",
+                    "productId": "rug-ravenna-prospect-moroccan",
+                    "zoneId": largest_zone.id,
+                }),
+            },
+            {
+                "id": "repair-1",
+                "intents": (
+                    base[0],
+                    base[1],
+                    {**base[2], "productId": "lamp-rivet-harper-brass"},
+                    {
+                        "id": "z-zone-rug",
+                        "kind": "in_zone",
+                        "productId": "rug-ravenna-prospect-moroccan",
+                        "zoneId": largest_zone.id,
+                    },
+                ),
+            },
+        )
+        policies = (
+            {"requestId": "a-bed", "required": True, "anchor": True},
+            {"requestId": "b-barrier-left", "required": True, "anchor": False},
+            {"requestId": "c-barrier-right", "required": False, "anchor": False, "optionalKind": "secondary-furniture"},
+            {"requestId": "z-zone-rug", "required": False, "anchor": False, "optionalKind": "decoration"},
+        )
+    else:
+        selections = tuple({
+            "id": selection_id,
+            "intents": (*base, {
+                "id": "z-zone-rug",
+                "kind": "in_zone",
+                "productId": rug_id,
+                "zoneId": largest_zone.id,
+            }),
+        } for selection_id, rug_id in (
+            ("initial", "rug-ravenna-prospect-moroccan"),
+            ("repair-1", "rug-stone-beam-jute-natural"),
+            ("repair-2", "rug-rivet-arrow-black-ivory"),
+        ))
+        policies = (
+            {"requestId": "a-bed", "required": True, "anchor": True},
+            {"requestId": "b-barrier-left", "required": True, "anchor": False},
+            {"requestId": "c-barrier-right", "required": True, "anchor": False},
+            {"requestId": "z-zone-rug", "required": False, "anchor": False, "optionalKind": "decoration"},
+        )
+    return ArrangementRequest.model_validate({
+        "room": room.model_dump(mode="json"),
+        "selections": selections,
+        "policies": policies,
+        "clearanceWidthM": 0.60,
+        "maxCandidates": max_candidates,
+    })
 
 
 def design_fixtures() -> DesignFixtures:
@@ -337,6 +471,11 @@ def design_fixtures() -> DesignFixtures:
 
 
 def resolve_fixture(selection: FixtureSelectionRequest, source: Catalogue = catalogue) -> DesignResultValue:
+    if selection.fixtureId in _ARRANGEMENT_FIXTURES:
+        return resolve_arrangement(
+            source,
+            _zoned_arrangement_request(selection.fixtureId, selection.maxCandidates),
+        )
     intents = _FIXTURE_INTENTS.get(selection.fixtureId)
     if intents is None:
         return DesignFailure(

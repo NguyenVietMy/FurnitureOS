@@ -7,8 +7,10 @@ import { AccessRegions, ProductPlacement } from './ProductPlacement';
 import { RoomShellMesh } from './RoomShellMesh';
 import { resetSceneDebug, sceneDebug } from './scene-debug';
 
-/** What the camera orbits: roughly the eye level of someone standing in the Room. */
+/** What the ordinary fixture camera orbits: roughly standing eye level. */
 const ORBIT_TARGET: Vec3 = [0, 0.7, 0];
+/** A higher, wider view used only for the multi-Product zoned fixture. */
+const OVERVIEW_TARGET: Vec3 = [0, 0.55, -0.35];
 
 /**
  * Publishes a handle for driving the camera from outside React. Used by the
@@ -51,10 +53,12 @@ export default function RoomCanvas({
   room,
   products,
   placements,
+  overview = false,
 }: {
   room: RoomShell;
   products: ReadonlyArray<Product>;
   placements: ReadonlyArray<Placement>;
+  overview?: boolean;
 }) {
   // Reset during the first render, before any child effect can report into it.
   useState(() => resetSceneDebug(products.map((product, index) => ({
@@ -62,13 +66,15 @@ export default function RoomCanvas({
     productId: product.id,
   }))));
   const primaryPlacement = placements[0];
+  const orbitTarget = overview ? OVERVIEW_TARGET : ORBIT_TARGET;
+  const cameraPosition: Vec3 = overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
 
   return (
     <Canvas
       shadows
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
-      camera={{ position: [3.1, 2.3, 3.7], fov: 45, near: 0.1, far: 60 }}
+      camera={{ position: cameraPosition, fov: 45, near: 0.1, far: 60 }}
       data-testid="room-canvas"
     >
       <color attach="background" args={['#e9e6e0']} />
@@ -106,15 +112,15 @@ export default function RoomCanvas({
         );
       })}
 
-      <CameraBridge target={ORBIT_TARGET} />
+      <CameraBridge target={orbitTarget} />
       <OrbitControls
         makeDefault
-        target={[ORBIT_TARGET[0], ORBIT_TARGET[1], ORBIT_TARGET[2]]}
+        target={[orbitTarget[0], orbitTarget[1], orbitTarget[2]]}
         enablePan={false}
         enableDamping
         dampingFactor={0.08}
         minDistance={1.6}
-        maxDistance={14}
+        maxDistance={overview ? 18 : 14}
         // Stay above the floor: looking up from underneath the Room is never useful.
         maxPolarAngle={Math.PI / 2 - 0.03}
         minPolarAngle={0.15}

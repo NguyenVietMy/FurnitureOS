@@ -260,6 +260,8 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "relative-cycle",
         "malformed-flanking",
         "furniture-negative-gap",
+        "zoned-repairable",
+        "zoned-exhausted",
     ]
     assert [fixture["intentKind"] for fixture in fixtures] == [
         "against",
@@ -278,6 +280,8 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "adjacent_to",
         "flanking",
         "adjacent_to",
+        "in_zone",
+        "in_zone",
     ]
     assert [fixture["expectedOutcome"] for fixture in fixtures] == [
         "solved",
@@ -295,6 +299,8 @@ def test_wall_relative_fixture_catalogue_is_visible_and_typed(client) -> None:
         "failed",
         "failed",
         "failed",
+        "failed",
+        "solved",
         "failed",
     ]
 

@@ -59,6 +59,8 @@ DesignFailureReason = Literal[
     "product-exceeds-ceiling-height", "intent-unsatisfiable",
     "search-exhausted", "product-collision", "access-region-blocked",
     "opening-exclusion", "door-swing-exclusion",
+    "unknown-zone-reference", "zone-derivation-unsupported",
+    "NO_VALID_DESIGN",
 ]
 
 
@@ -336,6 +338,61 @@ class RoomShell(ContractModel):
         return self
 
 
+class ZoneBounds(ContractModel):
+    """Inclusive axis-aligned rectangle in Room world x/z metres."""
+
+    minX: BoundedMetres
+    minZ: BoundedMetres
+    maxX: BoundedMetres
+    maxZ: BoundedMetres
+
+    @model_validator(mode="after")
+    def ordered(self) -> "ZoneBounds":
+        if self.maxX <= self.minX or self.maxZ <= self.minZ:
+            raise ValueError("Zone bounds must have positive width and depth")
+        return self
+
+
+class Zone(ContractModel):
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    bounds: ZoneBounds
+    coordinateOrder: Literal["minX,minZ,maxX,maxZ"] = "minX,minZ,maxX,maxZ"
+
+
+class ZoneDerivationReport(ContractModel):
+    method: Literal["axis-aligned-subdivide-merge-v1"] = "axis-aligned-subdivide-merge-v1"
+    subdivisionM: PositiveFinite
+    boundaryToleranceM: NonNegativeFinite
+    minimumWidthM: PositiveFinite
+    minimumDepthM: PositiveFinite
+    maxIntervalsPerAxis: int = Field(gt=0)
+    maxAtomicCells: int = Field(gt=0)
+
+
+class ZoneOffer(ContractModel):
+    status: Literal["offered"] = "offered"
+    roomId: str = Field(min_length=1)
+    zones: tuple[Zone, ...]
+    derivation: ZoneDerivationReport
+
+
+class ZoneRequest(ContractModel):
+    room: RoomShell
+
+
+class ZoneDerivationFailure(ContractModel):
+    status: Literal["ZONE_DERIVATION_UNSUPPORTED"]
+    detail: str = Field(min_length=1)
+
+
+ZoneResultValue = Annotated[ZoneOffer | ZoneDerivationFailure, Field(discriminator="status")]
+
+
+class ZoneResult(RootModel[ZoneResultValue]):
+    pass
+
+
 class WallContact(ContractModel):
     wallId: str = Field(min_length=1)
     face: ProductFace
@@ -383,6 +440,7 @@ class PlacementIntent(ContractModel):
     wallId: str | None = Field(default=None, min_length=1)
     face: ProductFace = "back"
     adjacentWallId: str | None = None
+    zoneId: str | None = Field(default=None, min_length=1)
     referenceId: str | None = Field(default=None, min_length=1)
     side: ProductFace | None = None
     gapM: BoundedMetres = Field(
@@ -397,10 +455,154 @@ class DesignRequest(ContractModel):
     maxCandidates: int = Field(default=128, ge=1, le=256)
 
 
+class ArrangementSelection(ContractModel):
+    id: str = Field(min_length=1)
+    intents: tuple[PlacementIntent, ...] = Field(min_length=1, max_length=20)
+
+
+class PlacementPolicy(ContractModel):
+    requestId: str = Field(min_length=1)
+    required: bool
+    anchor: bool
+    optionalKind: Literal["decoration", "secondary-furniture"] | None = None
+
+    @model_validator(mode="after")
+    def coherent_policy(self) -> "PlacementPolicy":
+        if self.required and self.optionalKind is not None:
+            raise ValueError("a required request cannot carry an optional drop priority")
+        if not self.required and self.optionalKind is None:
+            raise ValueError("an optional request must declare decoration or secondary-furniture")
+        if self.anchor and not self.required:
+            raise ValueError("an anchor must be required")
+        return self
+
+
+class ArrangementRequest(ContractModel):
+    room: RoomShell
+    selections: tuple[ArrangementSelection, ...] = Field(min_length=1, max_length=3)
+    policies: tuple[PlacementPolicy, ...] = Field(min_length=1, max_length=20)
+    clearanceWidthM: PositiveBoundedMetres
+    maxCandidates: int = Field(default=128, ge=1, le=256)
+
+    @model_validator(mode="after")
+    def stable_request_identity(self) -> "ArrangementRequest":
+        selection_ids = [selection.id for selection in self.selections]
+        if len(set(selection_ids)) != len(selection_ids):
+            raise ValueError("arrangement selection IDs must be unique")
+        policy_ids = [policy.requestId for policy in self.policies]
+        if len(set(policy_ids)) != len(policy_ids):
+            raise ValueError("arrangement policy request IDs must be unique")
+        initial = {intent.id: intent for intent in self.selections[0].intents}
+        if len(initial) != len(self.selections[0].intents):
+            raise ValueError("the initial selection contains duplicate request IDs")
+        if set(initial) != set(policy_ids):
+            raise ValueError("arrangement policy must cover every initial request exactly once")
+        protected = {
+            policy.requestId
+            for policy in self.policies
+            if policy.required or policy.anchor
+        }
+        for selection in self.selections[1:]:
+            current = {intent.id: intent for intent in selection.intents}
+            if len(current) != len(selection.intents) or set(current) != set(initial):
+                raise ValueError("repair selections must preserve the initial request identity set")
+            for request_id in protected:
+                if current[request_id] != initial[request_id]:
+                    raise ValueError(
+                        f'repair selection may not change required or anchor request "{request_id}"'
+                    )
+        return self
+
+
 class SearchReport(ContractModel):
     attemptedCandidates: int = Field(ge=0)
     candidateLimit: int = Field(ge=1, le=256)
     exhaustive: bool
+
+
+class CirculationRegion(ContractModel):
+    id: str = Field(min_length=1)
+    ownerType: Literal["door", "product"]
+    ownerId: str = Field(min_length=1)
+    corners: tuple[Vec2, Vec2, Vec2, Vec2]
+
+
+class CirculationClear(ContractModel):
+    status: Literal["clear"]
+    clearanceWidthM: PositiveFinite
+    accessRegions: tuple[CirculationRegion, ...]
+    gridResolutionM: PositiveFinite
+    validatedNodes: int = Field(ge=0)
+    exhaustive: bool
+
+
+class CirculationBlocked(ContractModel):
+    status: Literal["CIRCULATION_BLOCKED"]
+    detail: str = Field(min_length=1)
+    clearanceWidthM: PositiveFinite
+    accessRegions: tuple[CirculationRegion, ...]
+    disconnectedAccessIds: tuple[str, ...]
+    implicatedRequestIds: tuple[str, ...]
+    attributionLimited: bool
+    attributionLimitation: str | None = None
+    gridResolutionM: PositiveFinite
+    validatedNodes: int = Field(ge=0)
+    exhaustive: bool
+
+
+class CirculationUnsupported(ContractModel):
+    status: Literal["CIRCULATION_UNSUPPORTED"]
+    detail: str = Field(min_length=1)
+    clearanceWidthM: PositiveFinite
+    accessRegions: tuple[CirculationRegion, ...]
+    gridResolutionM: PositiveFinite
+    nodeLimit: int = Field(gt=0)
+    exhaustive: bool
+
+
+CirculationResultValue = Annotated[
+    CirculationClear | CirculationBlocked | CirculationUnsupported,
+    Field(discriminator="status"),
+]
+
+
+class CirculationResult(RootModel[CirculationResultValue]):
+    pass
+
+
+class LimitingConstraint(ContractModel):
+    code: str = Field(min_length=1)
+    detail: str = Field(min_length=1)
+    failedRequestId: str = ""
+    disconnectedAccessIds: tuple[str, ...] = ()
+    implicatedRequestIds: tuple[str, ...] = ()
+    clearanceWidthM: PositiveFinite | None = None
+    attributionLimited: bool = False
+    attributionLimitation: str | None = None
+    gridResolutionM: PositiveFinite | None = None
+    exhaustive: bool
+
+
+class ArrangementAttempt(ContractModel):
+    id: str = Field(min_length=1)
+    stage: Literal["initial", "repair", "drop", "skipped-drop"]
+    selectionId: str = Field(min_length=1)
+    outcome: Literal["solved", "placement-failed", "circulation-blocked", "unsupported", "skipped"]
+    changedRequestIds: tuple[str, ...] = ()
+    droppedRequestIds: tuple[str, ...] = ()
+    detail: str = Field(min_length=1)
+    limitingConstraint: LimitingConstraint | None = None
+    attemptedCandidates: int = Field(ge=0)
+
+
+class ArrangementHistory(ContractModel):
+    initialSelectionId: str = Field(min_length=1)
+    attempts: tuple[ArrangementAttempt, ...] = Field(min_length=1, max_length=23)
+    repairLimit: Literal[2] = 2
+    optionalRequestLimit: int = Field(ge=0, le=20)
+    maxSolveAttempts: int = Field(ge=1, le=23)
+    maxCandidatesPerSolve: int = Field(ge=1, le=256)
+    totalAttemptedCandidates: int = Field(ge=0, le=5888)
 
 
 class SolvedDesign(ContractModel):
@@ -411,6 +613,9 @@ class SolvedDesign(ContractModel):
     placements: tuple[Placement, ...]
     fits: tuple[FitSuccess, ...]
     search: SearchReport
+    zones: tuple[Zone, ...] = ()
+    circulation: CirculationClear | None = None
+    arrangementHistory: ArrangementHistory | None = None
 
     @model_validator(mode="after")
     def aligned_products_and_placements(self) -> "SolvedDesign":
@@ -435,6 +640,9 @@ class DesignFailure(ContractModel):
     detail: str = Field(min_length=1)
     failedIntentId: str
     search: SearchReport
+    zones: tuple[Zone, ...] = ()
+    limitingConstraint: LimitingConstraint | None = None
+    arrangementHistory: ArrangementHistory | None = None
 
 
 DesignResultValue = Annotated[SolvedDesign | DesignFailure, Field(discriminator="status")]
@@ -448,8 +656,9 @@ class DesignFixture(ContractModel):
     id: str = Field(min_length=1)
     label: str = Field(min_length=1)
     description: str = Field(min_length=1)
-    intentKind: Literal["against", "centred_on", "in_corner", "adjacent_to", "facing", "flanking"]
+    intentKind: Literal["against", "centred_on", "in_corner", "adjacent_to", "facing", "flanking", "in_zone"]
     expectedOutcome: Literal["solved", "failed"]
+    arrangement: bool = False
 
 
 class DesignFixtures(ContractModel):
