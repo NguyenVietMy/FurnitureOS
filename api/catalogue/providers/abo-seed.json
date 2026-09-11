@@ -96,7 +96,7 @@
       "sourceSha256": "881f28e134f809745a28bf0e3f1ed88a8f421dbdd8d758f918dbd049d8af58e9",
       "sourceBytes": 30636352,
       "privateStyleIds": ["style-01", "style-02"],
-      "wallContactFaces": ["back"],
+      "wallContactFaces": ["back", "left", "right"],
       "accessRegions": [{ "face": "front", "depthM": 0.55, "required": true, "purpose": "opening the drawer" }]
     },
     {

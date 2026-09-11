@@ -24,8 +24,40 @@ def test_validation_response_is_a_discriminated_fit_contract() -> None:
     assert len(schema["oneOf"]) == 2
 
 
+def test_design_resolution_is_a_discriminated_all_or_nothing_contract() -> None:
+    assert response_schema("/api/design-resolution", "post") == {"$ref": "#/components/schemas/DesignResult"}
+    schema = app.openapi()["components"]["schemas"]["DesignResult"]
+    assert schema["discriminator"]["propertyName"] == "status"
+    assert len(schema["oneOf"]) == 2
+    failure = app.openapi()["components"]["schemas"]["DesignFailure"]
+    assert "placements" not in failure["properties"]
+    assert response_schema("/api/design-solve", "post") == {"$ref": "#/components/schemas/DesignResult"}
+
+
+def test_fixture_catalogue_is_a_named_contract() -> None:
+    assert response_schema("/api/design-fixtures") == {"$ref": "#/components/schemas/DesignFixtures"}
+
+
+def test_room_schema_publishes_practical_geometry_and_collection_limits() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    room = schemas["RoomShell"]["properties"]
+    assert room["floorPolygon"]["maxItems"] == 64
+    assert room["walls"]["maxItems"] == 64
+    assert room["openings"]["maxItems"] == 128
+    coordinate = schemas["WallSegment"]["properties"]["start"]["prefixItems"][0]
+    assert coordinate["minimum"] == -1000
+    assert coordinate["maximum"] == 1000
+
+
 def test_success_responses_are_not_generic_objects() -> None:
-    for path, method in (("/api/health", "get"), ("/api/preview-design", "get"), ("/api/placement-validation", "post")):
+    for path, method in (
+        ("/api/health", "get"),
+        ("/api/preview-design", "get"),
+        ("/api/design-fixtures", "get"),
+        ("/api/design-resolution", "post"),
+        ("/api/design-solve", "post"),
+        ("/api/placement-validation", "post"),
+    ):
         schema = response_schema(path, method)
         assert schema.get("additionalProperties") is not True
         assert "$ref" in schema
@@ -38,5 +70,13 @@ def test_frontend_types_are_generated_from_current_openapi() -> None:
 
 def test_generated_contract_has_frontend_entry_types() -> None:
     text = Path(TARGET).read_text(encoding="utf-8")
-    for declaration in ("interface PreviewDesign", "interface Product", "interface RoomShell", "type FitResult"):
+    for declaration in (
+        "interface PreviewDesign",
+        "interface Product",
+        "interface RoomShell",
+        "type FitResult",
+        "type DesignResult",
+        "interface DesignFixtures",
+    ):
         assert declaration in text
+    assert '"duplicate-product-reference"' not in text

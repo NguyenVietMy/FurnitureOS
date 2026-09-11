@@ -91,7 +91,7 @@ test('unknown routes have an accessible recovery and missing assets/API stay 404
 test('loading status is announced before the preview API returns', async ({ page }) => {
   let release!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
-  await page.route('**/api/preview-design', async (route) => { await pending; await route.continue(); });
+  await page.route('**/api/design-resolution', async (route) => { await pending; await route.continue(); });
   await page.goto('/design');
   await expect(page.getByTestId('api-loading')).toHaveAttribute('role', 'status');
   release();

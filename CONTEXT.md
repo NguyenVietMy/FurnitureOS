@@ -52,6 +52,12 @@ _Avoid_: Option, version, alternative, candidate
 A desired spatial relationship between a Product and the Room Shell, expressed without coordinates. Intent is what taste produces; a Placement is what geometry resolves it into.
 _Avoid_: Hint, suggestion, constraint, rule
 
+The current wall-relative slice accepts ordered `against`, `centred_on`, and right-angle `in_corner` intents. An `against` intent is explored on a deterministic 0.1 m lattice in centre, positive, negative order; reaching the lattice or request budget is not proof that continuous space has no fit. The resolver therefore reports such failure as non-exhaustive. Fixed centred and supported corner requests can be exhaustive. Search is globally bounded to 256 attempted Placements across at most 20 intents and revisits earlier choices when a later Product cannot fit.
+
+Every resolved Placement carries the Placement Intent ID as its stable instance identity. Several Placements may reference the same Catalogue Product, while intent IDs remain unique. A corner Placement publishes both physical wall contacts: the primary face and a perpendicular allowed side face, each checked for wall distance and alignment.
+
+Public Room input is bounded before topology checks: metre coordinates and dimensions are finite and no greater than 1000 m in magnitude, wall segments are at most 1000 m long, and a Room Shell accepts at most 64 floor vertices, 64 walls, and 128 Openings. These are practical service limits rather than a claim about the size of real rooms.
+
 **Swap**:
 Replacing the Product in an existing Placement with another whose footprint fits the same slot. A Swap never moves anything, so it can never invalidate a Design.
 _Avoid_: Replace, substitute, change
