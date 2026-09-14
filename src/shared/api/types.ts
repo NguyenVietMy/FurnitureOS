@@ -185,6 +185,51 @@ export interface LimitingConstraint {
   readonly exhaustive: boolean;
 }
 
+export interface LiveBedroomConfig {
+  readonly roomType?: "bedroom";
+  readonly referenceSetVersion: string;
+  readonly referenceApproval: "pending" | "approved";
+  readonly scheduleApproval: "pending" | "approved";
+  readonly references: ReadonlyArray<PublicReference>;
+  readonly providerModel?: "claude-opus-5";
+  readonly providerCapability?: "verified";
+  readonly realCallsEnabled: boolean;
+  readonly phoneGate?: "waived";
+}
+
+export interface LiveGenerationFailure {
+  readonly status: "failed";
+  readonly generationId: string;
+  readonly referenceId: string;
+  readonly code: "configuration-error" | "budget-error" | "transport-error" | "timeout" | "rate-limit" | "provider-error" | "provider-schema-error" | "selection-correction-exhausted" | "eligible-catalogue-error" | "no-valid-design";
+  readonly detail: string;
+  readonly providerModel?: string;
+  readonly providerCalls: number;
+  readonly modelLatencyMs: number;
+  readonly usage: UsageSummary;
+  readonly selectionRejections?: ReadonlyArray<SelectionRejection>;
+  readonly designFailure?: DesignFailure | null;
+}
+
+export interface LiveGenerationRequest {
+  readonly roomType: "bedroom";
+  readonly referenceId: string;
+}
+
+export type LiveGenerationResult = LiveGenerationSuccess | LiveGenerationFailure;
+
+export interface LiveGenerationSuccess {
+  readonly status: "solved";
+  readonly generationId: string;
+  readonly referenceId: string;
+  readonly providerModel: string;
+  readonly providerCalls: number;
+  readonly modelLatencyMs: number;
+  readonly usage: UsageSummary;
+  readonly selectionRejections?: ReadonlyArray<SelectionRejection>;
+  readonly design: SolvedDesign;
+}
+
 export interface MeshBounds {
   readonly min: readonly [number, number, number];
   readonly max: readonly [number, number, number];
@@ -291,6 +336,17 @@ export interface Product {
   readonly attribution: Attribution;
 }
 
+export interface PublicReference {
+  readonly id: string;
+  readonly label: string;
+  readonly imageUrl: string;
+  readonly creator: string;
+  readonly sourceUrl: string;
+  readonly license: string;
+  readonly licenseUrl: string;
+  readonly sha256: string;
+}
+
 export interface PurchaseDisclosure {
   readonly availability: "purchasable" | "unavailable" | "unknown";
   readonly checkedOn: string;
@@ -311,6 +367,13 @@ export interface SearchReport {
   readonly exhaustive: boolean;
 }
 
+export interface SelectionRejection {
+  readonly code: "operation-shape-error" | "ineligible-product-error" | "anchor-error" | "wall-face-error" | "corner-face-error" | "graph-error" | "repair-identity-error" | "repair-anchor-error" | "repair-category-error";
+  readonly detail: string;
+  readonly path?: string | null;
+  readonly intentId?: string | null;
+}
+
 export interface SolvedDesign {
   readonly status: "solved";
   readonly room: RoomShell;
@@ -322,6 +385,13 @@ export interface SolvedDesign {
   readonly zones?: ReadonlyArray<Zone>;
   readonly circulation?: CirculationClear | null;
   readonly arrangementHistory?: ArrangementHistory | null;
+}
+
+export interface UsageSummary {
+  readonly known: boolean;
+  readonly inputTokens?: number | null;
+  readonly outputTokens?: number | null;
+  readonly costUsd?: number | null;
 }
 
 export interface WallContact {

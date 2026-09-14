@@ -18,6 +18,14 @@ from .catalogue import catalogue
 from .arrangement import resolve_arrangement
 from .design import bedroom_design, design_fixtures, resolve_fixture
 from .domain import resolve_design, validate_placement
+from .live_generation import (
+    GenerationProvider,
+    LiveBedroomConfig,
+    LiveGenerationRequest,
+    LiveGenerationResult,
+    generate_live_bedroom,
+    public_config,
+)
 from .models import (
     ArrangementRequest, CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult,
     FixtureSelectionRequest, Health, PlacementValidationRequest, PreviewDesign, ZoneDerivationFailure,
@@ -40,7 +48,11 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) -> FastAPI:
+def create_app(
+    root: Path = ROOT,
+    enable_catalogue_gallery: bool | None = None,
+    generation_provider: GenerationProvider | None = None,
+) -> FastAPI:
     """Build the API and bind static roots explicitly for tests and deployment."""
     public = root / "public"
     dist = root / "dist"
@@ -96,6 +108,18 @@ def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) 
     def arrangement_solve(request: ArrangementRequest) -> DesignResult:
         return DesignResult(root=resolve_arrangement(catalogue, request))
 
+    @application.get("/api/live-bedroom/config", response_model=LiveBedroomConfig)
+    def live_bedroom_config() -> LiveBedroomConfig:
+        return public_config()
+
+    @application.post("/api/live-bedroom/generate", response_model=LiveGenerationResult)
+    def live_bedroom_generate(request: LiveGenerationRequest) -> LiveGenerationResult:
+        return LiveGenerationResult(root=generate_live_bedroom(
+            catalogue,
+            request,
+            provider=generation_provider,
+        ))
+
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)
         def get_catalogue_gallery() -> CatalogueGallery:
@@ -117,6 +141,11 @@ def create_app(root: Path = ROOT, enable_catalogue_gallery: bool | None = None) 
     application.mount("/decoders", StaticFiles(directory=public / "decoders", check_dir=False), name="decoders")
     application.mount("/assets", StaticFiles(directory=dist / "assets", check_dir=False), name="vite-assets")
     application.mount("/images", StaticFiles(directory=public / "images", check_dir=False), name="landing-images")
+    application.mount(
+        "/style-references",
+        StaticFiles(directory=public / "style-references", check_dir=False),
+        name="style-references",
+    )
 
     @application.get("/icon.svg", include_in_schema=False)
     def icon() -> FileResponse:

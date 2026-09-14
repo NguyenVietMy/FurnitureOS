@@ -5,7 +5,8 @@
   "outputDirectory": "dist",
   "functions": {
     "api/index.py": {
-      "includeFiles": "api/catalogue/providers/**"
+      "includeFiles": "{api/**,public/style-references/**}",
+      "maxDuration": 300
     }
   },
   "rewrites": [

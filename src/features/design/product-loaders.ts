@@ -9,7 +9,7 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { sceneDebug } from './scene-debug';
+import { currentSceneDebug, sceneDebug } from './scene-debug';
 
 /**
  * Loader wiring for published Product Meshes.
@@ -46,23 +46,33 @@ function neutralTexture(): DataTexture {
  * proof can force the failure and check what happens.
  */
 class ResilientKTX2Loader extends KTX2Loader {
+  constructor(private readonly sceneRevision?: number) {
+    super();
+  }
+
+  private debug() {
+    return this.sceneRevision === undefined ? sceneDebug() : currentSceneDebug(this.sceneRevision);
+  }
+
   override load(
     url: string,
     onLoad: (data: CompressedTexture) => void,
     onProgress?: (event: ProgressEvent) => void,
     _onError?: (err: unknown) => void,
   ): void {
-    const debug = sceneDebug();
-    debug.textures.requested += 1;
+    const requestedDebug = this.debug();
+    if (requestedDebug) requestedDebug.textures.requested += 1;
     super.load(
       url,
       (texture) => {
-        debug.textures.decoded += 1;
+        const debug = this.debug();
+        if (debug) debug.textures.decoded += 1;
         onLoad(texture);
       },
       onProgress,
       (error) => {
-        debug.textures.fallback += 1;
+        const debug = this.debug();
+        if (debug) debug.textures.fallback += 1;
         console.warn(`[furnitureos] KTX2 texture unavailable: ${url}`, error);
         // Deliberately not forwarding to `onError`: GLTFLoader settles one
         // promise per texture, and rejecting it would tear down the whole Mesh.
@@ -73,8 +83,8 @@ class ResilientKTX2Loader extends KTX2Loader {
   }
 }
 
-export function configureProductLoader(loader: GLTFLoader, renderer: WebGLRenderer): void {
-  const ktx2Loader = new ResilientKTX2Loader()
+export function configureProductLoader(loader: GLTFLoader, renderer: WebGLRenderer, sceneRevision?: number): void {
+  const ktx2Loader = new ResilientKTX2Loader(sceneRevision)
     .setTranscoderPath(KTX2_TRANSCODER_PATH)
     .detectSupport(renderer);
   loader.setKTX2Loader(ktx2Loader);
