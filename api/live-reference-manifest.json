@@ -1,0 +1,83 @@
+{
+  "version": "ticket-6-reference-candidates-v1",
+  "ownerApproval": "approved",
+  "scheduleApproval": "approved",
+  "images": [
+    {
+      "id": "ref-01",
+      "privateStyleId": "style-01",
+      "label": "Soft neutrals and warm wood",
+      "creator": "Erik Mclean",
+      "sourceUrl": "https://unsplash.com/photos/white-bed-linen-on-brown-wooden-bed-frame-MXaxoJNxehU",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "07cdbf675f948230fc6559ad7a4f9094b6745495e759e6fb90c2b9aa3ca681eb",
+      "bytes": 373796,
+      "fileName": "ref-01.jpg"
+    },
+    {
+      "id": "ref-02",
+      "privateStyleId": "style-02",
+      "label": "Light wood and simple lines",
+      "creator": "Deconovo",
+      "sourceUrl": "https://unsplash.com/photos/white-bed-pillow-on-brown-wooden-bed-frame-gVKmonDbotU",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "d080f9d372c02a0ffc242c59b54e0c082d23f0f22a35f7b78fa4190ee4085592",
+      "bytes": 146419,
+      "fileName": "ref-02.jpg"
+    },
+    {
+      "id": "ref-03",
+      "privateStyleId": "style-01",
+      "label": "Airy layers and natural textures",
+      "creator": "Andrea Davis",
+      "sourceUrl": "https://unsplash.com/photos/a-bedroom-with-a-white-bed-and-a-wooden-ladder-xlQmB0WKJ9Y",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "999db12aa2677ad9dc55b05f99eb41e0cce67128888182d285f0ce515f7a1ec6",
+      "bytes": 320560,
+      "fileName": "ref-03.jpg"
+    },
+    {
+      "id": "ref-04",
+      "privateStyleId": "style-03",
+      "label": "Wood accents and graphic artwork",
+      "creator": "Irena Oze",
+      "sourceUrl": "https://unsplash.com/photos/modern-bedroom-with-bed-artwork-and-white-wardrobe-3oBiGu3F478",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "1b19013f621d1156895e79c018bf818d0c2967e9e3b7f358a450a28b9c72a4ba",
+      "bytes": 113805,
+      "fileName": "ref-04.jpg"
+    },
+    {
+      "id": "ref-05",
+      "privateStyleId": "style-04",
+      "label": "White brick and dark accents",
+      "creator": "The Prototype",
+      "sourceUrl": "https://unsplash.com/photos/a-bedroom-with-a-white-brick-wall-and-a-bed-qdEih-FRI3c",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "3f7210f30def9fa83868daaf3efc3318997f721e37a8dad245f4af528ea3e8c1",
+      "bytes": 306927,
+      "fileName": "ref-05.jpg"
+    },
+    {
+      "id": "ref-06",
+      "privateStyleId": "style-05",
+      "label": "Vintage wood and layered comfort",
+      "creator": "Clay Banks",
+      "sourceUrl": "https://unsplash.com/photos/bedroom-with-white-bed-stacked-books-and-ornate-wooden-dresser-Bpaie4LlJSY",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license",
+      "sha256": "af93332c8937e20498d63f03506b600c5590d5b8c4102afc9d8c66b496ae2525",
+      "bytes": 165801,
+      "fileName": "ref-06.jpg"
+    }
+  ],
+  "proposedTenRunSchedule": [
+    "ref-01", "ref-01", "ref-01", "ref-01", "ref-01",
+    "ref-06", "ref-06", "ref-06", "ref-06", "ref-06"
+  ]
+}

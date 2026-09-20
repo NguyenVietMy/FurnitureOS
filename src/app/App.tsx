@@ -4,6 +4,7 @@ import { LandingPage } from '../features/landing/LandingPage';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 
 const DesignPage = lazy(() => import('../features/design/DesignPage'));
+const LiveBedroomPage = lazy(() => import('../features/design/LiveBedroomPage'));
 const catalogueGalleryEnabled = import.meta.env.VITE_ENABLE_CATALOGUE_GALLERY === '1';
 const CatalogueGalleryPage = catalogueGalleryEnabled
   ? lazy(() => import('../features/catalogue-gallery/CatalogueGalleryPage'))
@@ -12,7 +13,8 @@ const CatalogueGalleryPage = catalogueGalleryEnabled
 export function App() {
   const { pathname } = useLocation();
   const feature = pathname === '/' ? 'landing'
-    : matchPath({ path: '/design', caseSensitive: true, end: true }, pathname) ? 'design'
+    : matchPath({ path: '/design', caseSensitive: true, end: true }, pathname)
+      || matchPath({ path: '/design/live-bedroom', caseSensitive: true, end: true }, pathname) ? 'design'
       : CatalogueGalleryPage
         && matchPath({ path: '/catalogue-gallery', caseSensitive: true, end: true }, pathname)
         ? 'catalogue-gallery'
@@ -49,6 +51,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/design" caseSensitive element={<DesignPage />} />
+          <Route path="/design/live-bedroom" caseSensitive element={<LiveBedroomPage />} />
           {CatalogueGalleryPage ? (
             <Route path="/catalogue-gallery" caseSensitive element={<CatalogueGalleryPage />} />
           ) : null}

@@ -5,12 +5,12 @@ if ($env:E2E_BASE_URL) {
   exit $LASTEXITCODE
 }
 
-$webPort = 3101
+$webPort = if ($env:E2E_PORT) { [int]$env:E2E_PORT } else { 3101 }
 $uvicorn = Join-Path $PSScriptRoot '..\.venv\Scripts\uvicorn.exe'
 $artifactRoot = if ($env:FURNITUREOS_EVIDENCE_DIR) {
   $env:FURNITUREOS_EVIDENCE_DIR
 } else {
-  Join-Path $env:TEMP 'astra-loop\ticket-2\evidence'
+  Join-Path $env:TEMP 'astra-loop\ticket-6\evidence'
 }
 $env:FURNITUREOS_EVIDENCE_DIR = $artifactRoot
 New-Item -ItemType Directory -Path $artifactRoot -Force | Out-Null

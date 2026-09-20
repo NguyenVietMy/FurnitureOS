@@ -1,4 +1,11 @@
-import type { CatalogueGallery, DesignFixtures, DesignResult, PreviewDesign } from './types';
+import type {
+  CatalogueGallery,
+  DesignFixtures,
+  DesignResult,
+  LiveBedroomConfig,
+  LiveGenerationResult,
+  PreviewDesign,
+} from './types';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 export async function fetchPreviewDesign(signal?: AbortSignal): Promise<PreviewDesign> {
   const response = await fetch(`${API_BASE}/api/preview-design`, { signal, headers: { accept: 'application/json' } });
@@ -36,4 +43,28 @@ export async function resolveDesignFixture(
   });
   if (!response.ok) throw new Error(`Design resolution API returned ${response.status}`);
   return response.json() as Promise<DesignResult>;
+}
+
+export async function fetchLiveBedroomConfig(signal?: AbortSignal): Promise<LiveBedroomConfig> {
+  const response = await fetch(`${API_BASE}/api/live-bedroom/config`, {
+    signal,
+    headers: { accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`Live bedroom configuration returned ${response.status}`);
+  return response.json() as Promise<LiveBedroomConfig>;
+}
+
+export async function generateLiveBedroom(
+  referenceId: string,
+  signal?: AbortSignal,
+): Promise<{ result: LiveGenerationResult; receivedAtMs: number }> {
+  const response = await fetch(`${API_BASE}/api/live-bedroom/generate`, {
+    method: 'POST',
+    signal,
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify({ roomType: 'bedroom', referenceId }),
+  });
+  if (!response.ok) throw new Error(`Live bedroom generation returned ${response.status}`);
+  const result = await response.json() as LiveGenerationResult;
+  return { result, receivedAtMs: performance.now() };
 }

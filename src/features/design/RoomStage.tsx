@@ -4,7 +4,15 @@ import type { DesignResult } from '@/shared/api/types';
 const RoomCanvas = lazy(() => import('./RoomCanvas'));
 
 /** The API supplies the Design; the browser only renders it. */
-export function RoomStage({ result }: { result: DesignResult }) {
+export function RoomStage({
+  result,
+  receivedAtMs,
+  generationId,
+}: {
+  result: DesignResult;
+  receivedAtMs?: number;
+  generationId?: string;
+}) {
   if (result.status === 'failed') {
     if (result.arrangementHistory) {
       const clearance = result.limitingConstraint?.clearanceWidthM;
@@ -32,17 +40,23 @@ export function RoomStage({ result }: { result: DesignResult }) {
     <div className={`stage${isArrangement ? ' stage--overview' : ''}`} data-testid="stage">
       <Suspense fallback={<div className="stage-placeholder" data-testid="stage-placeholder">Preparing the Room…</div>}>
         <RoomCanvas
-          key={result.intents.map((intent) => intent.id).join(':')}
+          key={generationId ?? result.intents.map((intent) => intent.id).join(':')}
           room={result.room}
           products={result.products}
           placements={result.placements}
           overview={isArrangement}
+          receivedAtMs={receivedAtMs}
+          generationId={generationId}
         />
       </Suspense>
       {isArrangement ? (
         <div className="stage-outcome" data-testid="stage-arrangement-outcome">
           <strong>Walking route clear</strong>
-          <span>{result.circulation?.clearanceWidthM.toFixed(2)} m clearance after one repair</span>
+          <span>
+            {result.circulation?.clearanceWidthM.toFixed(2)} m clearance after{' '}
+            {result.arrangementHistory?.attempts.length ?? 1}{' '}
+            {(result.arrangementHistory?.attempts.length ?? 1) === 1 ? 'attempt' : 'attempts'}
+          </span>
         </div>
       ) : null}
     </div>

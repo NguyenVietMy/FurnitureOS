@@ -4,14 +4,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 import heapq
 from math import atan2, cos, hypot, isfinite, pi, sin
-from typing import Iterator
+from typing import Iterator, Literal
 
 from .catalogue.contract import Catalogue
 from .models import (
     AccessRegion, DesignFailure, DesignRequest, DesignResultValue, FitMeasurements,
     FitResultValue, FitSuccess, Footprint, InvalidFit, InvalidFitReason, Placement,
     PlacementIntent, MAX_GEOMETRY_M, Product, ProductFace, RoomShell, SearchReport,
-    SolvedDesign, Vec2, WallContact, WallSegment, Zone,
+    SolvedDesign, Vec2, WallContact, WallSegment, Zone, ZoneOffer,
 )
 from .zones import ZoneDerivationError, derive_zones
 
@@ -571,6 +571,59 @@ def _corner_secondary_face(
     return face if alignment >= 1 - 1e-7 else None
 
 
+@dataclass(frozen=True)
+class WallPlacementCapability:
+    """An exact wall-operation tuple admitted by the authoritative geometry rules."""
+
+    kind: Literal["against", "centred_on", "in_corner"]
+    wall_id: str
+    face: ProductFace
+    adjacent_wall_id: str | None = None
+    secondary_face: ProductFace | None = None
+
+
+def wall_placement_capabilities(
+    room: RoomShell,
+    product: Product,
+) -> tuple[WallPlacementCapability, ...]:
+    """Derive provider/validator wall choices from the same helpers used by resolve_design.
+
+    These tuples establish operation support only. They deliberately do not promise
+    that a complete multi-Product Design will fit or clear circulation.
+    """
+    capabilities: list[WallPlacementCapability] = []
+    for wall in room.walls:
+        for face in product.wallContactFaces:
+            capabilities.extend((
+                WallPlacementCapability("against", wall.id, face),
+                WallPlacementCapability("centred_on", wall.id, face),
+            ))
+            span = product.dimensionsM.widthM if face in ("front", "back") else product.dimensionsM.depthM
+            for adjacent in room.walls:
+                if adjacent.id == wall.id or _corner_offset(room, wall, adjacent.id, span) is None:
+                    continue
+                secondary_face = _corner_secondary_face(room, wall, adjacent, face)
+                if secondary_face is None or secondary_face not in product.wallContactFaces:
+                    continue
+                capabilities.append(WallPlacementCapability(
+                    "in_corner",
+                    wall.id,
+                    face,
+                    adjacent.id,
+                    secondary_face,
+                ))
+    return tuple(sorted(
+        capabilities,
+        key=lambda item: (
+            item.kind,
+            item.wall_id,
+            item.face,
+            item.adjacent_wall_id or "",
+            item.secondary_face or "",
+        ),
+    ))
+
+
 def _design_failure(
     reason: str,
     detail: str,
@@ -804,7 +857,12 @@ def _place_in_zone(
     return validate_placement(product, room, placement, tolerances, occupied)
 
 
-def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultValue:
+def resolve_design(
+    source: Catalogue,
+    request: DesignRequest,
+    *,
+    zone_offer: ZoneOffer | None = None,
+) -> DesignResultValue:
     """Resolve coordinate-free Placement Intents with bounded deterministic backtracking."""
     if request.maxCandidates > MAX_SEARCH_CANDIDATES:
         raise ValueError(f"Search cannot exceed {MAX_SEARCH_CANDIDATES} candidates")
@@ -820,23 +878,25 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
         )
 
     intents_by_id = {intent.id: intent for intent in request.intents}
-    zone_offer = None
     if any(intent.kind in _ZONE_INTENTS for intent in request.intents):
-        try:
-            zone_offer = derive_zones(request.room)
-        except ZoneDerivationError as error:
-            zoned_intent = min(
-                (intent for intent in request.intents if intent.kind in _ZONE_INTENTS),
-                key=lambda item: item.id,
-            )
-            return _design_failure(
-                "zone-derivation-unsupported",
-                str(error),
-                zoned_intent.id,
-                0,
-                request.maxCandidates,
-                exhaustive=False,
-            )
+        if zone_offer is None:
+            try:
+                zone_offer = derive_zones(request.room)
+            except ZoneDerivationError as error:
+                zoned_intent = min(
+                    (intent for intent in request.intents if intent.kind in _ZONE_INTENTS),
+                    key=lambda item: item.id,
+                )
+                return _design_failure(
+                    "zone-derivation-unsupported",
+                    str(error),
+                    zoned_intent.id,
+                    0,
+                    request.maxCandidates,
+                    exhaustive=False,
+                )
+        elif zone_offer.roomId != request.room.id:
+            raise ValueError("The supplied Zone offer belongs to a different Room.")
     zones_by_id = {zone.id: zone for zone in zone_offer.zones} if zone_offer is not None else {}
     products_by_intent: dict[str, Product] = {}
     walls_by_intent: dict[str, WallSegment] = {}
@@ -1237,11 +1297,24 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
 
     solution = search(0, {}, {})
     if solution is None:
+        observed_detail = ""
+        if last_invalid is not None:
+            observed_intent, observed_invalid = last_invalid
+            observed_detail = (
+                f' Observed rejected candidate for request "{observed_intent.id}": '
+                f"{observed_invalid.detail}. This observation is not proof of a unique root cause "
+                "or continuous-space impossibility."
+            )
         if budget_intent_id is not None:
+            failed_id = last_invalid[0].id if last_invalid else budget_intent_id
             return _design_failure(
                 "search-exhausted",
-                f"Search stopped at the declared {request.maxCandidates}-candidate limit before all supported assignments were checked",
-                budget_intent_id,
+                (
+                    f"Search stopped at the declared {request.maxCandidates}-candidate limit "
+                    f'before all supported assignments were checked at request "{budget_intent_id}".'
+                    f"{observed_detail}"
+                ),
+                failed_id,
                 attempted,
                 request.maxCandidates,
                 exhaustive=False,
@@ -1250,7 +1323,10 @@ def resolve_design(source: Catalogue, request: DesignRequest) -> DesignResultVal
             failed_id = last_invalid[0].id if last_invalid else request.intents[-1].id
             return _design_failure(
                 "search-exhausted",
-                f"The deterministic {SEARCH_STEP_M:.1f} m wall grid has no valid complete assignment; continuous positions were not proven impossible",
+                (
+                    f"The deterministic {SEARCH_STEP_M:.1f} m wall grid has no valid complete assignment; "
+                    f"continuous positions were not proven impossible.{observed_detail}"
+                ),
                 failed_id,
                 attempted,
                 request.maxCandidates,
