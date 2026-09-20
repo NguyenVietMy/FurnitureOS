@@ -19,10 +19,12 @@ from api.catalogue.contract import CatalogueQuery  # noqa: E402
 from api.design import intent_fixture_room  # noqa: E402
 from api.live_generation import (  # noqa: E402
     SelectionRejected,
+    _bed_placement_guidance,
     _output_schema,
     _prompt,
     _validated_selection,
     _wall_capability_map,
+    _live_selection_products,
     reference_manifest,
     verified_reference,
 )
@@ -64,7 +66,9 @@ def production_material(reference_id: str) -> dict:
     if reference is None:
         raise SystemExit("Unknown production reference id.")
     image = verified_reference(reference)
-    eligible = catalogue.list(CatalogueQuery(room_type="bedroom", private_style_id=reference.privateStyleId))
+    eligible = _live_selection_products(catalogue.list(CatalogueQuery(
+        room_type="bedroom", private_style_id=reference.privateStyleId,
+    )))
     if not any(product.category == "bed" for product in eligible):
         raise SystemExit("Selected production reference has no eligible bed and cannot be probed.")
     room = intent_fixture_room()
@@ -76,6 +80,7 @@ def production_material(reference_id: str) -> dict:
         room=room,
         zone_offer=zone_offer,
         capabilities=capabilities,
+        bed_guidance=_bed_placement_guidance(catalogue, room, zone_offer, eligible, capabilities),
         provider_call_index=0,
         previous=None,
         session=None,
@@ -107,7 +112,8 @@ def production_binding(material: dict) -> dict:
         "schemaBytes": len(schema_bytes),
         "model": MODEL_ID,
         "settings": {"thinking": "adaptive", "effort": "high", "format": "json_schema", "maxTokens": 8192},
-        "validation": "ProviderSelection plus shared Product/Room capabilities and graph policy",
+        "validation": "ProviderSelection plus bed-plus-optional-rug-v1 scope and shared Product/Room capabilities and graph policy",
+        "placementGuidance": "authoritative-bed-only-v1 plus bounded bed/rug complete-Design repair feedback",
     }
 
 
@@ -123,11 +129,13 @@ def main() -> int:
     parser.add_argument("--allow-paid-message", action="store_true")
     args = parser.parse_args()
     evidence = {
-        "version": 2,
+        "version": 3,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": args.mode,
         "modelRequested": MODEL_ID,
         "workspaceHeaderConfigured": None,
+        "workspaceId": None,
+        "accountingMode": None,
         "paidMessageAuthorizedByCommand": args.allow_paid_message,
         "metadata": None,
         "message": None,
@@ -146,6 +154,8 @@ def main() -> int:
     try:
         settings = ProviderSettings.from_environment()
         evidence["workspaceHeaderConfigured"] = bool(settings.workspace_id)
+        evidence["workspaceId"] = settings.workspace_id
+        evidence["accountingMode"] = settings.accounting_mode
         provider = AnthropicProvider(settings)
         deadline = monotonic() + 300
         metadata = provider.retrieve_model(deadline)
@@ -185,6 +195,7 @@ def main() -> int:
                     capabilities=material["capabilities"],
                     selection_id="initial",
                     initial=None,
+                    enforce_live_scope=True,
                 )
                 schema_valid = True
                 rejection = None

@@ -89,9 +89,14 @@ frontier but is never a drop target.
 An arrangement request carries one initial selection and at most two explicit
 repair selections. Request policy is keyed by stable request ID and explicitly
 declares required/optional status, anchor status and optional priority
-(`decoration` or `secondary-furniture`). Every repair must preserve the exact
-identity set and the required anchor Intents byte-for-byte; identity churn
-cannot reset budgets.
+(`decoration` or `secondary-furniture`). By default every repair preserves the
+exact identity set and required or anchor Intents byte-for-byte; identity churn
+cannot reset budgets. The internal live-bedroom session has one narrow,
+server-owned exception: `anchor-bed` remains required and drop-protected while
+its coordinate-free spatial Intent may change. Its request ID and Product ID
+remain fixed, and every changed pose re-enters the complete Placement and
+circulation checks. Because that bed can move during repair, circulation
+attribution does not classify it as immovable.
 
 After repair selections fail, optional requests are considered once in this
 order: decoration, secondary furniture, stable request ID. A permitted drop

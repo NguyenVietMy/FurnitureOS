@@ -1297,11 +1297,24 @@ def resolve_design(
 
     solution = search(0, {}, {})
     if solution is None:
+        observed_detail = ""
+        if last_invalid is not None:
+            observed_intent, observed_invalid = last_invalid
+            observed_detail = (
+                f' Observed rejected candidate for request "{observed_intent.id}": '
+                f"{observed_invalid.detail}. This observation is not proof of a unique root cause "
+                "or continuous-space impossibility."
+            )
         if budget_intent_id is not None:
+            failed_id = last_invalid[0].id if last_invalid else budget_intent_id
             return _design_failure(
                 "search-exhausted",
-                f"Search stopped at the declared {request.maxCandidates}-candidate limit before all supported assignments were checked",
-                budget_intent_id,
+                (
+                    f"Search stopped at the declared {request.maxCandidates}-candidate limit "
+                    f'before all supported assignments were checked at request "{budget_intent_id}".'
+                    f"{observed_detail}"
+                ),
+                failed_id,
                 attempted,
                 request.maxCandidates,
                 exhaustive=False,
@@ -1310,7 +1323,10 @@ def resolve_design(
             failed_id = last_invalid[0].id if last_invalid else request.intents[-1].id
             return _design_failure(
                 "search-exhausted",
-                f"The deterministic {SEARCH_STEP_M:.1f} m wall grid has no valid complete assignment; continuous positions were not proven impossible",
+                (
+                    f"The deterministic {SEARCH_STEP_M:.1f} m wall grid has no valid complete assignment; "
+                    f"continuous positions were not proven impossible.{observed_detail}"
+                ),
                 failed_id,
                 attempted,
                 request.maxCandidates,

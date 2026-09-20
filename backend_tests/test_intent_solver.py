@@ -226,6 +226,9 @@ def test_against_search_is_deterministic_and_reports_exhaustion_separately(produ
     assert exhausted.failedIntentId == "searching"
     assert exhausted.search.attemptedCandidates == 2
     assert exhausted.search.exhaustive is False
+    assert "Observed rejected candidate" in exhausted.detail
+    assert 'request "searching"' in exhausted.detail
+    assert "overlaps Product first-square" in exhausted.detail
 
 
 def test_backtracking_revisits_an_earlier_against_placement_for_a_known_fit(product: Product) -> None:
@@ -287,6 +290,9 @@ def test_full_discrete_against_grid_does_not_claim_continuous_exhaustiveness(pro
     assert result.reason == "search-exhausted"
     assert result.search.attemptedCandidates == 17
     assert result.search.exhaustive is False
+    assert result.failedIntentId == "search-entire-grid"
+    assert "Observed rejected candidate" in result.detail
+    assert "opening the cabinet" in result.detail.lower()
 
 
 def test_repeated_product_references_publish_stable_intent_instance_ids(product: Product) -> None:

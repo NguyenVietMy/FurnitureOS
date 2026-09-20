@@ -135,11 +135,15 @@ class ArrangementSession:
         *,
         selection_limit: int | None = None,
         zone_offer: ZoneOffer | None = None,
+        repositionable_request_ids: frozenset[str] = frozenset(),
     ):
         self.source = source
         self.request = request
         self.policies = {policy.requestId: policy for policy in request.policies}
         self.anchors = frozenset(policy.requestId for policy in request.policies if policy.anchor)
+        self.repositionable_request_ids = frozenset(repositionable_request_ids)
+        if not self.repositionable_request_ids <= self.anchors:
+            raise ValueError("only required anchor requests may opt into spatial repair")
         self.attempts: list[ArrangementAttempt] = []
         self.total_attempted = 0
         self.last_constraint: LimitingConstraint | None = None
@@ -210,7 +214,7 @@ class ArrangementSession:
         circulation = validate_circulation(
             design_result,
             self.request.clearanceWidthM,
-            anchor_ids=self.anchors,
+            anchor_ids=self.anchors - self.repositionable_request_ids,
         )
         if circulation.status != "clear":
             self.last_constraint = _circulation_constraint(circulation)
@@ -261,12 +265,15 @@ class ArrangementSession:
             raise ValueError("the first submitted selection must match the configured initial selection")
 
         candidate_selections = tuple([*self.selections, selection])
-        # Re-run the public request validator so incremental callers cannot evade
-        # stable identity or protected-anchor rules between submissions.
-        ArrangementRequest.model_validate({
-            **self.request.model_dump(mode="json"),
-            "selections": [item.model_dump(mode="json") for item in candidate_selections],
-        })
+        # Re-run every public ArrangementRequest invariant. The process-only
+        # context narrows one anchor from immutable pose to immutable Product.
+        ArrangementRequest.model_validate(
+            {
+                **self.request.model_dump(mode="json"),
+                "selections": [item.model_dump(mode="json") for item in candidate_selections],
+            },
+            context={"repositionable_request_ids": self.repositionable_request_ids},
+        )
         self.selections.append(selection)
 
         if self.zone_error is not None:

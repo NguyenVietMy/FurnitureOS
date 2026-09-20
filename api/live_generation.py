@@ -5,6 +5,7 @@ import base64
 from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
+from itertools import combinations
 import json
 from pathlib import Path
 import re
@@ -16,12 +17,14 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, m
 
 from .arrangement import ArrangementSession, MAX_ARRANGEMENT_SOLVES, MAX_REPAIR_ATTEMPTS
 from .catalogue.contract import Catalogue, CatalogueQuery
+from .circulation import validate_circulation
 from .design import intent_fixture_room
-from .domain import WallPlacementCapability, wall_placement_capabilities
+from .domain import SEARCH_STEP_M, WallPlacementCapability, resolve_design, wall_placement_capabilities
 from .models import (
     ArrangementRequest,
     ArrangementSelection,
     DesignFailure,
+    DesignRequest,
     PlacementIntent,
     PlacementPolicy,
     Product,
@@ -57,7 +60,14 @@ REFERENCE_MANIFEST = Path(__file__).with_name("live-reference-manifest.json")
 REFERENCE_DIR = ROOT / "public" / "style-references"
 CLEARANCE_WIDTH_M = 0.60
 MAX_CANDIDATES = 256
+MAX_BED_GUIDANCE_PROBES = 32
+MAX_COMPOSITION_GUIDANCE_PROBES = 32
+MAX_COMPOSITION_PAIR_PROBES = 16
+MAX_COMPOSITION_PAIR_WITNESSES = 8
+MAX_COMPOSITION_GUIDANCE_BYTES = 8_192
 ANCHOR_ID = "anchor-bed"
+LIVE_SELECTION_SCOPE_VERSION = "bed-plus-optional-rug-v1"
+LIVE_SELECTION_CATEGORIES = frozenset({"bed", "rug"})
 GenerationFailureCode = Literal[
     "configuration-error",
     "budget-error",
@@ -222,12 +232,20 @@ ProviderIntent = (
 
 
 class ProviderSelection(StrictModel):
-    intents: tuple[ProviderIntent, ...] = Field(min_length=1, max_length=20)
+    intents: tuple[ProviderIntent, ...] = Field(
+        min_length=1,
+        max_length=20,
+        description=(
+            "For one lone related Product use adjacent_to. A flanking group is atomic: exactly two distinct "
+            "requests with the same referenceId and gapM, one side left and one side right."
+        ),
+    )
 
 
 SelectionRejectionCode = Literal[
     "operation-shape-error",
     "ineligible-product-error",
+    "selection-scope-error",
     "anchor-error",
     "wall-face-error",
     "corner-face-error",
@@ -417,6 +435,479 @@ def _capability_prompt_rows(capabilities: tuple[WallPlacementCapability, ...]) -
     ] for item in capabilities]
 
 
+def _guidance_status(
+    source: Catalogue,
+    room: RoomShell,
+    zone_offer: ZoneOffer,
+    intent: PlacementIntent,
+    *,
+    verify_circulation: bool,
+    max_candidates: int,
+    clearance_width_m: float,
+) -> tuple[Literal["witnessed-valid", "conclusively-invalid", "unknown-bounded-search"], int]:
+    """Classify one bed-only option through the ordinary physical authority."""
+    result = resolve_design(
+        source,
+        DesignRequest(room=room, intents=(intent,), maxCandidates=max_candidates),
+        zone_offer=zone_offer,
+    )
+    attempted = result.search.attemptedCandidates
+    if result.status == "failed":
+        return ("conclusively-invalid" if result.search.exhaustive else "unknown-bounded-search"), attempted
+    if not verify_circulation:
+        return "unknown-bounded-search", attempted
+    circulation = validate_circulation(result, clearance_width_m, anchor_ids=frozenset())
+    if circulation.status == "clear":
+        return "witnessed-valid", attempted
+    return ("conclusively-invalid" if circulation.exhaustive else "unknown-bounded-search"), attempted
+
+
+@lru_cache(maxsize=32)
+def _cached_bed_placement_guidance(
+    source: Catalogue,
+    source_version: str,
+    room: RoomShell,
+    zone_offer: ZoneOffer,
+    eligible: tuple[Product, ...],
+    capability_items: tuple[tuple[str, tuple[WallPlacementCapability, ...]], ...],
+    max_candidates: int,
+    clearance_width_m: float,
+    max_probes: int,
+) -> str:
+    """Cache only against complete Room/Product/solver/clearance inputs."""
+    del source_version  # Included in the immutable cache key.
+    capabilities = dict(capability_items)
+    by_product: dict[str, list[list[str | None]]] = {}
+    probes = 0
+    candidate_checks = 0
+    for product in sorted((item for item in eligible if item.category == "bed"), key=lambda item: item.id):
+        rows: list[list[str | None]] = []
+        witnessed = False
+        for option in capabilities[product.id]:
+            status: str = "unknown-bounded-search"
+            # The diagnosed failures use the eight wall positions. Corners stay
+            # available but honestly unknown under this fixed preflight budget.
+            if option.kind in {"against", "centred_on"} and probes < max_probes:
+                intent = PlacementIntent(
+                    id=ANCHOR_ID,
+                    kind=option.kind,
+                    productId=product.id,
+                    wallId=option.wall_id,
+                    face=option.face,
+                )
+                status, attempted = _guidance_status(
+                    source,
+                    room,
+                    zone_offer,
+                    intent,
+                    verify_circulation=not witnessed,
+                    max_candidates=max_candidates,
+                    clearance_width_m=clearance_width_m,
+                )
+                probes += 1
+                candidate_checks += attempted
+                witnessed = witnessed or status == "witnessed-valid"
+            rows.append([
+                option.kind,
+                option.wall_id,
+                option.face,
+                option.adjacent_wall_id,
+                status,
+            ])
+        by_product[product.id] = rows
+    value = {
+        "method": "authoritative-bed-only-v1",
+        "scope": "A witnessed bed option is not a complete furnished Design guarantee.",
+        "maxProbes": max_probes,
+        "probesExecuted": probes,
+        "candidateChecks": candidate_checks,
+        "bedWallOptionTuple": ["kind", "wallId", "face", "adjacentWallId", "status"],
+        "bedWallOptionsByProduct": by_product,
+    }
+    return json.dumps(value, separators=(",", ":"), sort_keys=True)
+
+
+def _bed_placement_guidance(
+    source: Catalogue,
+    room: RoomShell,
+    zone_offer: ZoneOffer,
+    eligible: tuple[Product, ...],
+    capabilities: WallCapabilityMap,
+) -> dict[str, Any]:
+    """Produce bounded coordinate-free bed guidance from the real authority."""
+    capability_items = tuple(sorted(capabilities.items()))
+    return json.loads(_cached_bed_placement_guidance(
+        source,
+        source.version,
+        room,
+        zone_offer,
+        eligible,
+        capability_items,
+        MAX_CANDIDATES,
+        CLEARANCE_WIDTH_M,
+        MAX_BED_GUIDANCE_PROBES,
+    ))
+
+
+def _access_relationship_warnings(
+    selection: ArrangementSelection | None,
+    eligible: tuple[Product, ...],
+) -> list[dict[str, Any]]:
+    if selection is None:
+        return []
+    products = {product.id: product for product in eligible}
+    intents = {intent.id: intent for intent in selection.intents}
+    warnings: list[dict[str, Any]] = []
+    for intent in sorted(selection.intents, key=lambda item: item.id):
+        if intent.kind not in {"adjacent_to", "flanking"} or intent.referenceId is None or intent.side is None:
+            continue
+        reference = intents[intent.referenceId]
+        minimum = max(
+            (
+                region.depthM
+                for region in products[reference.productId].accessRegions
+                if region.required and region.face == intent.side
+            ),
+            default=0.0,
+        )
+        if minimum > 0 and intent.gapM < minimum - 1e-9:
+            warnings.append({
+                "requestId": intent.id,
+                "referenceId": intent.referenceId,
+                "side": intent.side,
+                "chosenGapM": intent.gapM,
+                "minimumGapM": minimum,
+            })
+    return warnings
+
+
+GuidanceStatus = Literal["witnessed-valid", "conclusively-invalid", "unknown-bounded-search"]
+
+
+@dataclass(frozen=True)
+class _CompositionAlternative:
+    request_ids: tuple[str, ...]
+    replacements: tuple[PlacementIntent, ...]
+
+
+@dataclass
+class _CompositionProbeBudget:
+    max_probes: int
+    probes_executed: int = 0
+    pair_probes: int = 0
+    complete_design_probes: int = 0
+    candidate_checks: int = 0
+    unknown_probes: int = 0
+
+    @property
+    def exhausted(self) -> bool:
+        return self.probes_executed >= self.max_probes
+
+
+def _probe_composition_intents(
+    source: Catalogue,
+    room: RoomShell,
+    zone_offer: ZoneOffer,
+    intents: tuple[PlacementIntent, ...],
+    budget: _CompositionProbeBudget,
+    *,
+    pair_only: bool,
+) -> GuidanceStatus:
+    """Run one private diagnostic solve; it never enters Arrangement history."""
+    if budget.exhausted:
+        raise RuntimeError("composition guidance probe budget is exhausted")
+    result = resolve_design(
+        source,
+        DesignRequest(room=room, intents=intents, maxCandidates=MAX_CANDIDATES),
+        zone_offer=zone_offer,
+    )
+    budget.probes_executed += 1
+    budget.pair_probes += int(pair_only)
+    budget.complete_design_probes += int(not pair_only)
+    budget.candidate_checks += result.search.attemptedCandidates
+    if result.status == "failed":
+        status: GuidanceStatus = (
+            "conclusively-invalid" if result.search.exhaustive else "unknown-bounded-search"
+        )
+    else:
+        circulation = validate_circulation(result, CLEARANCE_WIDTH_M, anchor_ids=frozenset())
+        if circulation.status == "clear":
+            status = "witnessed-valid"
+        else:
+            status = (
+                "conclusively-invalid" if circulation.exhaustive else "unknown-bounded-search"
+            )
+    if status == "unknown-bounded-search":
+        budget.unknown_probes += 1
+    return status
+
+
+def _replacement_intents(
+    intents: tuple[PlacementIntent, ...],
+    replacements: tuple[PlacementIntent, ...],
+) -> tuple[PlacementIntent, ...]:
+    by_id = {intent.id: intent for intent in replacements}
+    return tuple(by_id.get(intent.id, intent) for intent in intents)
+
+
+def _pair_scope(
+    intents: tuple[PlacementIntent, ...],
+    replacements: tuple[PlacementIntent, ...],
+) -> tuple[PlacementIntent, ...]:
+    """Keep the affected dependency group plus only the context needed to solve it."""
+    candidate = _replacement_intents(intents, replacements)
+    by_id = {intent.id: intent for intent in candidate}
+    affected = {intent.id for intent in replacements}
+    changed = True
+    while changed:
+        changed = False
+        for intent in candidate:
+            if intent.referenceId in affected and intent.id not in affected:
+                affected.add(intent.id)
+                changed = True
+        flanking_references = {
+            by_id[request_id].referenceId
+            for request_id in affected
+            if by_id[request_id].kind == "flanking"
+        }
+        for intent in candidate:
+            if (
+                intent.kind == "flanking"
+                and intent.referenceId in flanking_references
+                and intent.id not in affected
+            ):
+                affected.add(intent.id)
+                changed = True
+
+    included = {ANCHOR_ID, *affected}
+    for request_id in tuple(affected):
+        reference_id = by_id[request_id].referenceId
+        while reference_id is not None and reference_id not in included:
+            included.add(reference_id)
+            reference_id = by_id[reference_id].referenceId
+    return tuple(intent for intent in candidate if intent.id in included)
+
+
+def _gap_ladder(intent: PlacementIntent, intents: tuple[PlacementIntent, ...], eligible: tuple[Product, ...]) -> tuple[float, ...]:
+    """Derive a short relation-gap ladder from the current request and authority scales."""
+    if intent.gapM < 0:
+        return ()
+    products = {product.id: product for product in eligible}
+    by_id = {item.id: item for item in intents}
+    required_depth = 0.0
+    if intent.referenceId is not None and intent.side is not None:
+        reference = by_id[intent.referenceId]
+        required_depth = max(
+            (
+                region.depthM
+                for region in products[reference.productId].accessRegions
+                if region.required and region.face == intent.side
+            ),
+            default=0.0,
+        )
+    baseline = max(intent.gapM, required_depth)
+    return tuple(round(baseline + SEARCH_STEP_M * multiplier, 9) for multiplier in (1, 2, 4))
+
+
+def _composition_alternatives(
+    selection: ArrangementSelection,
+    eligible: tuple[Product, ...],
+    capabilities: WallCapabilityMap,
+    zone_offer: ZoneOffer,
+) -> tuple[_CompositionAlternative, ...]:
+    """Enumerate bounded coordinate-free edits without changing identity or Product."""
+    intents = selection.intents
+    by_id = {intent.id: intent for intent in intents}
+    alternatives: list[_CompositionAlternative] = []
+    seen: set[bytes] = set()
+
+    def add(replacements: tuple[PlacementIntent, ...]) -> None:
+        request_ids = tuple(sorted(intent.id for intent in replacements))
+        signature = json.dumps(
+            [intent.model_dump(mode="json") for intent in replacements],
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        if signature not in seen:
+            seen.add(signature)
+            alternatives.append(_CompositionAlternative(request_ids, replacements))
+
+    handled_flanking: set[str] = set()
+    for intent in sorted(intents, key=lambda item: (item.id == ANCHOR_ID, item.id)):
+        if intent.kind in {"against", "centred_on", "in_corner"}:
+            for option in capabilities[intent.productId]:
+                if option.kind != intent.kind:
+                    continue
+                replacement = PlacementIntent.model_validate({
+                    **intent.model_dump(mode="json"),
+                    "wallId": option.wall_id,
+                    "face": option.face,
+                    "adjacentWallId": option.adjacent_wall_id,
+                })
+                if replacement != intent:
+                    add((replacement,))
+        elif intent.kind == "adjacent_to":
+            for side in ("left", "right", "front", "back"):
+                if side != intent.side:
+                    add((PlacementIntent.model_validate({
+                        **intent.model_dump(mode="json"), "side": side,
+                    }),))
+            for gap_m in _gap_ladder(intent, intents, eligible):
+                add((PlacementIntent.model_validate({
+                    **intent.model_dump(mode="json"), "gapM": gap_m,
+                }),))
+        elif intent.kind == "facing":
+            for gap_m in _gap_ladder(intent, intents, eligible):
+                add((PlacementIntent.model_validate({
+                    **intent.model_dump(mode="json"), "gapM": gap_m,
+                }),))
+        elif intent.kind == "flanking" and intent.referenceId is not None:
+            if intent.referenceId in handled_flanking:
+                continue
+            handled_flanking.add(intent.referenceId)
+            group = tuple(
+                item
+                for item in intents
+                if item.kind == "flanking" and item.referenceId == intent.referenceId
+            )
+            if len(group) == 2:
+                for gap_m in _gap_ladder(intent, intents, eligible):
+                    add(tuple(PlacementIntent.model_validate({
+                        **item.model_dump(mode="json"), "gapM": gap_m,
+                    }) for item in group))
+        elif intent.kind == "in_zone":
+            for zone in sorted(zone_offer.zones, key=lambda item: item.id):
+                if zone.id != intent.zoneId:
+                    add((PlacementIntent.model_validate({
+                        **intent.model_dump(mode="json"), "zoneId": zone.id,
+                    }),))
+
+    # The original selection is already graph-valid. Constructed edits retain
+    # all IDs/Products and only use admitted walls, offered Zones or grammar fields.
+    assert all(
+        replacement.id in by_id and replacement.productId == by_id[replacement.id].productId
+        for alternative in alternatives
+        for replacement in alternative.replacements
+    )
+    return tuple(alternatives)
+
+
+def _guide_intents(intents: tuple[PlacementIntent, ...]) -> list[dict[str, Any]]:
+    return [intent.model_dump(mode="json", exclude_none=True) for intent in intents]
+
+
+def _bounded_composition_guide(value: dict[str, Any]) -> dict[str, Any]:
+    """Prefer the complete witness, then trim pair-only examples to a hard byte cap."""
+    bounded = value
+    while len(json.dumps(bounded, separators=(",", ":"), sort_keys=True).encode("utf-8")) > MAX_COMPOSITION_GUIDANCE_BYTES:
+        witnesses = bounded["pairWitnesses"]
+        if witnesses:
+            bounded = {**bounded, "pairWitnesses": witnesses[:-1], "optionsTruncated": True}
+            continue
+        if bounded["completeDesignWitness"] is not None:
+            bounded = {
+                **bounded,
+                "completeDesignWitness": None,
+                "completeWitnessOmittedForByteBound": True,
+                "optionsTruncated": True,
+            }
+            continue
+        raise ProviderCallError("configuration-error", "Composition correction guide exceeds its byte bound.")
+    return bounded
+
+
+def _composition_correction_guidance(
+    source: Catalogue,
+    room: RoomShell,
+    zone_offer: ZoneOffer,
+    eligible: tuple[Product, ...],
+    capabilities: WallCapabilityMap,
+    selection: ArrangementSelection,
+    *,
+    max_probes: int = MAX_COMPOSITION_GUIDANCE_PROBES,
+) -> dict[str, Any]:
+    """Derive advisory pair/full witnesses without mutating the live Arrangement."""
+    if not 1 <= max_probes <= MAX_COMPOSITION_GUIDANCE_PROBES:
+        raise ValueError("composition guidance probe bound must be between one and 32")
+    budget = _CompositionProbeBudget(max_probes=max_probes)
+    pair_witnesses: list[tuple[_CompositionAlternative, dict[str, Any]]] = []
+    alternatives = _composition_alternatives(selection, eligible, capabilities, zone_offer)
+    for alternative in alternatives:
+        if budget.exhausted or budget.pair_probes >= min(MAX_COMPOSITION_PAIR_PROBES, max_probes):
+            break
+        pair_intents = _pair_scope(selection.intents, alternative.replacements)
+        status = _probe_composition_intents(
+            source, room, zone_offer, pair_intents, budget, pair_only=True,
+        )
+        if status == "witnessed-valid" and len(pair_witnesses) < MAX_COMPOSITION_PAIR_WITNESSES:
+            pair_witnesses.append((alternative, {
+                "status": "pair-only-witnessed-valid",
+                "requestIds": list(alternative.request_ids),
+                "validatedScopeRequestIds": [intent.id for intent in pair_intents],
+                "replacementIntents": _guide_intents(alternative.replacements),
+            }))
+
+    complete_witness: dict[str, Any] | None = None
+    seen_complete: set[bytes] = set()
+    for size in range(1, len(pair_witnesses) + 1):
+        if complete_witness is not None or budget.exhausted:
+            break
+        for chosen in combinations(pair_witnesses, size):
+            if budget.exhausted:
+                break
+            request_ids = [request_id for alternative, _ in chosen for request_id in alternative.request_ids]
+            if len(set(request_ids)) != len(request_ids):
+                continue
+            replacements = tuple(
+                intent
+                for alternative, _ in chosen
+                for intent in alternative.replacements
+            )
+            candidate = _replacement_intents(selection.intents, replacements)
+            signature = json.dumps(
+                [intent.model_dump(mode="json") for intent in candidate],
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            if signature in seen_complete:
+                continue
+            seen_complete.add(signature)
+            status = _probe_composition_intents(
+                source, room, zone_offer, candidate, budget, pair_only=False,
+            )
+            if status == "witnessed-valid":
+                complete_witness = {
+                    "status": "complete-design-witnessed-valid",
+                    "changedRequestIds": sorted(request_ids),
+                    "replacementIntents": _guide_intents(replacements),
+                    "preservedRequestIds": [intent.id for intent in selection.intents],
+                }
+                break
+
+    guide = {
+        "method": "bounded-authoritative-composition-v1",
+        "scope": (
+            "Server-authored coordinate-free diagnostic options for the previous failed selection. "
+            "Pair witnesses are not complete Designs; the provider must return the full identity set and the server re-solves it."
+        ),
+        "maxProbes": max_probes,
+        "maxPairProbes": min(MAX_COMPOSITION_PAIR_PROBES, max_probes),
+        "probesExecuted": budget.probes_executed,
+        "pairProbes": budget.pair_probes,
+        "completeDesignProbes": budget.complete_design_probes,
+        "candidateChecks": budget.candidate_checks,
+        "unknownProbes": budget.unknown_probes,
+        "budgetExhausted": budget.exhausted,
+        "optionsTruncated": (
+            len(pair_witnesses) >= MAX_COMPOSITION_PAIR_WITNESSES
+            or budget.pair_probes < len(alternatives)
+        ),
+        "pairWitnesses": [value for _, value in pair_witnesses],
+        "completeDesignWitness": complete_witness,
+    }
+    return _bounded_composition_guide(guide)
+
+
 _REJECTED_DRAFT_FIELDS = {
     "id", "kind", "productId", "wallId", "face", "adjacentWallId",
     "zoneId", "referenceId", "side", "gapM",
@@ -476,9 +967,11 @@ def _prompt(
     room: RoomShell,
     zone_offer: ZoneOffer,
     capabilities: WallCapabilityMap,
+    bed_guidance: dict[str, Any],
     provider_call_index: int,
     previous: ArrangementSelection | None,
     session: ArrangementSession | None,
+    composition_guidance: dict[str, Any] | None = None,
     correction: SelectionRejection | None = None,
     rejected_draft: dict[str, Any] | None = None,
 ) -> str:
@@ -498,11 +991,21 @@ def _prompt(
     immutable = None
     feedback = None
     history = None
+    complete_design_status = None
+    prompt_bed_guidance = bed_guidance
     if previous is not None and session is not None:
         initial = session.selections[0]
+        initial_bed = next(intent for intent in initial.intents if intent.id == ANCHOR_ID)
+        prompt_bed_guidance = {
+            **bed_guidance,
+            "bedWallOptionsByProduct": {
+                initial_bed.productId: bed_guidance["bedWallOptionsByProduct"][initial_bed.productId],
+            },
+        }
         immutable = {
             "identitySet": [intent.id for intent in initial.intents],
-            "anchor": next(intent.model_dump(mode="json") for intent in initial.intents if intent.id == ANCHOR_ID),
+            "requiredBed": {"id": ANCHOR_ID, "productId": initial_bed.productId},
+            "bedSpatialIntentMayChange": True,
             "categories": {
                 intent.id: next(product.category for product in eligible if product.id == intent.productId)
                 for intent in initial.intents
@@ -510,9 +1013,27 @@ def _prompt(
         }
         feedback = session.latest_attempt.model_dump(mode="json") if session.latest_attempt else None
         history = [attempt.model_dump(mode="json") for attempt in session.attempts]
+        if session.latest_attempt is not None:
+            constraint = session.latest_attempt.limitingConstraint
+            complete_design_status = (
+                "conclusively-invalid"
+                if constraint is not None and constraint.exhaustive is True
+                else "unknown-bounded-search"
+            )
+    placement_guidance = {
+        **prompt_bed_guidance,
+        "completeDesignStatus": complete_design_status,
+        "accessRelationshipRule": (
+            "Do not place adjacent_to or flanking furniture inside a referenced Product's required access face: "
+            "gapM must be at least that face's required depth. This is necessary, not sufficient; the server re-solves the complete Design."
+        ),
+        "accessRelationshipWarnings": _access_relationship_warnings(previous, eligible),
+        "compositionCorrection": composition_guidance,
+    }
     context = {
         "task": (
-            "Select a coherent bedroom Design inspired by the attached reference pixels. "
+            "Select a technically valid bedroom Design inspired by the attached reference pixels. "
+            "Return exactly one eligible bed and zero or one eligible rug. "
             "Return only Product ids and coordinate-free Placement Intents. Never emit coordinates, Room geometry, policy, credentials, or provider settings."
         ),
         "roomType": "bedroom",
@@ -521,15 +1042,46 @@ def _prompt(
         "eligibleCatalogue": product_view,
         "rules": {
             "anchor": f"Exactly one bed is required and its request id must be {ANCHOR_ID}.",
-            "requestLimit": 20,
+            "selectionScope": {
+                "version": LIVE_SELECTION_SCOPE_VERSION,
+                "required": {"category": "bed", "count": 1, "requestId": ANCHOR_ID},
+                "optional": {"category": "rug", "minimumCount": 0, "maximumCount": 1},
+                "maximumRequests": 2,
+                "otherCategories": "forbidden",
+                "instruction": (
+                    "Do not return nightstands, dressers, wardrobes, chairs, lamps, another bed, or more than one rug. "
+                    "Repairs must not add or remove a request."
+                ),
+            },
+            "requestLimit": 2,
             "operations": ["against", "centred_on", "in_corner", "adjacent_to", "facing", "flanking", "in_zone"],
+            "relativeGrammar": {
+                "adjacentTo": (
+                    "Use one adjacent_to request for one related Product."
+                ),
+                "flanking": {
+                    "invariant": (
+                        "A flanking group has exactly two distinct requests with the same referenceId and gapM: "
+                        "one side left and one side right. Never emit a singleton flanking request."
+                    ),
+                    "scope": "Grammar only; the current two-request selection limit cannot form a flanking group with the required bed.",
+                },
+            },
             "wallOptionTuple": ["kind", "wallId", "face", "adjacentWallId", "secondaryFace"],
             "wallCapability": (
                 "Every wall operation must exactly match one Product wallPlacementOptions tuple. "
                 "An empty list forbids wall operations. secondaryFace is informative and is not an output field."
             ),
-            "repair": "Repairs must preserve every request id, the anchor byte-for-byte, and each request's Product category.",
+            "repair": (
+                "Repairs must preserve every request id, the required bed Product id, and each request's Product category. "
+                "The bed's coordinate-free spatial Placement Intent may change; the server re-solves all physical constraints."
+            ),
+            "feasibility": (
+                "Prefer witnessed-valid bed-only options, never treat unknown-bounded-search as impossible, and avoid conclusively-invalid options. "
+                "Bed-only status does not validate other furniture or whole-Design circulation; respond to complete-Design feedback and access warnings."
+            ),
         },
+        "placementGuidance": placement_guidance,
         "providerCallNumber": provider_call_index + 1,
         "validSelectionNumber": len(session.selections) if session else 0,
         "repairNumber": len(session.selections) if session else 0,
@@ -680,6 +1232,7 @@ def _validated_selection(
     capabilities: WallCapabilityMap,
     selection_id: str,
     initial: ArrangementSelection | None,
+    enforce_live_scope: bool = False,
 ) -> ArrangementSelection:
     try:
         selection = ProviderSelection.model_validate(payload)
@@ -728,11 +1281,11 @@ def _validated_selection(
                 detail="Repair must preserve the initial request identity set.",
                 path="intents.id",
             ))
-        if current_by_id[ANCHOR_ID] != initial_by_id[ANCHOR_ID]:
+        if current_by_id[ANCHOR_ID].productId != initial_by_id[ANCHOR_ID].productId:
             raise SelectionRejected(SelectionRejection(
                 code="repair-anchor-error",
-                detail="Repair must preserve the bed anchor byte-for-byte.",
-                path="intents.anchor-bed",
+                detail="Repair must preserve the required bed Product identity.",
+                path="intents.productId",
                 intentId=ANCHOR_ID,
             ))
         for request_id, first in initial_by_id.items():
@@ -743,6 +1296,17 @@ def _validated_selection(
                     path="intents.productId",
                     intentId=request_id,
                 ))
+    categories = [products[intent.productId].category for intent in intents]
+    if enforce_live_scope and (
+        any(category not in LIVE_SELECTION_CATEGORIES for category in categories)
+        or len(intents) > 2
+        or categories.count("rug") > 1
+    ):
+        raise SelectionRejected(SelectionRejection(
+            code="selection-scope-error",
+            detail="The current live stage accepts exactly one bed and zero or one rug.",
+            path="intents",
+        ))
     return candidate
 
 
@@ -760,6 +1324,11 @@ def _policies(selection: ArrangementSelection, eligible: tuple[Product, ...]) ->
     ) for intent in selection.intents)
 
 
+def _live_selection_products(products: tuple[Product, ...]) -> tuple[Product, ...]:
+    """Narrow Style eligibility only at the live provider boundary."""
+    return tuple(product for product in products if product.category in LIVE_SELECTION_CATEGORIES)
+
+
 def generate_live_bedroom(
     source: Catalogue,
     request: LiveGenerationRequest,
@@ -772,7 +1341,8 @@ def generate_live_bedroom(
     reference = next((item for item in manifest.images if item.id == request.referenceId), None)
     if reference is None:
         return _failure(generation_id, request.referenceId, "configuration-error", "The selected reference is unavailable.", 0, 0, [])
-    eligible = source.list(CatalogueQuery(room_type=request.roomType, private_style_id=reference.privateStyleId))
+    style_eligible = source.list(CatalogueQuery(room_type=request.roomType, private_style_id=reference.privateStyleId))
+    eligible = _live_selection_products(style_eligible)
     eligible_beds = tuple(product for product in eligible if product.category == "bed")
     if not eligible_beds:
         return _failure(
@@ -792,8 +1362,9 @@ def generate_live_bedroom(
 
     room = intent_fixture_room()
     zone_offer = derive_zones(room)
-    capabilities = _wall_capability_map(room, eligible)
+    capabilities = _wall_capability_map(room, style_eligible)
     deadline_at = monotonic() + OVERALL_DEADLINE_SECONDS
+    bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities)
     calls = 0
     latency_ms = 0
     usages: list[ProviderUsage | None] = []
@@ -802,6 +1373,7 @@ def generate_live_bedroom(
     rejections: list[SelectionRejection] = []
     correction: SelectionRejection | None = None
     rejected_draft: dict[str, Any] | None = None
+    composition_guidance: dict[str, Any] | None = None
 
     for call_index in range(MAX_REPAIR_ATTEMPTS + 1):
         try:
@@ -810,9 +1382,11 @@ def generate_live_bedroom(
                 room=room,
                 zone_offer=zone_offer,
                 capabilities=capabilities,
+                bed_guidance=bed_guidance,
                 provider_call_index=call_index,
                 previous=previous,
                 session=session,
+                composition_guidance=composition_guidance,
                 correction=correction,
                 rejected_draft=rejected_draft,
             )
@@ -880,12 +1454,13 @@ def generate_live_bedroom(
         try:
             selection = _validated_selection(
                 reply.payload,
-                eligible,
+                style_eligible,
                 room=room,
                 zone_offer=zone_offer,
                 capabilities=capabilities,
                 selection_id="initial" if session is None else f"repair-{len(session.selections)}",
                 initial=session.selections[0] if session else None,
+                enforce_live_scope=True,
             )
         except SelectionRejected as error:
             correction = error.rejection
@@ -902,7 +1477,13 @@ def generate_live_bedroom(
                 clearanceWidthM=CLEARANCE_WIDTH_M,
                 maxCandidates=MAX_CANDIDATES,
             )
-            session = ArrangementSession(source, arrangement_request, selection_limit=3, zone_offer=zone_offer)
+            session = ArrangementSession(
+                source,
+                arrangement_request,
+                selection_limit=3,
+                zone_offer=zone_offer,
+                repositionable_request_ids=frozenset({ANCHOR_ID}),
+            )
         solved = session.submit(selection)
         if solved is not None:
             return LiveGenerationSuccess(
@@ -919,6 +1500,16 @@ def generate_live_bedroom(
         previous = selection
         correction = None
         rejected_draft = None
+        if call_index < MAX_REPAIR_ATTEMPTS:
+            composition_guidance = _composition_correction_guidance(
+                source,
+                room,
+                zone_offer,
+                eligible,
+                capabilities,
+                selection,
+                max_probes=MAX_COMPOSITION_GUIDANCE_PROBES,
+            )
 
     if session is None or len(session.selections) < MAX_REPAIR_ATTEMPTS + 1:
         history = session.failure_snapshot(
@@ -969,30 +1560,42 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
     zone_offer = derive_zones(room)
     products = tuple(sorted(source.list(), key=lambda product: product.id))
     capabilities_by_product = _wall_capability_map(room, products)
-    eligible_by_reference = {
+    style_eligible_by_reference = {
         reference.id: sorted(product.id for product in source.list(CatalogueQuery(
             room_type="bedroom",
             private_style_id=reference.privateStyleId,
         )))
         for reference in manifest.images
     }
+    eligible_by_reference = {
+        reference.id: sorted(
+            product.id
+            for product in _live_selection_products(source.list(CatalogueQuery(
+                room_type="bedroom",
+                private_style_id=reference.privateStyleId,
+            )))
+        )
+        for reference in manifest.images
+    }
     prompts_by_reference: dict[str, str] = {}
     for reference in manifest.images:
-        eligible = source.list(CatalogueQuery(
+        eligible = _live_selection_products(source.list(CatalogueQuery(
             room_type="bedroom",
             private_style_id=reference.privateStyleId,
-        ))
+        )))
+        capabilities = _wall_capability_map(room, eligible)
         prompts_by_reference[reference.id] = _prompt(
             eligible=eligible,
             room=room,
             zone_offer=zone_offer,
-            capabilities=_wall_capability_map(room, eligible),
+            capabilities=capabilities,
+            bed_guidance=_bed_placement_guidance(source, room, zone_offer, eligible, capabilities),
             provider_call_index=0,
             previous=None,
             session=None,
         )
     return {
-        "version": "ticket-6-generation-config-v3",
+        "version": "ticket-6-generation-config-v9",
         "room": room.model_dump(mode="json"),
         "zones": [zone.model_dump(mode="json") for zone in zone_offer.zones],
         "catalogueVersion": source.version,
@@ -1003,6 +1606,7 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
                 for product in products
             },
             "eligibleProductIdsByReference": eligible_by_reference,
+            "styleEligibleProductIdsByReference": style_eligible_by_reference,
             "wallPlacementCapabilitiesByProduct": {
                 product.id: _capability_prompt_rows(capabilities_by_product[product.id])
                 for product in products
@@ -1026,9 +1630,32 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
             "maxSerializedRequestBytes": MAX_SERIALIZED_REQUEST_BYTES,
             "maxResponseBytes": MAX_RESPONSE_BYTES,
             "automaticRetries": 0,
-            "selectionGrammar": "strict-anyOf-v1",
+            "selectionGrammar": "strict-anyOf-v6-bed-plus-optional-rug",
+            "selectionScope": {
+                "version": LIVE_SELECTION_SCOPE_VERSION,
+                "requiredBedCount": 1,
+                "optionalRugMinimumCount": 0,
+                "optionalRugMaximumCount": 1,
+                "maximumRequests": 2,
+                "allowedCategories": sorted(LIVE_SELECTION_CATEGORIES),
+                "enforcedOn": ["initial", "repair"],
+                "silentFiltering": False,
+            },
             "selectionCorrectionCalls": 3,
             "optionalDropRequiresValidSolves": 3,
+            "compositionGuidance": {
+                "diagnosticScope": "changed-anchor-or-request-transitive-dependents-atomic-flanking-and-ancestors-v3",
+                "repairBedGuidance": "selected-anchor-product-only",
+                "maxAuthorityProbesPerFailedSelection": MAX_COMPOSITION_GUIDANCE_PROBES,
+                "maxPairProbes": MAX_COMPOSITION_PAIR_PROBES,
+                "maxPairWitnesses": MAX_COMPOSITION_PAIR_WITNESSES,
+                "maxBytes": MAX_COMPOSITION_GUIDANCE_BYTES,
+                "gapStepM": SEARCH_STEP_M,
+                "gapStepMultipliers": [1, 2, 4],
+            },
+            "localAccountingModes": ["capped", "uncapped"],
+            "uncappedModeExplicitOptIn": True,
+            "credentialFileConflictingDirectOverrides": "rejected",
         },
         "solver": {
             "clearanceWidthM": CLEARANCE_WIDTH_M,
@@ -1043,18 +1670,7 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
             },
         },
         "promptContractSha256": hashlib.sha256(
-            _prompt(
-                eligible=source.list(CatalogueQuery(room_type="bedroom", private_style_id="style-01")),
-                room=room,
-                zone_offer=zone_offer,
-                capabilities=_wall_capability_map(
-                    room,
-                    source.list(CatalogueQuery(room_type="bedroom", private_style_id="style-01")),
-                ),
-                provider_call_index=0,
-                previous=None,
-                session=None,
-            ).encode("utf-8")
+            prompts_by_reference[manifest.images[0].id].encode("utf-8")
         ).hexdigest(),
         "promptContractSha256ByReference": {
             reference.id: hashlib.sha256(prompts_by_reference[reference.id].encode("utf-8")).hexdigest()

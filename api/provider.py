@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 import base64
 import binascii
+from math import isfinite
 import os
 from pathlib import Path
 from queue import Queue
@@ -36,6 +37,7 @@ OVERALL_DEADLINE_SECONDS = 300.0
 INPUT_USD_PER_MILLION = 5.0
 OUTPUT_USD_PER_MILLION = 25.0
 AUTHORIZED_TOTAL_CAP_USD = 5.0
+AccountingMode = Literal["capped", "uncapped"]
 
 
 def _jpeg_dimensions(data: bytes) -> tuple[int, int]:
@@ -117,8 +119,9 @@ class ProviderReply:
 class ProviderSettings:
     api_key: str
     workspace_id: str | None
-    spend_cap_usd: float
+    spend_cap_usd: float | None
     accounting_path: Path
+    accounting_mode: AccountingMode = "capped"
 
     @classmethod
     def from_environment(cls) -> "ProviderSettings":
@@ -130,10 +133,17 @@ class ProviderSettings:
                 "Live generation remains disabled on serverless hosts because the approved local ledger cannot provide persistent accounting there.",
             )
 
-        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-        workspace_id = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip() or None
+        direct_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        direct_workspace_id = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip() or None
+        key = direct_key
+        workspace_id = direct_workspace_id
         credential_file = os.environ.get("ANTHROPIC_CREDENTIAL_FILE", "").strip()
         if credential_file:
+            if direct_key or direct_workspace_id:
+                raise ProviderCallError(
+                    "configuration-error",
+                    "External credential files must not be combined with direct Anthropic key or workspace overrides.",
+                )
             path = Path(credential_file).expanduser().resolve()
             repository = Path(__file__).resolve().parents[1]
             if path.suffix != ".local" or path == repository or repository in path.parents:
@@ -145,28 +155,37 @@ class ProviderSettings:
                 values = _read_local_values(path)
             except OSError as error:
                 raise ProviderCallError("configuration-error", "The configured credential file is unavailable.") from error
-            key = key or values.get("ANTHROPIC_API_KEY", "").strip()
-            workspace_id = workspace_id or values.get("ANTHROPIC_WORKSPACE_ID", "").strip() or None
+            key = values.get("ANTHROPIC_API_KEY", "").strip()
+            workspace_id = values.get("ANTHROPIC_WORKSPACE_ID", "").strip() or None
 
         if not key:
             raise ProviderCallError("configuration-error", "Server credentials are not configured.")
         if not workspace_id:
             raise ProviderCallError("configuration-error", "The authorized account workspace ID is not configured.")
+        mode_raw = os.environ.get("FURNITUREOS_GENERATION_SPEND_MODE", "").strip() or "capped"
+        if mode_raw not in {"capped", "uncapped"}:
+            raise ProviderCallError("configuration-error", "Generation accounting mode must be explicitly capped or uncapped.")
+        accounting_mode: AccountingMode = mode_raw  # type: ignore[assignment]
         cap_raw = os.environ.get("FURNITUREOS_GENERATION_SPEND_CAP_USD", "").strip()
         accounting_raw = os.environ.get("FURNITUREOS_GENERATION_ACCOUNTING_PATH", "").strip()
-        try:
-            cap = float(cap_raw)
-        except ValueError as error:
-            raise ProviderCallError("configuration-error", "An authorized positive session spend cap is required.") from error
-        if not (0 < cap <= AUTHORIZED_TOTAL_CAP_USD):
-            raise ProviderCallError("configuration-error", "The session spend cap must not exceed the owner-authorized USD 5.00 total.")
+        if accounting_mode == "uncapped":
+            if cap_raw:
+                raise ProviderCallError("configuration-error", "Uncapped accounting must not include a numeric cap.")
+            cap: float | None = None
+        else:
+            try:
+                cap = float(cap_raw)
+            except ValueError as error:
+                raise ProviderCallError("configuration-error", "An authorized positive session spend cap is required.") from error
+            if not (isfinite(cap) and 0 < cap <= AUTHORIZED_TOTAL_CAP_USD):
+                raise ProviderCallError("configuration-error", "The session spend cap must not exceed the owner-authorized USD 5.00 total.")
         if not accounting_raw:
             raise ProviderCallError("configuration-error", "A persistent accounting path is required.")
         accounting_path = Path(accounting_raw).expanduser().resolve()
         repository = Path(__file__).resolve().parents[1]
         if accounting_path == repository or repository in accounting_path.parents:
             raise ProviderCallError("configuration-error", "Provider accounting must stay outside the repository.")
-        return cls(key, workspace_id, cap, accounting_path)
+        return cls(key, workspace_id, cap, accounting_path, accounting_mode)
 
 
 def provider_configuration_available() -> bool:
@@ -222,14 +241,107 @@ def _exclusive_file_lock(path: Path) -> Iterator[None]:
 class BudgetLedger:
     """Single-host persistent accounting with serialized reservations.
 
-    Unknown usage retains the full reservation. This is a hard local cap only
-    for callers sharing this file; it is not a provider-account spending limit.
+    Capped mode enforces a hard local cap for callers sharing this file.
+    Explicit uncapped mode keeps the same reservation/settlement history but
+    deliberately omits only that aggregate comparison. Neither mode is a
+    provider-account limit. Unknown usage retains the full reservation.
     """
 
-    def __init__(self, path: Path, cap_usd: float):
+    def __init__(
+        self,
+        path: Path,
+        cap_usd: float | None,
+        *,
+        accounting_mode: AccountingMode = "capped",
+    ):
+        if accounting_mode == "capped":
+            if cap_usd is None or not isfinite(cap_usd) or cap_usd <= 0:
+                raise ProviderCallError("budget-error", "Capped accounting requires a finite positive cap.")
+        elif accounting_mode == "uncapped":
+            if cap_usd is not None:
+                raise ProviderCallError("budget-error", "Uncapped accounting must not serialize a numeric cap.")
+        else:
+            raise ProviderCallError("budget-error", "Provider accounting mode is invalid.")
         self.path = path
         self.cap_usd = cap_usd
+        self.accounting_mode = accounting_mode
         self.lock_path = path.with_suffix(path.suffix + ".lock")
+
+    def _new_state(self) -> dict[str, Any]:
+        return {
+            "version": 2,
+            "accountingMode": self.accounting_mode,
+            "capUsd": self.cap_usd,
+            "committedUsd": 0.0,
+            "reservations": [],
+        }
+
+    def _validated_state(self, state: Any) -> dict[str, Any]:
+        if not isinstance(state, dict):
+            raise ProviderCallError("budget-error", "Provider accounting state is invalid.")
+        version = state.get("version")
+        if version == 1:
+            old_cap = state.get("capUsd")
+            if not isinstance(old_cap, (int, float)) or isinstance(old_cap, bool) or not isfinite(old_cap) or old_cap <= 0:
+                raise ProviderCallError("budget-error", "Provider accounting state is invalid.")
+            if self.accounting_mode == "capped" and abs(float(old_cap) - float(self.cap_usd)) > 1e-9:
+                raise ProviderCallError("budget-error", "Provider accounting cap or mode does not match this session.")
+            state = dict(state)
+            state["version"] = 2
+            state["accountingMode"] = self.accounting_mode
+            state["capUsd"] = self.cap_usd
+            state["migratedFrom"] = {"version": 1, "capUsd": float(old_cap)}
+        elif version != 2:
+            raise ProviderCallError("budget-error", "Provider accounting version is invalid.")
+
+        if state.get("accountingMode") != self.accounting_mode:
+            raise ProviderCallError("budget-error", "Provider accounting mode does not match this session.")
+        stored_cap = state.get("capUsd")
+        if self.accounting_mode == "uncapped":
+            if stored_cap is not None:
+                raise ProviderCallError("budget-error", "Provider accounting cap is invalid for uncapped mode.")
+        elif (
+            not isinstance(stored_cap, (int, float))
+            or isinstance(stored_cap, bool)
+            or not isfinite(stored_cap)
+            or abs(float(stored_cap) - float(self.cap_usd)) > 1e-9
+        ):
+            raise ProviderCallError("budget-error", "Provider accounting cap or mode does not match this session.")
+        committed = state.get("committedUsd")
+        reservations = state.get("reservations")
+        if (
+            not isinstance(committed, (int, float))
+            or isinstance(committed, bool)
+            or not isfinite(committed)
+            or committed < 0
+            or not isinstance(reservations, list)
+        ):
+            raise ProviderCallError("budget-error", "Provider accounting state is invalid.")
+        for reservation in reservations:
+            maximum = reservation.get("maximumUsd") if isinstance(reservation, dict) else None
+            status = reservation.get("status") if isinstance(reservation, dict) else None
+            if (
+                not isinstance(reservation, dict)
+                or not isinstance(reservation.get("id"), str)
+                or not reservation["id"]
+                or status not in {"reserved-unknown", "settled", "settled-over-reservation"}
+                or not isinstance(maximum, (int, float))
+                or isinstance(maximum, bool)
+                or not isfinite(maximum)
+                or maximum < 0
+            ):
+                raise ProviderCallError("budget-error", "Provider accounting reservation history is invalid.")
+            actual = reservation.get("actualUsd")
+            if actual is not None and (
+                not isinstance(actual, (int, float))
+                or isinstance(actual, bool)
+                or not isfinite(actual)
+                or actual < 0
+            ):
+                raise ProviderCallError("budget-error", "Provider accounting reservation history is invalid.")
+            if status != "reserved-unknown" and actual is None:
+                raise ProviderCallError("budget-error", "Provider accounting reservation history is invalid.")
+        return state
 
     @contextmanager
     def _locked(self) -> Iterator[dict[str, Any]]:
@@ -240,9 +352,8 @@ class BudgetLedger:
                 except (OSError, json.JSONDecodeError) as error:
                     raise ProviderCallError("budget-error", "Provider accounting state is unreadable.") from error
             else:
-                state = {"version": 1, "capUsd": self.cap_usd, "committedUsd": 0.0, "reservations": []}
-            if state.get("version") != 1 or abs(float(state.get("capUsd", -1)) - self.cap_usd) > 1e-9:
-                raise ProviderCallError("budget-error", "Provider accounting cap or version does not match this session.")
+                state = self._new_state()
+            state = self._validated_state(state)
             try:
                 yield state
             finally:
@@ -264,8 +375,13 @@ class BudgetLedger:
         )
         reservation_id = str(uuid4())
         with self._locked() as state:
+            if any(item.get("status") == "settled-over-reservation" for item in state["reservations"]):
+                raise ProviderCallError("budget-error", "Provider accounting is closed after usage exceeded a reservation.")
             committed = float(state["committedUsd"])
-            if committed + amount > self.cap_usd + 1e-12:
+            if (
+                self.accounting_mode == "capped"
+                and committed + amount > float(self.cap_usd) + 1e-12
+            ):
                 raise ProviderCallError("budget-error", "The authorized local generation spend cap has no room for this call.")
             state["committedUsd"] = committed + amount
             state["reservations"].append({
@@ -301,7 +417,11 @@ class BudgetLedger:
 class AnthropicProvider:
     def __init__(self, settings: ProviderSettings, *, client: httpx.Client | None = None):
         self.settings = settings
-        self.ledger = BudgetLedger(settings.accounting_path, settings.spend_cap_usd)
+        self.ledger = BudgetLedger(
+            settings.accounting_path,
+            settings.spend_cap_usd,
+            accounting_mode=settings.accounting_mode,
+        )
         self._client = client
 
     def _headers(self) -> dict[str, str]:

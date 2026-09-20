@@ -5,7 +5,7 @@ from datetime import date
 from math import hypot
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationInfo, model_validator
 
 Finite = Annotated[float, Field(allow_inf_nan=False)]
 PositiveFinite = Annotated[float, Field(gt=0, allow_inf_nan=False)]
@@ -485,7 +485,7 @@ class ArrangementRequest(ContractModel):
     maxCandidates: int = Field(default=128, ge=1, le=256)
 
     @model_validator(mode="after")
-    def stable_request_identity(self) -> "ArrangementRequest":
+    def stable_request_identity(self, info: ValidationInfo) -> "ArrangementRequest":
         selection_ids = [selection.id for selection in self.selections]
         if len(set(selection_ids)) != len(selection_ids):
             raise ValueError("arrangement selection IDs must be unique")
@@ -497,6 +497,15 @@ class ArrangementRequest(ContractModel):
             raise ValueError("the initial selection contains duplicate request IDs")
         if set(initial) != set(policy_ids):
             raise ValueError("arrangement policy must cover every initial request exactly once")
+        anchors = {
+            policy.requestId
+            for policy in self.policies
+            if policy.anchor
+        }
+        context = info.context if isinstance(info.context, dict) else {}
+        repositionable = frozenset(context.get("repositionable_request_ids", ()))
+        if not repositionable <= anchors:
+            raise ValueError("only required anchor requests may opt into spatial repair")
         protected = {
             policy.requestId
             for policy in self.policies
@@ -506,10 +515,15 @@ class ArrangementRequest(ContractModel):
             current = {intent.id: intent for intent in selection.intents}
             if len(current) != len(selection.intents) or set(current) != set(initial):
                 raise ValueError("repair selections must preserve the initial request identity set")
-            for request_id in protected:
+            for request_id in protected - repositionable:
                 if current[request_id] != initial[request_id]:
                     raise ValueError(
                         f'repair selection may not change required or anchor request "{request_id}"'
+                    )
+            for request_id in repositionable:
+                if current[request_id].productId != initial[request_id].productId:
+                    raise ValueError(
+                        f'repositionable required request "{request_id}" must preserve Product identity'
                     )
         return self
 
