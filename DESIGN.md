@@ -54,7 +54,7 @@ Type is deliberately tight: the desktop hero is `88px / 83.6px`, weight `500`, t
 
 ## Domain and content integrity
 
-Use the terms in `CONTEXT.md`. A Design furnishes one Room Shell with Placements; a Variant changes the arrangement within that same Room Shell. A Swap preserves its Placement and accepts only a fitting footprint. A Product means a real, dimensioned, purchasable Catalogue entry.
+Use the terms in `CONTEXT.md`. A Design furnishes one Room Shell with Placements; a Variant changes the arrangement within that same Room Shell. A Swap preserves its Placement pose and is accepted only after FastAPI validates role, Placement class, complete geometry, access and circulation. A Product means a real, dimensioned, purchasable Catalogue entry.
 
 The current landing page presents product direction and an interactive concept, not an operational generator or Catalogue. Keep this disclosure visible wherever the preview can be understood as output:
 

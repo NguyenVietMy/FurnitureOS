@@ -368,7 +368,7 @@ export interface SearchReport {
 }
 
 export interface SelectionRejection {
-  readonly code: "operation-shape-error" | "ineligible-product-error" | "anchor-error" | "wall-face-error" | "corner-face-error" | "graph-error" | "repair-identity-error" | "repair-anchor-error" | "repair-category-error";
+  readonly code: "operation-shape-error" | "ineligible-product-error" | "selection-scope-error" | "anchor-error" | "wall-face-error" | "corner-face-error" | "graph-error" | "repair-identity-error" | "repair-anchor-error" | "repair-category-error";
   readonly detail: string;
   readonly path?: string | null;
   readonly intentId?: string | null;
@@ -385,6 +385,122 @@ export interface SolvedDesign {
   readonly zones?: ReadonlyArray<Zone>;
   readonly circulation?: CirculationClear | null;
   readonly arrangementHistory?: ArrangementHistory | null;
+  readonly swap?: SwapSessionAvailable | SwapUnavailable | null;
+}
+
+export interface SwapAccepted {
+  readonly status?: "accepted";
+  readonly sessionId: string;
+  readonly version: number;
+  readonly detail: string;
+  readonly design: SolvedDesign;
+}
+
+export interface SwapCandidate {
+  readonly product: Product;
+}
+
+export type SwapCandidateResult = SwapCandidates | SwapNoCompatibleCandidates | SwapStaleVersion | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance;
+
+export interface SwapCandidates {
+  readonly status?: "candidates";
+  readonly sessionId: string;
+  readonly currentVersion: number;
+  readonly instanceId: string;
+  readonly candidates: ReadonlyArray<SwapCandidate>;
+  readonly rejected: ReadonlyArray<SwapRejectedCandidate>;
+  readonly detail: string;
+}
+
+export interface SwapCatalogueChanged {
+  readonly status?: "catalogue-changed";
+  readonly detail: string;
+}
+
+export interface SwapCurrent {
+  readonly status?: "current";
+  readonly sessionId: string;
+  readonly version: number;
+  readonly design: SolvedDesign;
+}
+
+export type SwapCurrentResult = SwapCurrent | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged;
+
+export interface SwapExpiredSession {
+  readonly status?: "expired-session";
+  readonly detail: string;
+}
+
+export type SwapMutationResult = SwapAccepted | SwapRejected | SwapStaleVersion | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance | SwapUnknownProduct | SwapNoOp | SwapNoCompatibleCandidates;
+
+export interface SwapNoCompatibleCandidates {
+  readonly status?: "no-compatible-candidates";
+  readonly detail: string;
+  readonly currentVersion: number;
+  readonly instanceId: string;
+  readonly rejected?: ReadonlyArray<SwapRejectedCandidate>;
+}
+
+export interface SwapNoOp {
+  readonly status?: "no-op";
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface SwapRejected {
+  readonly status?: "rejected";
+  readonly code: string;
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface SwapRejectedCandidate {
+  readonly product: Product;
+  readonly code: string;
+  readonly detail: string;
+}
+
+export interface SwapRequest {
+  readonly sessionId: string;
+  readonly expectedVersion: number;
+  readonly instanceId: string;
+  readonly replacementProductId: string;
+}
+
+export interface SwapSessionAvailable {
+  readonly status?: "available";
+  readonly sessionId: string;
+  readonly version: number;
+  readonly catalogueVersion: string;
+  readonly clearanceWidthM: number;
+}
+
+export interface SwapStaleVersion {
+  readonly status?: "stale-version";
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface SwapUnavailable {
+  readonly status?: "unavailable";
+  readonly detail: string;
+}
+
+export interface SwapUnknownInstance {
+  readonly status?: "unknown-instance";
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface SwapUnknownProduct {
+  readonly status?: "unknown-product";
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface SwapUnknownSession {
+  readonly status?: "unknown-session";
+  readonly detail: string;
 }
 
 export interface UsageSummary {

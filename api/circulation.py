@@ -5,7 +5,6 @@ from collections import deque
 from math import floor, hypot
 
 from .domain import (
-    _clearance,
     _polygons_overlap,
     _wall_basis,
     access_footprint,
@@ -20,6 +19,7 @@ from .models import (
     CirculationResultValue,
     CirculationUnsupported,
     Footprint,
+    RoomShell,
     SolvedDesign,
     Vec2,
 )
@@ -77,17 +77,27 @@ def _polygon_footprint(points: tuple[Vec2, ...]) -> Footprint:
     )
 
 
-def _inside_room(design: SolvedDesign, polygon: tuple[Vec2, ...]) -> bool:
+_PreparedRoomGeometry = tuple[tuple[Vec2, Vec2], ...]
+
+
+def _prepare_room_geometry(room: RoomShell) -> _PreparedRoomGeometry:
+    return tuple(
+        (wall.start, _wall_basis(room, wall)[1])
+        for wall in room.walls
+    )
+
+
+def _inside_prepared_room(
+    geometry: _PreparedRoomGeometry,
+    polygon: tuple[Vec2, ...],
+) -> bool:
     # The Room is convex, so containing every swept-polygon vertex contains the
-    # complete swept polygon. _clearance only reads Footprint.corners.
-    if len(polygon) == 4:
-        footprint = _polygon_footprint(polygon)
-        return _clearance(design.room, footprint) >= -CIRCULATION_TOLERANCE_M
+    # complete swept polygon. Wall starts and inward normals are invariant for
+    # the complete validation and prepared once by validate_circulation.
     return all(
         min(
-            (point[0] - wall.start[0]) * inward[0] + (point[1] - wall.start[1]) * inward[1]
-            for wall in design.room.walls
-            for _along, inward, _midpoint in (_wall_basis(design.room, wall),)
+            (point[0] - start[0]) * inward[0] + (point[1] - start[1]) * inward[1]
+            for start, inward in geometry
         ) >= -CIRCULATION_TOLERANCE_M
         for point in polygon
     )
@@ -198,6 +208,7 @@ def validate_circulation(
             exhaustive=False,
         )
 
+    room_geometry = _prepare_room_geometry(design.room)
     obstacles = tuple(
         (
             placement.instanceId or intent.id,
@@ -237,12 +248,12 @@ def validate_circulation(
         for x_index in range(x_count):
             x = round(low_x + x_index * GRID_RESOLUTION_M, 9)
             polygon = _walker_polygon((x, z), clearance_width_m)
-            if _inside_room(design, polygon) and not _collisions(polygon, obstacles):
+            if _inside_prepared_room(room_geometry, polygon) and not _collisions(polygon, obstacles):
                 valid_grid[(x_index, z_index)] = (x, z)
 
     def swept_free(start: Vec2, end: Vec2) -> bool:
         polygon = _swept_polygon(start, end, clearance_width_m)
-        return _inside_room(design, polygon) and not _collisions(polygon, obstacles)
+        return _inside_prepared_room(room_geometry, polygon) and not _collisions(polygon, obstacles)
 
     connectors: dict[str, tuple[tuple[int, int], ...]] = {}
     for region, target in access_values:
@@ -250,7 +261,7 @@ def validate_circulation(
             connectors[region.id] = ()
             continue
         target_polygon = _walker_polygon(target, clearance_width_m)
-        if not _inside_room(design, target_polygon) or _collisions(target_polygon, obstacles):
+        if not _inside_prepared_room(room_geometry, target_polygon) or _collisions(target_polygon, obstacles):
             connectors[region.id] = ()
             continue
         nearest = sorted(

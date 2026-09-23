@@ -49,4 +49,21 @@ html[data-feature="design"] {
 .live-empty strong,.live-failure strong { max-width:420px; font-size:18px; }
 @media (max-width:900px) { .live-layout { grid-template-rows:minmax(380px,55vh) auto; } }
 @media (max-width:520px) { .layout { padding:10px; gap:10px; } .reference-grid { grid-template-columns:1fr; } .reference-choice { grid-template-columns:112px minmax(0,1fr); grid-template-rows:82px; align-items:center; } .reference-choice img { height:82px; } }
+
+.swap-controls { display:grid; gap:10px; }
+.swap-controls h2 { margin-bottom:0; color:var(--ink); font-size:16px; letter-spacing:normal; text-transform:none; }
+.swap-field { display:grid; gap:5px; color:var(--ink-soft); font-size:12px; font-weight:600; }
+.swap-field select { width:100%; min-height:42px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--paper-raised); color:var(--ink); font:inherit; }
+.swap-field select:disabled { cursor:not-allowed; opacity:.6; }
+.swap-choice { padding:9px 10px; border-left:3px solid #446bce; background:#f3f4fb; font-size:13px; }
+.swap-rejections ul { display:grid; gap:7px; margin:8px 0 0; padding-left:18px; font-size:12px; }
+.swap-button { width:100%; min-height:44px; border:1px solid #191815; border-radius:7px; background:#23211d; color:#fffefb; font-weight:650; }
+.swap-button:disabled { cursor:not-allowed; opacity:.45; }
+.swap-check-button { width:100%; min-height:42px; border:1px solid var(--line); border-radius:7px; background:var(--paper-raised); color:var(--ink); font-weight:650; }
+.swap-check-button:disabled { cursor:not-allowed; opacity:.45; }
+.swap-feedback { font-size:13px; overflow-wrap:anywhere; }
+.swap-feedback button { margin-top:6px; }
+@media (max-width:520px) {
+  .swap-field select,.swap-button,.swap-check-button { min-height:46px; }
+}
 }

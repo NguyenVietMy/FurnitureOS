@@ -65,6 +65,7 @@ export default function DesignPage() {
         selectedId={selectedId}
         result={result}
         onSelect={selectFixture}
+        onDesignChange={setResult}
       />
     </main>
   );
