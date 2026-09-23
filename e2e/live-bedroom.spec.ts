@@ -72,7 +72,26 @@ test('controlled live choice renders every real Mesh and clears stale success on
     && item.screenVisible
     && item.activeMeshCount > 0
     && item.mainCameraMeshCount === item.activeMeshCount)).toBe(true);
+  const swapControls = page.getByTestId('swap-controls');
+  await expect(swapControls).toHaveAttribute('data-version', '1');
+  const placementSelect = page.getByRole('combobox', { name: 'Placement to Swap' });
+  await placementSelect.selectOption('a-bed');
+  await page.getByRole('button', { name: 'Check compatible Products' }).click();
+  const productSelect = page.getByRole('combobox', { name: 'Compatible Product' });
+  await expect(productSelect.locator('option[value="bed-rivet-jonathan-queen-walnut"]')).toHaveCount(1);
+  await productSelect.selectOption('bed-rivet-jonathan-queen-walnut');
+  const bedBefore = design.placements.find((placement: any) => placement.instanceId === 'a-bed');
+  await page.getByRole('button', { name: 'Swap Product' }).click();
+  await expect(swapControls).toHaveAttribute('data-version', '2');
+  await page.waitForFunction(() => window.__furnitureos?.instances['a-bed']?.ready
+    && window.__furnitureos.instances['a-bed']?.productId === 'bed-rivet-jonathan-queen-walnut', undefined, { timeout: 60_000 });
+  const swappedBed = await page.evaluate(() => JSON.parse(JSON.stringify(window.__furnitureos?.instances['a-bed'])));
+  expect(swappedBed.publishedPlacement.position).toEqual(bedBefore.position);
+  expect(swappedBed.publishedPlacement.yaw).toBe(bedBefore.yaw);
+  expect(swappedBed.renderedTransform.position).toEqual(bedBefore.position);
+  expect(swappedBed.renderedTransform.yaw).toBe(bedBefore.yaw);
   writeFileSync(join(shots, 'ticket-6-live-controlled-scene.json'), `${JSON.stringify(proof, null, 2)}\n`);
+  await page.screenshot({ path: join(shots, 'ticket-7-live-controlled-swap.png') });
   await page.screenshot({ path: join(shots, 'ticket-6-live-controlled-solved.png') });
 
   await page.getByRole('button', { name: 'Generate bedroom' }).click();

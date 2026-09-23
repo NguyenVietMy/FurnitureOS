@@ -71,11 +71,11 @@ Live-bedroom correction prompts may include a private, server-authored compositi
 Public Room input is bounded before topology checks: metre coordinates and dimensions are finite and no greater than 1000 m in magnitude, wall segments are at most 1000 m long, and a Room Shell accepts at most 64 floor vertices, 64 walls, and 128 Openings. These are practical service limits rather than a claim about the size of real rooms.
 
 **Swap**:
-Replacing the Product in an existing Placement with another whose footprint fits the same slot. A Swap never moves anything, so it can never invalidate a Design.
+Replacing the Product in an existing Placement at exactly the same pose after FastAPI validates the complete Design. Compatibility includes semantic role, Placement class, footprint, height, Opening and required-access clearance, wall contact, and whole-Design circulation. A rejected Swap leaves the prior Design unchanged; an accepted Swap cannot invalidate the Design.
 _Avoid_: Replace, substitute, change
 
 **Nudge**:
-A user-initiated move of an existing Placement. Unlike a Swap, a Nudge must be validated by the FastAPI authority before it is accepted. A future browser preview must have an explicit parity contract; it is not an authority.
+A user-initiated move of an existing Placement. A Nudge must be validated by the FastAPI authority before it is accepted. A future browser preview must have an explicit parity contract; it is not an authority.
 _Avoid_: Drag, move, reposition
 
 ### The furniture

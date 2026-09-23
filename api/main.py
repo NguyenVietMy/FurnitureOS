@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .catalogue import catalogue
+from .catalogue import Catalogue, catalogue
 from .arrangement import resolve_arrangement
 from .design import bedroom_design, design_fixtures, resolve_fixture
 from .domain import resolve_design, validate_placement
@@ -29,8 +29,9 @@ from .live_generation import (
 from .models import (
     ArrangementRequest, CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult,
     FixtureSelectionRequest, Health, PlacementValidationRequest, PreviewDesign, ZoneDerivationFailure,
-    ZoneRequest, ZoneResult,
+    SwapCandidateResult, SwapCurrentResult, SwapMutationResult, SwapRequest, ZoneRequest, ZoneResult,
 )
+from .swaps import DesignSessionStore
 from .zones import ZoneDerivationError, derive_zones
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,10 +53,14 @@ def create_app(
     root: Path = ROOT,
     enable_catalogue_gallery: bool | None = None,
     generation_provider: GenerationProvider | None = None,
+    catalogue_source: Catalogue | None = None,
+    swap_store: DesignSessionStore | None = None,
 ) -> FastAPI:
     """Build the API and bind static roots explicitly for tests and deployment."""
     public = root / "public"
     dist = root / "dist"
+    source = catalogue if catalogue_source is None else catalogue_source
+    sessions = swap_store or DesignSessionStore(source)
     application = FastAPI(title="FurnitureOS Preview API", version="0.2.0")
     gallery_enabled = (
         os.environ.get("FURNITUREOS_ENABLE_CATALOGUE_GALLERY") == "1"
@@ -80,7 +85,7 @@ def create_app(
 
     @application.get("/api/preview-design", response_model=PreviewDesign)
     def get_preview_design() -> PreviewDesign:
-        return bedroom_design()
+        return bedroom_design(source)
 
     @application.get("/api/design-fixtures", response_model=DesignFixtures)
     def get_design_fixtures() -> DesignFixtures:
@@ -88,11 +93,14 @@ def create_app(
 
     @application.post("/api/design-resolution", response_model=DesignResult)
     def design_resolution(request: FixtureSelectionRequest) -> DesignResult:
-        return DesignResult(root=resolve_fixture(request))
+        resolved = resolve_fixture(request, source)
+        if resolved.status == "solved":
+            resolved = sessions.register(resolved, "bedroom")
+        return DesignResult(root=resolved)
 
     @application.post("/api/design-solve", response_model=DesignResult)
     def design_solve(request: DesignRequest) -> DesignResult:
-        return DesignResult(root=resolve_design(catalogue, request))
+        return DesignResult(root=resolve_design(source, request))
 
     @application.post("/api/zones", response_model=ZoneResult)
     def zones(request: ZoneRequest) -> ZoneResult:
@@ -106,7 +114,7 @@ def create_app(
 
     @application.post("/api/arrangement-solve", response_model=DesignResult)
     def arrangement_solve(request: ArrangementRequest) -> DesignResult:
-        return DesignResult(root=resolve_arrangement(catalogue, request))
+        return DesignResult(root=resolve_arrangement(source, request))
 
     @application.get("/api/live-bedroom/config", response_model=LiveBedroomConfig)
     def live_bedroom_config() -> LiveBedroomConfig:
@@ -114,18 +122,35 @@ def create_app(
 
     @application.post("/api/live-bedroom/generate", response_model=LiveGenerationResult)
     def live_bedroom_generate(request: LiveGenerationRequest) -> LiveGenerationResult:
-        return LiveGenerationResult(root=generate_live_bedroom(
-            catalogue,
+        generated = generate_live_bedroom(
+            source,
             request,
             provider=generation_provider,
-        ))
+        )
+        if generated.status == "solved":
+            generated = generated.model_copy(update={
+                "design": sessions.register(generated.design, "bedroom"),
+            }, deep=True)
+        return LiveGenerationResult(root=generated)
+
+    @application.get("/api/swaps/{session_id}", response_model=SwapCurrentResult)
+    def current_swap_session(session_id: str) -> SwapCurrentResult:
+        return SwapCurrentResult(root=sessions.current(session_id))
+
+    @application.get("/api/swaps/{session_id}/candidates", response_model=SwapCandidateResult)
+    def swap_candidates(session_id: str, expectedVersion: int, instanceId: str) -> SwapCandidateResult:
+        return SwapCandidateResult(root=sessions.candidates(session_id, expectedVersion, instanceId))
+
+    @application.post("/api/swaps", response_model=SwapMutationResult)
+    def product_swap(request: SwapRequest) -> SwapMutationResult:
+        return SwapMutationResult(root=sessions.swap(request))
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)
         def get_catalogue_gallery() -> CatalogueGallery:
             return CatalogueGallery(
-                catalogueVersion=catalogue.version,
-                products=catalogue.list(),
+                catalogueVersion=source.version,
+                products=source.list(),
             )
 
     @application.post("/api/placement-validation", response_model=FitResult)
