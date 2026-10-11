@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import type { DesignFixture, DesignResult } from '@/shared/api/types';
+import type { DesignFixture, DesignResult, SolvedDesign } from '@/shared/api/types';
 import { DesignPanel } from './DesignPanel';
 import { FixtureSelector } from './FixtureSelector';
+import { SwapControls } from './SwapControls';
 
 function ArrangementFeedback({ result, fixture }: { result: DesignResult; fixture: DesignFixture }) {
   const history = result.arrangementHistory;
@@ -64,11 +65,13 @@ export function DesignRail({
   selectedId,
   result,
   onSelect,
+  onDesignChange,
 }: {
   fixtures: ReadonlyArray<DesignFixture>;
   selectedId: string;
   result: DesignResult;
   onSelect: (fixtureId: string) => void;
+  onDesignChange: (design: SolvedDesign) => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const selectedFixture = fixtures.find((fixture) => fixture.id === selectedId)!;
@@ -85,6 +88,7 @@ export function DesignRail({
       {isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}
       <FixtureSelector fixtures={fixtures} selectedId={selectedId} onSelect={onSelect} />
       {!isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}
+      {result.status === 'solved' ? <SwapControls design={result} onDesignChange={onDesignChange} /> : null}
       {result.status === 'failed' ? (
         <section
           className="solver-failure"

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchLiveBedroomConfig, generateLiveBedroom } from '@/shared/api/client';
-import type { LiveBedroomConfig, LiveGenerationFailure, LiveGenerationSuccess } from '@/shared/api/types';
+import type { LiveBedroomConfig, LiveGenerationFailure, LiveGenerationSuccess, SolvedDesign } from '@/shared/api/types';
 import { RoomStage } from './RoomStage';
 import { clearSceneDebug } from './scene-debug';
+import { SwapControls } from './SwapControls';
 import './design.css';
 
 type RequestState =
@@ -86,6 +87,16 @@ export default function LiveBedroomPage() {
   const selected = config.references.find((reference) => reference.id === referenceId);
   const failure = requestState.status === 'failed' ? requestState.failure : null;
   const clientError = requestState.status === 'client-error' ? requestState.message : null;
+  const installSwappedDesign = (design: SolvedDesign) => {
+    setRequestState((current) => {
+      if (current.status !== 'solved') return current;
+      const currentSession = current.success.design.swap;
+      const nextSession = design.swap;
+      if (currentSession?.status !== 'available' || nextSession?.status !== 'available'
+        || currentSession.sessionId !== nextSession.sessionId) return current;
+      return { ...current, success: { ...current.success, design } };
+    });
+  };
   return (
     <main className="layout live-layout" data-testid="live-bedroom">
       {requestState.status === 'solved' ? (
@@ -166,6 +177,10 @@ export default function LiveBedroomPage() {
           {requestState.status === 'loading' ? 'Generating…' : 'Generate bedroom'}
         </button>
         {!config.realCallsEnabled ? <p className="warning" role="status">Generation is not available right now.</p> : null}
+
+        {requestState.status === 'solved' ? (
+          <SwapControls design={requestState.success.design} onDesignChange={installSwappedDesign} />
+        ) : null}
 
         {requestState.status === 'solved' || failure ? (
           <details className="technical-details generation-details">

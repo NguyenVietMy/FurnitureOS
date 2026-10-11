@@ -4,6 +4,8 @@ FurnitureOS is building a way to turn a real Room into a furnished 3D Design mad
 
 FastAPI/Pydantic is authoritative for the Catalogue, preview Design and all placement/fit validation. React/TypeScript/Vite fetches that Design and renders it with React Three Fiber/drei. The browser has rendering geometry only; it is not a second placement solver.
 
+Accepted fixture and live Designs can expose versioned Product Swaps. Swap sessions are intentionally bounded, process-local, in-memory demo state: they expire, do not survive a restart, and are not shared across workers. An unknown, expired, or Catalogue-stale session fails closed and must be refreshed from a newly selected or generated Design.
+
 ## Running it
 
 ```

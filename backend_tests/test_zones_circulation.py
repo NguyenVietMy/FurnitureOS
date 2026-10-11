@@ -6,6 +6,8 @@ from math import pi
 import pytest
 from pydantic import ValidationError
 
+import api.circulation as circulation_module
+import api.domain as domain_module
 from api.arrangement import plan_optional_drop, resolve_arrangement
 from api.catalogue import CatalogueEntry, StaticCatalogue, catalogue
 from api.circulation import validate_circulation
@@ -82,6 +84,24 @@ def room_with_two_doors(width: float = 4.0, depth: float = 6.0) -> RoomShell:
         },
     ]
     return RoomShell.model_validate(value)
+
+
+def convex_room(room_id: str, points: list[tuple[float, float]]) -> RoomShell:
+    return RoomShell.model_validate({
+        "id": room_id,
+        "floorPolygon": points,
+        "walls": [
+            {
+                "id": f"wall-{index}",
+                "label": f"Wall {index}",
+                "start": point,
+                "end": points[(index + 1) % len(points)],
+            }
+            for index, point in enumerate(points)
+        ],
+        "openings": [],
+        "ceilingHeightM": 3,
+    })
 
 
 def solved_from_placements(
@@ -238,6 +258,85 @@ def test_in_zone_uses_only_offered_ids_and_checks_boundary_and_size() -> None:
 def test_swept_clearance_distinguishes_throats_at_and_around_060m(gap_m: float, expected_status: str) -> None:
     result = validate_circulation(throat_design(gap_m), 0.60)
     assert result.status == expected_status
+
+
+def test_circulation_prepares_each_invariant_wall_normal_once(monkeypatch) -> None:
+    design = throat_design(0.600)
+    baseline = circulation_module.validate_circulation(design, 0.60)
+    original = domain_module.wall_inward_normal
+    prepared_wall_ids: list[str] = []
+
+    def counted(room: RoomShell, wall):
+        prepared_wall_ids.append(wall.id)
+        return original(room, wall)
+
+    monkeypatch.setattr(domain_module, "wall_inward_normal", counted)
+    result = circulation_module.validate_circulation(design, 0.60)
+
+    assert result.model_dump(mode="json") == baseline.model_dump(mode="json")
+    expected_door_wall_ids = [
+        opening.wallId for opening in design.room.openings if opening.kind == "door"
+    ]
+    assert prepared_wall_ids == [wall.id for wall in design.room.walls] + expected_door_wall_ids
+
+
+def test_prepared_room_containment_exactly_matches_prior_formula_across_geometry_boundaries() -> None:
+    rectangle = rectangular_room_shell("parity-rectangle", 4, 6, 3)
+    diamond_points = [(0.0, -3.0), (-3.0, 0.0), (0.0, 3.0), (3.0, 0.0)]
+    pentagon_points = [(-3.0, -2.0), (-3.0, 1.0), (0.0, 3.0), (3.0, 1.0), (3.0, -2.0)]
+    translated_points = [(97.0, 198.0), (97.0, 202.0), (103.0, 202.0), (103.0, 198.0)]
+    rooms = (
+        rectangle,
+        convex_room("parity-diamond", diamond_points),
+        convex_room("parity-pentagon", pentagon_points),
+        convex_room("parity-pentagon-reversed", list(reversed(pentagon_points))),
+        convex_room("parity-translated", translated_points),
+    )
+
+    def prior_formula(room: RoomShell, polygon) -> bool:
+        if len(polygon) == 4:
+            footprint = circulation_module._polygon_footprint(polygon)
+            return domain_module._clearance(room, footprint) >= -circulation_module.CIRCULATION_TOLERANCE_M
+        return all(
+            min(
+                (point[0] - wall.start[0]) * inward[0] + (point[1] - wall.start[1]) * inward[1]
+                for wall in room.walls
+                for _along, inward, _midpoint in (domain_module._wall_basis(room, wall),)
+            ) >= -circulation_module.CIRCULATION_TOLERANCE_M
+            for point in polygon
+        )
+
+    for room in rooms:
+        centre = (
+            sum(point[0] for point in room.floorPolygon) / len(room.floorPolygon),
+            sum(point[1] for point in room.floorPolygon) / len(room.floorPolygon),
+        )
+        polygons = (
+            circulation_module._walker_polygon(centre, 0.60),
+            circulation_module._swept_polygon(
+                (centre[0] - 0.20, centre[1] - 0.20),
+                (centre[0] + 0.20, centre[1] + 0.20),
+                0.60,
+            ),
+            circulation_module._walker_polygon(
+                (max(point[0] for point in room.floorPolygon) + 1, centre[1]),
+                0.60,
+            ),
+        )
+        prepared = circulation_module._prepare_room_geometry(room)
+        for polygon in polygons:
+            assert circulation_module._inside_prepared_room(prepared, polygon) is prior_formula(room, polygon)
+
+    low_x = min(point[0] for point in rectangle.floorPolygon)
+    for outside_delta in (0.5e-9, 1e-9, 2e-9):
+        polygon = (
+            (low_x - outside_delta, -0.1),
+            (low_x + 0.2, -0.1),
+            (low_x + 0.2, 0.1),
+            (low_x - outside_delta, 0.1),
+        )
+        prepared = circulation_module._prepare_room_geometry(rectangle)
+        assert circulation_module._inside_prepared_room(prepared, polygon) is prior_formula(rectangle, polygon)
 
 
 def test_ambiguous_reachable_boundary_has_stable_conservative_attribution() -> None:

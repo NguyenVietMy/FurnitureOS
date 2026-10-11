@@ -5,6 +5,10 @@ import type {
   LiveBedroomConfig,
   LiveGenerationResult,
   PreviewDesign,
+  SwapCandidateResult,
+  SwapCurrentResult,
+  SwapMutationResult,
+  SwapRequest,
 } from './types';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 export async function fetchPreviewDesign(signal?: AbortSignal): Promise<PreviewDesign> {
@@ -67,4 +71,44 @@ export async function generateLiveBedroom(
   if (!response.ok) throw new Error(`Live bedroom generation returned ${response.status}`);
   const result = await response.json() as LiveGenerationResult;
   return { result, receivedAtMs: performance.now() };
+}
+
+export async function fetchSwapCandidates(
+  sessionId: string,
+  expectedVersion: number,
+  instanceId: string,
+  signal?: AbortSignal,
+): Promise<SwapCandidateResult> {
+  const query = new URLSearchParams({
+    expectedVersion: String(expectedVersion),
+    instanceId,
+  });
+  const response = await fetch(`${API_BASE}/api/swaps/${encodeURIComponent(sessionId)}/candidates?${query}`, {
+    signal,
+    headers: { accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`Swap candidates API returned ${response.status}`);
+  return response.json() as Promise<SwapCandidateResult>;
+}
+
+export async function submitSwap(request: SwapRequest): Promise<SwapMutationResult> {
+  const response = await fetch(`${API_BASE}/api/swaps`, {
+    method: 'POST',
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error(`Swap API returned ${response.status}`);
+  return response.json() as Promise<SwapMutationResult>;
+}
+
+export async function fetchCurrentSwapSession(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<SwapCurrentResult> {
+  const response = await fetch(`${API_BASE}/api/swaps/${encodeURIComponent(sessionId)}`, {
+    signal,
+    headers: { accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`Current Swap session API returned ${response.status}`);
+  return response.json() as Promise<SwapCurrentResult>;
 }

@@ -619,6 +619,25 @@ class ArrangementHistory(ContractModel):
     totalAttemptedCandidates: int = Field(ge=0, le=5888)
 
 
+class SwapSessionAvailable(ContractModel):
+    status: Literal["available"] = "available"
+    sessionId: str = Field(min_length=1)
+    version: int = Field(ge=1)
+    catalogueVersion: str = Field(min_length=1)
+    clearanceWidthM: PositiveFinite
+
+
+class SwapUnavailable(ContractModel):
+    status: Literal["unavailable"] = "unavailable"
+    detail: str = Field(min_length=1)
+
+
+SwapAvailabilityValue = Annotated[
+    SwapSessionAvailable | SwapUnavailable,
+    Field(discriminator="status"),
+]
+
+
 class SolvedDesign(ContractModel):
     status: Literal["solved"]
     room: RoomShell
@@ -630,6 +649,7 @@ class SolvedDesign(ContractModel):
     zones: tuple[Zone, ...] = ()
     circulation: CirculationClear | None = None
     arrangementHistory: ArrangementHistory | None = None
+    swap: SwapAvailabilityValue | None = None
 
     @model_validator(mode="after")
     def aligned_products_and_placements(self) -> "SolvedDesign":
@@ -646,6 +666,132 @@ class SolvedDesign(ContractModel):
             if fit.placement != placement:
                 raise ValueError("solved Design fit must describe its published Placement")
         return self
+
+
+class SwapCandidate(ContractModel):
+    product: Product
+
+
+class SwapRejectedCandidate(ContractModel):
+    product: Product
+    code: str = Field(min_length=1)
+    detail: str = Field(min_length=1)
+
+
+class SwapCandidates(ContractModel):
+    status: Literal["candidates"] = "candidates"
+    sessionId: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+    candidates: tuple[SwapCandidate, ...]
+    rejected: tuple[SwapRejectedCandidate, ...]
+    detail: str = Field(min_length=1)
+
+
+class SwapAccepted(ContractModel):
+    status: Literal["accepted"] = "accepted"
+    sessionId: str = Field(min_length=1)
+    version: int = Field(ge=2)
+    detail: str = Field(min_length=1)
+    design: SolvedDesign
+
+
+class SwapCurrent(ContractModel):
+    status: Literal["current"] = "current"
+    sessionId: str = Field(min_length=1)
+    version: int = Field(ge=1)
+    design: SolvedDesign
+
+
+class SwapRejected(ContractModel):
+    status: Literal["rejected"] = "rejected"
+    code: str = Field(min_length=1)
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class SwapStaleVersion(ContractModel):
+    status: Literal["stale-version"] = "stale-version"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class SwapUnknownSession(ContractModel):
+    status: Literal["unknown-session"] = "unknown-session"
+    detail: str = Field(min_length=1)
+
+
+class SwapExpiredSession(ContractModel):
+    status: Literal["expired-session"] = "expired-session"
+    detail: str = Field(min_length=1)
+
+
+class SwapCatalogueChanged(ContractModel):
+    status: Literal["catalogue-changed"] = "catalogue-changed"
+    detail: str = Field(min_length=1)
+
+
+class SwapUnknownInstance(ContractModel):
+    status: Literal["unknown-instance"] = "unknown-instance"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class SwapUnknownProduct(ContractModel):
+    status: Literal["unknown-product"] = "unknown-product"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class SwapNoOp(ContractModel):
+    status: Literal["no-op"] = "no-op"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class SwapNoCompatibleCandidates(ContractModel):
+    status: Literal["no-compatible-candidates"] = "no-compatible-candidates"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+    rejected: tuple[SwapRejectedCandidate, ...] = ()
+
+
+SwapSessionFailureValue = SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged
+SwapCandidateResultValue = Annotated[
+    SwapCandidates | SwapNoCompatibleCandidates | SwapStaleVersion | SwapUnknownSession
+    | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance,
+    Field(discriminator="status"),
+]
+SwapMutationResultValue = Annotated[
+    SwapAccepted | SwapRejected | SwapStaleVersion | SwapUnknownSession | SwapExpiredSession
+    | SwapCatalogueChanged | SwapUnknownInstance | SwapUnknownProduct | SwapNoOp
+    | SwapNoCompatibleCandidates,
+    Field(discriminator="status"),
+]
+SwapCurrentResultValue = Annotated[
+    SwapCurrent | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged,
+    Field(discriminator="status"),
+]
+
+
+class SwapCandidateResult(RootModel[SwapCandidateResultValue]):
+    pass
+
+
+class SwapMutationResult(RootModel[SwapMutationResultValue]):
+    pass
+
+
+class SwapCurrentResult(RootModel[SwapCurrentResultValue]):
+    pass
+
+
+class SwapRequest(ContractModel):
+    sessionId: str = Field(min_length=1)
+    expectedVersion: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+    replacementProductId: str = Field(min_length=1)
 
 
 class DesignFailure(ContractModel):
