@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchCurrentSwapSession, fetchSwapCandidates, submitSwap } from '@/shared/api/client';
 import type { Product, SolvedDesign, SwapCandidateResult } from '@/shared/api/types';
+import type { MutationLock } from './useMutationLock';
 
 type MutationState =
   | { status: 'idle'; message?: string }
@@ -24,9 +25,11 @@ function dimensions(product: Product): string {
 export function SwapControls({
   design,
   onDesignChange,
+  mutationLock,
 }: {
   design: SolvedDesign;
   onDesignChange: (design: SolvedDesign) => void;
+  mutationLock: MutationLock;
 }) {
   const session = design.swap?.status === 'available' ? design.swap : null;
   const [instanceId, setInstanceId] = useState('');
@@ -44,6 +47,7 @@ export function SwapControls({
     sessionIdRef.current = ownedSessionId;
     return () => {
       if (sessionIdRef.current === ownedSessionId) sessionIdRef.current = null;
+      mutationLock.release('swap');
     };
   }, [session?.sessionId]);
 
@@ -117,10 +121,11 @@ export function SwapControls({
   if (!session) return null;
 
   const locked = mutation.status === 'pending' || mutation.status === 'reconciling'
-    || mutation.status === 'stale' || mutation.status === 'blocked';
+    || mutation.status === 'stale' || mutation.status === 'blocked' || mutationLock.owner === 'nudge';
 
   const reconcile = async (ownedSessionId: string) => {
     if (sessionIdRef.current !== ownedSessionId) return;
+    if (!mutationLock.heldBy('swap') && !mutationLock.acquire('swap')) return;
     setMutation({ status: 'reconciling' });
     try {
       const current = await fetchCurrentSwapSession(ownedSessionId);
@@ -128,6 +133,7 @@ export function SwapControls({
       if (current.status === 'current') {
         onDesignChange(current.design);
         setMutation({ status: 'idle', message: `Current Design version ${current.version} restored.` });
+        mutationLock.release('swap');
       } else {
         setMutation({ status: 'blocked', message: 'detail' in current ? current.detail : 'The current Design could not be recovered.' });
       }
@@ -142,6 +148,7 @@ export function SwapControls({
 
   const swap = async () => {
     if (!session || !instanceId || !candidateId || locked) return;
+    if (!mutationLock.acquire('swap')) return;
     const ownedSessionId = session.sessionId;
     setMutation({ status: 'pending' });
     try {
@@ -155,12 +162,14 @@ export function SwapControls({
       if (result.status === 'accepted') {
         onDesignChange(result.design);
         setMutation({ status: 'idle', message: result.detail });
+        mutationLock.release('swap');
       } else if (result.status === 'stale-version') {
         setMutation({ status: 'stale', message: result.detail });
       } else if (result.status === 'catalogue-changed' || result.status === 'expired-session' || result.status === 'unknown-session') {
         setMutation({ status: 'blocked', message: result.detail });
       } else {
         setMutation({ status: 'idle', message: result.detail });
+        mutationLock.release('swap');
       }
     } catch {
       if (sessionIdRef.current !== ownedSessionId) return;

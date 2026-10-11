@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchLiveBedroomConfig, generateLiveBedroom } from '@/shared/api/client';
 import type { LiveBedroomConfig, LiveGenerationFailure, LiveGenerationSuccess, SolvedDesign } from '@/shared/api/types';
 import { RoomStage } from './RoomStage';
 import { clearSceneDebug } from './scene-debug';
 import { SwapControls } from './SwapControls';
+import { NudgeControls } from './NudgeControls';
+import { ownsNewerDesign, useMutationLock } from './useMutationLock';
+import { useNudge } from './useNudge';
 import './design.css';
 
 type RequestState =
@@ -22,6 +25,13 @@ export default function LiveBedroomPage() {
   const [requestState, setRequestState] = useState<RequestState>({ status: 'idle' });
   const controllerRef = useRef<AbortController | null>(null);
   const sequenceRef = useRef(0);
+  const solved = requestState.status === 'solved' ? requestState.success.design : null;
+  const mutationLock = useMutationLock(solved?.swap?.status === 'available' ? solved.swap.sessionId : null);
+  const installDesign = useCallback((design: SolvedDesign) => {
+    setRequestState((current) => current.status === 'solved' && ownsNewerDesign(current.success.design, design)
+      ? { ...current, success: { ...current.success, design } } : current);
+  }, []);
+  const nudge = useNudge(solved, installDesign, mutationLock);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -87,16 +97,6 @@ export default function LiveBedroomPage() {
   const selected = config.references.find((reference) => reference.id === referenceId);
   const failure = requestState.status === 'failed' ? requestState.failure : null;
   const clientError = requestState.status === 'client-error' ? requestState.message : null;
-  const installSwappedDesign = (design: SolvedDesign) => {
-    setRequestState((current) => {
-      if (current.status !== 'solved') return current;
-      const currentSession = current.success.design.swap;
-      const nextSession = design.swap;
-      if (currentSession?.status !== 'available' || nextSession?.status !== 'available'
-        || currentSession.sessionId !== nextSession.sessionId) return current;
-      return { ...current, success: { ...current.success, design } };
-    });
-  };
   return (
     <main className="layout live-layout" data-testid="live-bedroom">
       {requestState.status === 'solved' ? (
@@ -104,6 +104,7 @@ export default function LiveBedroomPage() {
           result={requestState.success.design}
           receivedAtMs={requestState.receivedAtMs}
           generationId={requestState.success.generationId}
+          nudge={nudge}
         />
       ) : requestState.status === 'loading' ? (
         <section className="stage-placeholder" role="status" data-testid="live-loading">
@@ -179,7 +180,10 @@ export default function LiveBedroomPage() {
         {!config.realCallsEnabled ? <p className="warning" role="status">Generation is not available right now.</p> : null}
 
         {requestState.status === 'solved' ? (
-          <SwapControls design={requestState.success.design} onDesignChange={installSwappedDesign} />
+          <>
+            <NudgeControls design={requestState.success.design} nudge={nudge} lock={mutationLock} />
+            <SwapControls design={requestState.success.design} onDesignChange={installDesign} mutationLock={mutationLock} />
+          </>
         ) : null}
 
         {requestState.status === 'solved' || failure ? (

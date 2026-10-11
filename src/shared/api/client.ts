@@ -4,6 +4,9 @@ import type {
   DesignResult,
   LiveBedroomConfig,
   LiveGenerationResult,
+  NudgeMutationResult,
+  NudgeRegionResult,
+  NudgeRequest,
   PreviewDesign,
   SwapCandidateResult,
   SwapCurrentResult,
@@ -11,6 +14,8 @@ import type {
   SwapRequest,
 } from './types';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const mutationReadSignal = (signal?: AbortSignal) => signal
+  ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000);
 export async function fetchPreviewDesign(signal?: AbortSignal): Promise<PreviewDesign> {
   const response = await fetch(`${API_BASE}/api/preview-design`, { signal, headers: { accept: 'application/json' } });
   if (!response.ok) throw new Error(`Preview API returned ${response.status}`);
@@ -94,6 +99,7 @@ export async function fetchSwapCandidates(
 export async function submitSwap(request: SwapRequest): Promise<SwapMutationResult> {
   const response = await fetch(`${API_BASE}/api/swaps`, {
     method: 'POST',
+    signal: mutationReadSignal(),
     headers: { accept: 'application/json', 'content-type': 'application/json' },
     body: JSON.stringify(request),
   });
@@ -106,9 +112,34 @@ export async function fetchCurrentSwapSession(
   signal?: AbortSignal,
 ): Promise<SwapCurrentResult> {
   const response = await fetch(`${API_BASE}/api/swaps/${encodeURIComponent(sessionId)}`, {
-    signal,
+    signal: mutationReadSignal(signal),
     headers: { accept: 'application/json' },
   });
   if (!response.ok) throw new Error(`Current Swap session API returned ${response.status}`);
   return response.json() as Promise<SwapCurrentResult>;
+}
+
+export async function fetchNudgeRegion(
+  sessionId: string,
+  expectedVersion: number,
+  instanceId: string,
+  signal?: AbortSignal,
+): Promise<NudgeRegionResult> {
+  const query = new URLSearchParams({ expectedVersion: String(expectedVersion), instanceId });
+  const response = await fetch(`${API_BASE}/api/nudges/${encodeURIComponent(sessionId)}/region?${query}`, {
+    signal: mutationReadSignal(signal), headers: { accept: 'application/json' },
+  });
+  if (!response.ok) throw new Error(`Nudge region API returned ${response.status}`);
+  return response.json() as Promise<NudgeRegionResult>;
+}
+
+export async function submitNudge(request: NudgeRequest): Promise<NudgeMutationResult> {
+  const response = await fetch(`${API_BASE}/api/nudges`, {
+    method: 'POST',
+    signal: mutationReadSignal(),
+    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw new Error(`Nudge API returned ${response.status}`);
+  return response.json() as Promise<NudgeMutationResult>;
 }

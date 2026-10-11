@@ -7,6 +7,7 @@ import type { Placement, Product, RoomShell, Vec3 } from '@/shared/api/types';
 import { AccessRegions, ProductPlacement } from './ProductPlacement';
 import { RoomShellMesh } from './RoomShellMesh';
 import { clearSceneDebug, currentSceneDebug, resetSceneDebug } from './scene-debug';
+import type { NudgeController } from './useNudge';
 
 /** What the ordinary fixture camera orbits: roughly standing eye level. */
 const ORBIT_TARGET: Vec3 = [0, 0.7, 0];
@@ -98,6 +99,15 @@ function UsefulViewReporter({ sceneRevision }: { sceneRevision: number }) {
   return null;
 }
 
+function NudgeCameraReporter({ sceneRevision }: { sceneRevision: number }) {
+  const controls = useThree((state) => state.controls);
+  useFrame(() => {
+    const debug = currentSceneDebug(sceneRevision);
+    if (debug?.nudge) debug.nudge.orbitEnabled = (controls as { enabled: boolean } | null)?.enabled ?? true;
+  });
+  return null;
+}
+
 export default function RoomCanvas({
   room,
   products,
@@ -105,6 +115,7 @@ export default function RoomCanvas({
   overview = false,
   receivedAtMs,
   generationId,
+  nudge,
 }: {
   room: RoomShell;
   products: ReadonlyArray<Product>;
@@ -112,6 +123,7 @@ export default function RoomCanvas({
   overview?: boolean;
   receivedAtMs?: number;
   generationId?: string;
+  nudge?: NudgeController;
 }) {
   // Reset during the first render, before any child effect can report into it.
   const sceneOwnerToken = useId();
@@ -132,6 +144,13 @@ export default function RoomCanvas({
   const primaryPlacement = placements[0];
   const orbitTarget = overview ? OVERVIEW_TARGET : ORBIT_TARGET;
   const cameraPosition: Vec3 = overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
+  const dragging = nudge?.status === 'dragging' || nudge?.status === 'clamped';
+  const debug = currentSceneDebug(sceneRevision);
+  if (debug) debug.nudge = nudge ? { status: nudge.status, instanceId: nudge.instanceId,
+    preview: nudge.preview, origin: nudge.region?.origin ?? null,
+    constraints: nudge.region?.constraints ?? [], orbitEnabled: !dragging } : undefined;
+  const displayPlacement = (placement: Placement): Placement => nudge?.preview && placement.instanceId === nudge.instanceId
+    ? { ...placement, position: [nudge.preview[0], placement.position[1], nudge.preview[1]] } : placement;
 
   return (
     <Canvas
@@ -140,6 +159,7 @@ export default function RoomCanvas({
       gl={{ antialias: true, preserveDrawingBuffer: true }}
       camera={{ position: cameraPosition, fov: 45, near: 0.1, far: 60 }}
       data-testid="room-canvas"
+      style={{ touchAction: nudge?.enabled ? 'none' : 'pan-y' }}
     >
       <color attach="background" args={['#e9e6e0']} />
       <hemisphereLight args={['#fefdfa', '#c4bcae', 0.7]} />
@@ -162,7 +182,7 @@ export default function RoomCanvas({
       {products.map((product, index) => {
         const placement = placements[index];
         const instanceId = placement?.instanceId ?? `${product.id}-${index}`;
-        return placement ? <AccessRegions key={`access-${instanceId}`} product={product} placement={placement} /> : null;
+        return placement ? <AccessRegions key={`access-${instanceId}`} product={product} placement={displayPlacement(placement)} /> : null;
       })}
 
       {products.map((product, index) => {
@@ -182,6 +202,9 @@ export default function RoomCanvas({
                 placement={placement}
                 primary={index === 0}
                 sceneRevision={sceneRevision}
+                nudge={nudge}
+                previewPosition={nudge?.preview && placement.instanceId === nudge.instanceId
+                  ? [nudge.preview[0], placement.position[1], nudge.preview[1]] : undefined}
               />
             </Suspense>
           </MeshErrorBoundary>
@@ -190,8 +213,10 @@ export default function RoomCanvas({
 
       <CameraBridge target={orbitTarget} sceneRevision={sceneRevision} />
       <UsefulViewReporter sceneRevision={sceneRevision} />
+      <NudgeCameraReporter sceneRevision={sceneRevision} />
       <OrbitControls
         makeDefault
+        enabled={!dragging}
         target={[orbitTarget[0], orbitTarget[1], orbitTarget[2]]}
         enablePan={false}
         enableDamping

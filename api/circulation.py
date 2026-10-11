@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 from math import floor, hypot
 
 from .domain import (
@@ -28,6 +29,29 @@ GRID_RESOLUTION_M = 0.05
 CIRCULATION_TOLERANCE_M = 1e-9
 MAX_RAW_LATTICE_POINTS = 50_000
 MAX_LATTICE_POINTS_PER_AXIS = 1_000
+
+
+@dataclass(frozen=True)
+class WitnessAccess:
+    id: str
+    owner_type: str
+    owner_id: str
+    target: Vec2
+    connectors: tuple[tuple[int, int], ...]
+
+
+@dataclass(frozen=True)
+class CirculationWitness:
+    """Exact successful lattice evidence retained only for Nudge certification."""
+
+    clearance_width_m: float
+    room_geometry: _PreparedRoomGeometry
+    obstacles: tuple[tuple[str, tuple[Vec2, ...]], ...]
+    grid: tuple[tuple[tuple[int, int], Vec2], ...]
+    parents: tuple[tuple[tuple[int, int], tuple[int, int] | None], ...]
+    root_access_id: str | None
+    root_connectors: tuple[tuple[int, int], ...]
+    accesses: tuple[WitnessAccess, ...]
 
 
 def _walker_polygon(centre: Vec2, width_m: float) -> tuple[Vec2, Vec2, Vec2, Vec2]:
@@ -172,12 +196,13 @@ def _product_regions(design: SolvedDesign, clearance_width_m: float) -> tuple[tu
     return tuple(values)
 
 
-def validate_circulation(
+def _validate_circulation(
     design: SolvedDesign,
     clearance_width_m: float,
     *,
     anchor_ids: frozenset[str] = frozenset(),
-) -> CirculationResultValue:
+    include_witness: bool = False,
+) -> CirculationResultValue | tuple[CirculationResultValue, CirculationWitness | None]:
     """Connect every required door/Product access region with a swept square."""
     half = clearance_width_m / 2
     xs = [point[0] for point in design.room.floorPolygon]
@@ -195,7 +220,7 @@ def validate_circulation(
         or z_count > MAX_LATTICE_POINTS_PER_AXIS
         or raw_count > MAX_RAW_LATTICE_POINTS
     ):
-        return CirculationUnsupported(
+        unsupported = CirculationUnsupported(
             status="CIRCULATION_UNSUPPORTED",
             detail=(
                 f"The raw {x_count} by {z_count} circulation lattice has {raw_count} candidate nodes; "
@@ -207,6 +232,7 @@ def validate_circulation(
             nodeLimit=MAX_RAW_LATTICE_POINTS,
             exhaustive=False,
         )
+        return (unsupported, None) if include_witness else unsupported
 
     room_geometry = _prepare_room_geometry(design.room)
     obstacles = tuple(
@@ -228,7 +254,7 @@ def validate_circulation(
     ))
     access_regions = tuple(value[0] for value in access_values)
     if not access_values:
-        return CirculationClear(
+        clear = CirculationClear(
             status="clear",
             clearanceWidthM=clearance_width_m,
             accessRegions=(),
@@ -236,6 +262,17 @@ def validate_circulation(
             validatedNodes=0,
             exhaustive=False,
         )
+        witness = CirculationWitness(
+            clearance_width_m=clearance_width_m,
+            room_geometry=room_geometry,
+            obstacles=obstacles,
+            grid=(),
+            parents=(),
+            root_access_id=None,
+            root_connectors=(),
+            accesses=(),
+        )
+        return (clear, witness) if include_witness else clear
 
     narrow_doors = {
         f"door:{opening.id}"
@@ -277,7 +314,11 @@ def validate_circulation(
 
     start_region = next((region.id for region, _target in access_values if connectors[region.id]), None)
     visited: set[tuple[int, int]] = set()
-    queue: deque[tuple[int, int]] = deque(connectors[start_region] if start_region is not None else ())
+    root_connectors = tuple(sorted(connectors[start_region])) if start_region is not None else ()
+    parents: dict[tuple[int, int], tuple[int, int] | None] = {
+        key: None for key in root_connectors
+    }
+    queue: deque[tuple[int, int]] = deque(root_connectors)
     edge_cache: dict[tuple[tuple[int, int], tuple[int, int]], bool] = {}
     while queue:
         current = queue.popleft()
@@ -286,7 +327,7 @@ def validate_circulation(
         visited.add(current)
         for delta_x, delta_z in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             neighbour = (current[0] + delta_x, current[1] + delta_z)
-            if neighbour in visited or neighbour not in valid_grid:
+            if neighbour in parents or neighbour not in valid_grid:
                 continue
             edge = tuple(sorted((current, neighbour)))
             allowed = edge_cache.get(edge)
@@ -294,6 +335,7 @@ def validate_circulation(
                 allowed = swept_free(valid_grid[current], valid_grid[neighbour])
                 edge_cache[edge] = allowed
             if allowed:
+                parents[neighbour] = current
                 queue.append(neighbour)
 
     disconnected = tuple(
@@ -302,7 +344,7 @@ def validate_circulation(
         if not connectors[region.id] or not any(key in visited for key in connectors[region.id])
     )
     if not disconnected:
-        return CirculationClear(
+        clear = CirculationClear(
             status="clear",
             clearanceWidthM=clearance_width_m,
             accessRegions=access_regions,
@@ -310,6 +352,26 @@ def validate_circulation(
             validatedNodes=len(valid_grid),
             exhaustive=False,
         )
+        witness = CirculationWitness(
+            clearance_width_m=clearance_width_m,
+            room_geometry=room_geometry,
+            obstacles=obstacles,
+            grid=tuple(sorted(valid_grid.items())),
+            parents=tuple(sorted(parents.items())),
+            root_access_id=start_region,
+            root_connectors=root_connectors,
+            accesses=tuple(
+                WitnessAccess(
+                    id=region.id,
+                    owner_type=region.ownerType,
+                    owner_id=region.ownerId,
+                    target=target,
+                    connectors=connectors[region.id],
+                )
+                for region, target in access_values
+            ),
+        )
+        return (clear, witness) if include_witness else clear
 
     detected: set[str] = set()
     for current in visited:
@@ -352,7 +414,7 @@ def validate_circulation(
         f" Door approach width is below {clearance_width_m:.2f} m for {', '.join(sorted(narrow_doors))}."
         if narrow_doors else ""
     )
-    return CirculationBlocked(
+    blocked = CirculationBlocked(
         status="CIRCULATION_BLOCKED",
         detail=(
             f"Required access is not connected for {', '.join(disconnected)} at {clearance_width_m:.2f} m clearance."
@@ -368,3 +430,33 @@ def validate_circulation(
         validatedNodes=len(valid_grid),
         exhaustive=False,
     )
+    return (blocked, None) if include_witness else blocked
+
+
+def validate_circulation(
+    design: SolvedDesign,
+    clearance_width_m: float,
+    *,
+    anchor_ids: frozenset[str] = frozenset(),
+) -> CirculationResultValue:
+    result = _validate_circulation(
+        design,
+        clearance_width_m,
+        anchor_ids=anchor_ids,
+        include_witness=False,
+    )
+    assert not isinstance(result, tuple)
+    return result
+
+
+def validate_circulation_with_witness(
+    design: SolvedDesign,
+    clearance_width_m: float,
+) -> tuple[CirculationResultValue, CirculationWitness | None]:
+    result = _validate_circulation(
+        design,
+        clearance_width_m,
+        include_witness=True,
+    )
+    assert isinstance(result, tuple)
+    return result

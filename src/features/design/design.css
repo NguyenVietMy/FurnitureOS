@@ -51,6 +51,12 @@ html[data-feature="design"] {
 @media (max-width:520px) { .layout { padding:10px; gap:10px; } .reference-grid { grid-template-columns:1fr; } .reference-choice { grid-template-columns:112px minmax(0,1fr); grid-template-rows:82px; align-items:center; } .reference-choice img { height:82px; } }
 
 .swap-controls { display:grid; gap:10px; }
+.nudge-controls { display:grid; gap:10px; }
+.nudge-controls h2 { margin-bottom:0; color:var(--ink); font-size:16px; letter-spacing:normal; text-transform:none; }
+.nudge-status { margin:0; padding:9px 10px; border-left:3px solid #446bce; background:#f3f4fb; font-size:13px; }
+.nudge-controls[data-state="clamped"] .nudge-status { border-color:var(--warn); background:#f8f1e4; }
+.stage-nudge { position:absolute; z-index:3; bottom:14px; left:14px; right:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--line); border-radius:7px; background:rgba(255,254,251,.96); font-size:13px; pointer-events:none; }
+.stage-nudge button { flex-shrink:0; min-height:42px; border:1px solid var(--line); border-radius:6px; background:var(--paper-raised); font-size:12px; pointer-events:auto; }
 .swap-controls h2 { margin-bottom:0; color:var(--ink); font-size:16px; letter-spacing:normal; text-transform:none; }
 .swap-field { display:grid; gap:5px; color:var(--ink-soft); font-size:12px; font-weight:600; }
 .swap-field select { width:100%; min-height:42px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; background:var(--paper-raised); color:var(--ink); font:inherit; }

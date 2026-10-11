@@ -42,6 +42,8 @@ export interface SceneDebug {
     actualFrameRendered: boolean;
     materialsReady: boolean;
     screenVisible: boolean;
+    screenPoint?: readonly [number, number];
+    screenPoints?: ReadonlyArray<readonly [number, number]>;
   }>;
   textures: { requested: number; decoded: number; fallback: number };
   errors: string[];
@@ -58,6 +60,9 @@ export interface SceneDebug {
   camera: Vec3 | null;
   /** Moves the camera to `distance` metres from the Product, keeping direction. */
   setCameraDistanceM: ((distance: number) => void) | null;
+  nudge?: { status: string; instanceId: string; preview: readonly [number, number] | null;
+    origin: readonly [number, number] | null; constraints: ReadonlyArray<{ normal: readonly [number, number]; maxDisplacementM: number }>;
+    orbitEnabled: boolean };
 }
 
 const handle: SceneDebug = {
@@ -161,6 +166,7 @@ export function resetSceneDebug(
   };
   handle.camera = null;
   handle.setCameraDistanceM = null;
+  handle.nudge = undefined;
   return sceneDebug();
 }
 

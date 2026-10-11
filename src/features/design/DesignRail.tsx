@@ -4,6 +4,9 @@ import type { DesignFixture, DesignResult, SolvedDesign } from '@/shared/api/typ
 import { DesignPanel } from './DesignPanel';
 import { FixtureSelector } from './FixtureSelector';
 import { SwapControls } from './SwapControls';
+import { NudgeControls } from './NudgeControls';
+import type { NudgeController } from './useNudge';
+import type { MutationLock } from './useMutationLock';
 
 function ArrangementFeedback({ result, fixture }: { result: DesignResult; fixture: DesignFixture }) {
   const history = result.arrangementHistory;
@@ -66,12 +69,16 @@ export function DesignRail({
   result,
   onSelect,
   onDesignChange,
+  nudge,
+  mutationLock,
 }: {
   fixtures: ReadonlyArray<DesignFixture>;
   selectedId: string;
   result: DesignResult;
   onSelect: (fixtureId: string) => void;
   onDesignChange: (design: SolvedDesign) => void;
+  nudge: NudgeController;
+  mutationLock: MutationLock;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const selectedFixture = fixtures.find((fixture) => fixture.id === selectedId)!;
@@ -88,7 +95,10 @@ export function DesignRail({
       {isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}
       <FixtureSelector fixtures={fixtures} selectedId={selectedId} onSelect={onSelect} />
       {!isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}
-      {result.status === 'solved' ? <SwapControls design={result} onDesignChange={onDesignChange} /> : null}
+      {result.status === 'solved' ? <>
+        <NudgeControls design={result} nudge={nudge} lock={mutationLock} />
+        <SwapControls design={result} onDesignChange={onDesignChange} mutationLock={mutationLock} />
+      </> : null}
       {result.status === 'failed' ? (
         <section
           className="solver-failure"
