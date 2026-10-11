@@ -265,6 +265,71 @@ export interface MeshTransform {
   readonly scale: number;
 }
 
+export interface NudgeAccepted {
+  readonly status?: "accepted";
+  readonly sessionId: string;
+  readonly version: number;
+  readonly detail: string;
+  readonly design: SolvedDesign;
+}
+
+export interface NudgeCertificateMissing {
+  readonly status?: "certificate-missing";
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface NudgeHalfPlane {
+  readonly normal: readonly [number, number];
+  readonly maxDisplacementM: number;
+}
+
+export type NudgeMutationResult = NudgeAccepted | NudgeRejected | NudgeCertificateMissing | SwapStaleVersion | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance;
+
+export interface NudgeRegionAvailable {
+  readonly status?: "available";
+  readonly regionId: string;
+  readonly sessionId: string;
+  readonly version: number;
+  readonly instanceId: string;
+  readonly origin: readonly [number, number];
+  readonly fixedY: number;
+  readonly fixedYaw: number;
+  readonly constraints: ReadonlyArray<NudgeHalfPlane>;
+  readonly polygon: ReadonlyArray<readonly [number, number]>;
+  readonly expiresInMs: number;
+  readonly conservative?: true;
+  readonly constraintCount: number;
+  readonly witnessPolygonCount: number;
+  readonly attachmentCount: number;
+  readonly computationMs: number;
+  readonly detail: string;
+}
+
+export type NudgeRegionResult = NudgeRegionAvailable | NudgeUnavailable | SwapStaleVersion | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance;
+
+export interface NudgeRejected {
+  readonly status?: "rejected";
+  readonly code: string;
+  readonly detail: string;
+  readonly currentVersion: number;
+}
+
+export interface NudgeRequest {
+  readonly sessionId: string;
+  readonly expectedVersion: number;
+  readonly instanceId: string;
+  readonly regionId: string;
+  readonly target: readonly [number, number];
+}
+
+export interface NudgeUnavailable {
+  readonly status?: "unavailable";
+  readonly detail: string;
+  readonly currentVersion: number;
+  readonly instanceId: string;
+}
+
 export interface Opening {
   readonly id: string;
   readonly kind: "door" | "window";

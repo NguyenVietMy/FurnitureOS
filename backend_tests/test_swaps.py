@@ -483,7 +483,7 @@ def test_expiration_separate_process_and_catalogue_change_fail_closed() -> None:
     assert changed_client.get(f"/api/swaps/{changed_design['swap']['sessionId']}").json()["status"] == "unknown-session"
 
 
-def test_capacity_waits_for_mutation_lock_and_never_evicts_live_session() -> None:
+def test_capacity_check_stays_live_during_mutation_and_never_evicts_live_session() -> None:
     entered = Event()
     release = Event()
     calls = [0]
@@ -513,10 +513,9 @@ def test_capacity_waits_for_mutation_lock_and_never_evicts_live_session() -> Non
         mutation = executor.submit(store.swap, request)
         assert entered.wait(5)
         registration = executor.submit(store.register, _fixture_design(), "bedroom")
-        assert not registration.done()
+        refused = registration.result(timeout=5)
         release.set()
         assert mutation.result().status == "accepted"
-        refused = registration.result()
     assert refused.swap is not None and refused.swap.status == "unavailable"
     assert "capacity" in refused.swap.detail
     assert store.session_count() == 1

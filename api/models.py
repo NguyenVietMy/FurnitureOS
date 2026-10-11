@@ -794,6 +794,87 @@ class SwapRequest(ContractModel):
     replacementProductId: str = Field(min_length=1)
 
 
+class NudgeHalfPlane(ContractModel):
+    normal: Vec2
+    maxDisplacementM: Finite
+
+
+class NudgeRegionAvailable(ContractModel):
+    status: Literal["available"] = "available"
+    regionId: str = Field(min_length=1)
+    sessionId: str = Field(min_length=1)
+    version: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+    origin: BoundedVec2
+    fixedY: BoundedMetres
+    fixedYaw: Finite
+    constraints: tuple[NudgeHalfPlane, ...] = Field(min_length=3, max_length=4096)
+    polygon: tuple[BoundedVec2, ...] = Field(min_length=3, max_length=4096)
+    expiresInMs: int = Field(gt=0, le=120_000)
+    conservative: Literal[True] = True
+    constraintCount: int = Field(ge=3, le=4096)
+    witnessPolygonCount: int = Field(ge=0, le=256)
+    attachmentCount: int = Field(ge=0, le=4096)
+    computationMs: NonNegativeFinite
+    detail: str = Field(min_length=1)
+
+
+class NudgeUnavailable(ContractModel):
+    status: Literal["unavailable"] = "unavailable"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+
+
+class NudgeCertificateMissing(ContractModel):
+    status: Literal["certificate-missing"] = "certificate-missing"
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class NudgeRejected(ContractModel):
+    status: Literal["rejected"] = "rejected"
+    code: str = Field(min_length=1)
+    detail: str = Field(min_length=1)
+    currentVersion: int = Field(ge=1)
+
+
+class NudgeAccepted(ContractModel):
+    status: Literal["accepted"] = "accepted"
+    sessionId: str = Field(min_length=1)
+    version: int = Field(ge=2)
+    detail: str = Field(min_length=1)
+    design: SolvedDesign
+
+
+NudgeRegionResultValue = Annotated[
+    NudgeRegionAvailable | NudgeUnavailable | SwapStaleVersion | SwapUnknownSession
+    | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance,
+    Field(discriminator="status"),
+]
+NudgeMutationResultValue = Annotated[
+    NudgeAccepted | NudgeRejected | NudgeCertificateMissing | SwapStaleVersion
+    | SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | SwapUnknownInstance,
+    Field(discriminator="status"),
+]
+
+
+class NudgeRegionResult(RootModel[NudgeRegionResultValue]):
+    pass
+
+
+class NudgeMutationResult(RootModel[NudgeMutationResultValue]):
+    pass
+
+
+class NudgeRequest(ContractModel):
+    sessionId: str = Field(min_length=1)
+    expectedVersion: int = Field(ge=1)
+    instanceId: str = Field(min_length=1)
+    regionId: str = Field(min_length=1)
+    target: BoundedVec2
+
+
 class DesignFailure(ContractModel):
     status: Literal["failed"]
     reason: DesignFailureReason

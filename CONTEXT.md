@@ -75,7 +75,9 @@ Replacing the Product in an existing Placement at exactly the same pose after Fa
 _Avoid_: Replace, substitute, change
 
 **Nudge**:
-A user-initiated move of an existing Placement. A Nudge must be validated by the FastAPI authority before it is accepted. A future browser preview must have an explicit parity contract; it is not an authority.
+A user-initiated translation of an existing Placement at fixed yaw and floor height. FastAPI certifies a conservative convex translation region for one current session version, preserving all physical predicates and a connected circulation witness. The browser clips every preview segment into that certificate; FastAPI validates the complete Design again and atomically compares the shared Swap/Nudge version before accepting it. See `docs/nudges.md` for the analytic and numeric contract.
+
+An explicit Nudge may detach a wall-backed Product. Only its physically true existing wall contacts are retained; no dependant Placement moves or Intent is re-solved. Original coordinate-free Placement Intents and Arrangement attempts remain generation provenance, even when a Nudge changes the generated relationship. Current fits and circulation describe the current accepted Design. Swaps and Nudges share bounded process-local sessions, expiry, Catalogue binding and one monotonic version; accepted mutations invalidate prior Nudge certificates.
 _Avoid_: Drag, move, reposition
 
 ### The furniture

@@ -28,7 +28,8 @@ from .live_generation import (
 )
 from .models import (
     ArrangementRequest, CatalogueGallery, DesignFixtures, DesignRequest, DesignResult, FitResult,
-    FixtureSelectionRequest, Health, PlacementValidationRequest, PreviewDesign, ZoneDerivationFailure,
+    FixtureSelectionRequest, Health, NudgeMutationResult, NudgeRegionResult, NudgeRequest,
+    PlacementValidationRequest, PreviewDesign, ZoneDerivationFailure,
     SwapCandidateResult, SwapCurrentResult, SwapMutationResult, SwapRequest, ZoneRequest, ZoneResult,
 )
 from .swaps import DesignSessionStore
@@ -144,6 +145,14 @@ def create_app(
     @application.post("/api/swaps", response_model=SwapMutationResult)
     def product_swap(request: SwapRequest) -> SwapMutationResult:
         return SwapMutationResult(root=sessions.swap(request))
+
+    @application.get("/api/nudges/{session_id}/region", response_model=NudgeRegionResult)
+    def nudge_region(session_id: str, expectedVersion: int, instanceId: str) -> NudgeRegionResult:
+        return NudgeRegionResult(root=sessions.nudge_region(session_id, expectedVersion, instanceId))
+
+    @application.post("/api/nudges", response_model=NudgeMutationResult)
+    def product_nudge(request: NudgeRequest) -> NudgeMutationResult:
+        return NudgeMutationResult(root=sessions.nudge(request))
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)

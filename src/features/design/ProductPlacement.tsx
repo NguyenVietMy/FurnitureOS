@@ -6,6 +6,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Placement, Product, ProductFace, Vec3 } from '@/shared/api/types';
 import { configureProductLoader } from './product-loaders';
 import { currentSceneDebug } from './scene-debug';
+import type { NudgeController } from './useNudge';
+import { useProductDrag } from './useProductDrag';
 
 export const LOD_DISTANCES_M = [0, 5.5, 9.5];
 const toVec3 = (vector: Vector3): Vec3 => [vector.x, vector.y, vector.z];
@@ -14,12 +16,17 @@ export function ProductPlacement({
   placement,
   primary,
   sceneRevision,
+  nudge,
+  previewPosition,
 }: {
   product: Product;
   placement: Placement;
   primary: boolean;
   sceneRevision: number;
+  nudge?: NudgeController;
+  previewPosition?: Vec3;
 }) {
+  const onPointerDown = useProductDrag(placement, nudge);
   const renderer = useThree((state) => state.gl);
   const mainCamera = useThree((state) => state.camera);
   const urls = product.mesh.lods.map((lod) => lod.url);
@@ -113,6 +120,20 @@ export function ProductPlacement({
     if (!debug) return;
     const activeLod = lodRef.current?.getCurrentLevel() ?? -1;
     const instanceDebug = debug.instances[instanceId];
+    const group = groupRef.current;
+    if (instanceDebug && group) {
+      group.updateMatrixWorld(true);
+      instanceDebug.renderedTransform = { position: toVec3(group.getWorldPosition(new Vector3())),
+        yaw: group.rotation.y, matrixWorld: group.matrixWorld.toArray() };
+      const screenPoint = new Vector3(0, product.dimensionsM.heightM * 0.2, 0);
+      group.localToWorld(screenPoint).project(camera);
+      instanceDebug.screenPoint = [screenPoint.x, screenPoint.y];
+      instanceDebug.screenPoints = [-0.35, 0, 0.35].flatMap((x) => [-0.35, 0, 0.35].map((z) => {
+        const point = group.localToWorld(new Vector3(x * product.dimensionsM.widthM,
+          product.dimensionsM.heightM * 0.2, z * product.dimensionsM.depthM)).project(camera);
+        return [point.x, point.y] as const;
+      }));
+    }
     const productDebug = debug.products[product.id];
     if (instanceDebug) {
       instanceDebug.activeLod = activeLod;
@@ -183,8 +204,9 @@ export function ProductPlacement({
     <group
       ref={groupRef}
       name={`placement-${instanceId}`}
-      position={[placement.position[0], placement.position[1], placement.position[2]]}
+      position={previewPosition ?? [placement.position[0], placement.position[1], placement.position[2]]}
       rotation={[0, placement.yaw, 0]}
+      onPointerDown={onPointerDown}
     >
       <Detailed ref={lodRef} distances={LOD_DISTANCES_M}>
         {scenes.map((scene, index) => (

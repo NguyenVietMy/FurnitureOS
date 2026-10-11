@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchDesignFixtures, resolveDesignFixture } from '../../shared/api/client';
-import type { DesignFixture, DesignResult } from '../../shared/api/types';
+import type { DesignFixture, DesignResult, SolvedDesign } from '../../shared/api/types';
 import { DesignRail } from './DesignRail';
 import { RoomStage } from './RoomStage';
+import { ownsNewerDesign, useMutationLock } from './useMutationLock';
+import { useNudge } from './useNudge';
 import './design.css';
 
 const DEFAULT_FIXTURE_ID = 'against-wall';
@@ -14,6 +16,12 @@ export default function DesignPage() {
   const [result, setResult] = useState<DesignResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const solved = result?.status === 'solved' ? result : null;
+  const mutationLock = useMutationLock(solved?.swap?.status === 'available' ? solved.swap.sessionId : null);
+  const installDesign = useCallback((design: SolvedDesign) => {
+    setResult((current) => current?.status === 'solved' && ownsNewerDesign(current, design) ? design : current);
+  }, []);
+  const nudge = useNudge(solved, installDesign, mutationLock);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -59,13 +67,15 @@ export default function DesignPage() {
   }
   return (
     <main className="layout" data-testid="api-preview">
-      <RoomStage result={result} />
+      <RoomStage result={result} nudge={nudge} />
       <DesignRail
         fixtures={fixtures}
         selectedId={selectedId}
         result={result}
         onSelect={selectFixture}
-        onDesignChange={setResult}
+        onDesignChange={installDesign}
+        nudge={nudge}
+        mutationLock={mutationLock}
       />
     </main>
   );

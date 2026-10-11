@@ -12,6 +12,13 @@ from .circulation import validate_circulation
 from .domain import validate_placement
 from .models import (
     CirculationClear,
+    NudgeAccepted,
+    NudgeCertificateMissing,
+    NudgeMutationResultValue,
+    NudgeRegionResultValue,
+    NudgeRejected,
+    NudgeRequest,
+    NudgeUnavailable,
     Product,
     RoomType,
     SolvedDesign,
@@ -36,10 +43,18 @@ from .models import (
     SwapUnknownProduct,
     SwapUnknownSession,
 )
+from .nudges import (
+    NudgeCertificate,
+    NudgeProofError,
+    build_nudge_certificate,
+    certificate_contains,
+    nudged_placement,
+)
 
 MINIMUM_CLEARANCE_M = 0.60
 DEFAULT_SESSION_CAPACITY = 256
 DEFAULT_SESSION_TTL_SECONDS = 30 * 60
+MAX_NUDGE_CERTIFICATE_TTL_SECONDS = 120
 
 
 @dataclass(frozen=True)
@@ -152,6 +167,7 @@ class DesignSessionStore:
         ttl_seconds: float = DEFAULT_SESSION_TTL_SECONDS,
         clock: Callable[[], float] = time.monotonic,
         id_factory: Callable[[], str] | None = None,
+        region_id_factory: Callable[[], str] | None = None,
         validator: FixedPoseValidator = validate_fixed_pose_design,
     ) -> None:
         if capacity < 1:
@@ -163,8 +179,11 @@ class DesignSessionStore:
         self._ttl_seconds = ttl_seconds
         self._clock = clock
         self._id_factory = id_factory or (lambda: secrets.token_urlsafe(18))
+        self._region_id_factory = region_id_factory or (lambda: secrets.token_urlsafe(18))
         self._validator = validator
         self._records: dict[str, _SessionRecord] = {}
+        self._certificates: dict[str, NudgeCertificate] = {}
+        self._certificate_tokens: dict[str, int] = {}
         self._lock = RLock()
 
     def _cleanup_expired_locked(self, now: float) -> None:
@@ -175,6 +194,11 @@ class DesignSessionStore:
         ]
         for session_id in expired_ids:
             del self._records[session_id]
+            self._certificates.pop(session_id, None)
+            self._certificate_tokens.pop(session_id, None)
+        for session_id in tuple(self._certificates):
+            if now >= self._certificates[session_id].expires_at:
+                self._certificates.pop(session_id, None)
 
     def _lookup_locked(
         self,
@@ -191,17 +215,31 @@ class DesignSessionStore:
             )
         if self._clock() >= record.expires_at:
             del self._records[session_id]
+            self._certificates.pop(session_id, None)
+            self._certificate_tokens.pop(session_id, None)
             return None, SwapExpiredSession(
                 status="expired-session",
                 detail="This Swap session expired. Generate or select the Design again.",
             )
         if self._source.version != record.catalogue_version:
             del self._records[session_id]
+            self._certificates.pop(session_id, None)
+            self._certificate_tokens.pop(session_id, None)
             return None, SwapCatalogueChanged(
                 status="catalogue-changed",
                 detail="The Catalogue changed after this Design was created. Generate or select the Design again.",
             )
         return record, None
+
+    @staticmethod
+    def _version(record: _SessionRecord) -> int:
+        session = record.design.swap
+        assert isinstance(session, SwapSessionAvailable)
+        return session.version
+
+    def _invalidate_certificate_locked(self, session_id: str) -> None:
+        self._certificates.pop(session_id, None)
+        self._certificate_tokens[session_id] = self._certificate_tokens.get(session_id, 0) + 1
 
     def _bound_design(
         self,
@@ -222,29 +260,37 @@ class DesignSessionStore:
 
     def register(self, design: SolvedDesign, room_type: RoomType) -> SolvedDesign:
         """Admit only a complete, currently valid server-produced Design."""
+        existing_clearance = (
+            design.circulation.clearanceWidthM
+            if isinstance(design.circulation, CirculationClear)
+            else MINIMUM_CLEARANCE_M
+        )
+        clearance_width_m = max(MINIMUM_CLEARANCE_M, existing_clearance)
+        catalogue_version = self._source.version
+        validated, failure = self._validator(self._source, design, clearance_width_m)
+        if validated is None:
+            assert failure is not None
+            return design.model_copy(update={
+                "swap": SwapUnavailable(
+                    status="unavailable",
+                    detail=f"Swap and Nudge are unavailable because the initial complete Design did not pass validation: {failure.detail}",
+                ),
+            }, deep=True)
         with self._lock:
+            if self._source.version != catalogue_version:
+                return design.model_copy(update={
+                    "swap": SwapUnavailable(
+                        status="unavailable",
+                        detail="The Catalogue changed during validation. Generate or select the Design again.",
+                    ),
+                }, deep=True)
             now = self._clock()
             self._cleanup_expired_locked(now)
             if len(self._records) >= self._capacity:
                 return design.model_copy(update={
                     "swap": SwapUnavailable(
                         status="unavailable",
-                        detail="Swap is temporarily unavailable because this server process is at session capacity.",
-                    ),
-                }, deep=True)
-            existing_clearance = (
-                design.circulation.clearanceWidthM
-                if isinstance(design.circulation, CirculationClear)
-                else MINIMUM_CLEARANCE_M
-            )
-            clearance_width_m = max(MINIMUM_CLEARANCE_M, existing_clearance)
-            validated, failure = self._validator(self._source, design, clearance_width_m)
-            if validated is None:
-                assert failure is not None
-                return design.model_copy(update={
-                    "swap": SwapUnavailable(
-                        status="unavailable",
-                        detail=f"Swap is unavailable because the initial complete Design did not pass validation: {failure.detail}",
+                        detail="Swap and Nudge are temporarily unavailable because this server process is at session capacity.",
                     ),
                 }, deep=True)
             session_id = self._id_factory()
@@ -281,7 +327,7 @@ class DesignSessionStore:
             if placement.instanceId == instance_id
         ), None)
 
-    def _evaluate_replacement_locked(
+    def _evaluate_replacement(
         self,
         record: _SessionRecord,
         instance_index: int,
@@ -331,33 +377,38 @@ class DesignSessionStore:
                     detail=f'No Placement instance has id "{instance_id}".',
                 )
             current_product = record.design.products[instance_index]
-            compatible: list[SwapCandidate] = []
-            rejected: list[SwapRejectedCandidate] = []
-            for product in sorted(self._source.list(), key=lambda value: (value.displayName, value.id)):
-                if product.id == current_product.id:
-                    continue
-                if (
-                    product.category != current_product.category
-                    or product.placementClass != current_product.placementClass
-                    or record.room_type not in product.roomTypes
-                ):
-                    continue
-                candidate, candidate_failure = self._evaluate_replacement_locked(record, instance_index, product)
-                if candidate is not None:
-                    compatible.append(SwapCandidate(product=product))
-                else:
-                    assert candidate_failure is not None
-                    rejected.append(SwapRejectedCandidate(
-                        product=product,
-                        code=candidate_failure.code,
-                        detail=candidate_failure.detail,
-                    ))
-            # A read cannot publish stale evidence if its immutable session expired during validation.
-            if self._clock() >= record.expires_at:
-                del self._records[session_id]
-                return SwapExpiredSession(
-                    status="expired-session",
-                    detail="This Swap session expired while candidates were being checked.",
+        compatible: list[SwapCandidate] = []
+        rejected: list[SwapRejectedCandidate] = []
+        for product in sorted(self._source.list(), key=lambda value: (value.displayName, value.id)):
+            if product.id == current_product.id:
+                continue
+            if (
+                product.category != current_product.category
+                or product.placementClass != current_product.placementClass
+                or record.room_type not in product.roomTypes
+            ):
+                continue
+            candidate, candidate_failure = self._evaluate_replacement(record, instance_index, product)
+            if candidate is not None:
+                compatible.append(SwapCandidate(product=product))
+            else:
+                assert candidate_failure is not None
+                rejected.append(SwapRejectedCandidate(
+                    product=product,
+                    code=candidate_failure.code,
+                    detail=candidate_failure.detail,
+                ))
+        with self._lock:
+            current, current_failure = self._lookup_locked(session_id)
+            if current_failure is not None:
+                return current_failure
+            assert current is not None
+            current_version = self._version(current)
+            if current_version != expected_version or current is not record:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=current_version,
+                    detail=f"The Design is now version {current_version}; refresh before choosing another Product.",
                 )
             if not compatible:
                 return SwapNoCompatibleCandidates(
@@ -412,20 +463,26 @@ class DesignSessionStore:
                     currentVersion=session.version,
                     detail=f'Catalogue Product "{request.replacementProductId}" does not exist.',
                 )
-            candidate, candidate_failure = self._evaluate_replacement_locked(record, instance_index, replacement)
-            if candidate is None:
-                assert candidate_failure is not None
-                return SwapRejected(
-                    status="rejected",
-                    code=candidate_failure.code,
-                    detail=candidate_failure.detail,
-                    currentVersion=session.version,
-                )
-            if self._clock() >= record.expires_at:
-                del self._records[request.sessionId]
-                return SwapExpiredSession(
-                    status="expired-session",
-                    detail="This Swap session expired during validation, so the replacement was not published.",
+        candidate, candidate_failure = self._evaluate_replacement(record, instance_index, replacement)
+        if candidate is None:
+            assert candidate_failure is not None
+            return SwapRejected(
+                status="rejected",
+                code=candidate_failure.code,
+                detail=candidate_failure.detail,
+                currentVersion=session.version,
+            )
+        with self._lock:
+            current, current_failure = self._lookup_locked(request.sessionId)
+            if current_failure is not None:
+                return current_failure
+            assert current is not None
+            current_version = self._version(current)
+            if current_version != request.expectedVersion or current is not record:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=current_version,
+                    detail=f"The Design is now version {current_version}; refresh before trying this Swap again.",
                 )
             next_version = session.version + 1
             managed = self._bound_design(candidate, request.sessionId, next_version, record.clearance_width_m)
@@ -436,6 +493,7 @@ class DesignSessionStore:
                 clearance_width_m=record.clearance_width_m,
                 expires_at=record.expires_at,
             )
+            self._invalidate_certificate_locked(request.sessionId)
             return SwapAccepted(
                 status="accepted",
                 sessionId=request.sessionId,
@@ -444,8 +502,199 @@ class DesignSessionStore:
                 design=managed,
             )
 
+    def nudge_region(
+        self,
+        session_id: str,
+        expected_version: int,
+        instance_id: str,
+    ) -> NudgeRegionResultValue:
+        with self._lock:
+            record, failure = self._lookup_locked(session_id)
+            if failure is not None:
+                return failure
+            assert record is not None
+            current_version = self._version(record)
+            if expected_version != current_version:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=current_version,
+                    detail=f"The Design is now version {current_version}; request a new Nudge region.",
+                )
+            if self._instance_index(record.design, instance_id) is None:
+                return SwapUnknownInstance(
+                    status="unknown-instance",
+                    currentVersion=current_version,
+                    detail=f'No Placement instance has id "{instance_id}".',
+                )
+            issuance_token = self._certificate_tokens.get(session_id, 0) + 1
+            self._certificate_tokens[session_id] = issuance_token
+            expires_at = min(record.expires_at, self._clock() + MAX_NUDGE_CERTIFICATE_TTL_SECONDS)
+            region_id = self._region_id_factory()
+
+        try:
+            certificate, response = build_nudge_certificate(
+                record.design,
+                instance_id,
+                record.clearance_width_m,
+                region_id=region_id,
+                session_id=session_id,
+                version=current_version,
+                expires_at=expires_at,
+                clock=self._clock,
+            )
+        except (NudgeProofError, ValueError) as error:
+            return NudgeUnavailable(
+                status="unavailable",
+                currentVersion=current_version,
+                instanceId=instance_id,
+                detail=str(error),
+            )
+
+        with self._lock:
+            current, current_failure = self._lookup_locked(session_id)
+            if current_failure is not None:
+                return current_failure
+            assert current is not None
+            live_version = self._version(current)
+            if live_version != expected_version or current is not record:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=live_version,
+                    detail=f"The Design is now version {live_version}; request a new Nudge region.",
+                )
+            if self._certificate_tokens.get(session_id) != issuance_token:
+                return NudgeUnavailable(
+                    status="unavailable",
+                    currentVersion=live_version,
+                    instanceId=instance_id,
+                    detail="A newer Nudge region request superseded this one.",
+                )
+            if self._clock() >= certificate.expires_at:
+                return NudgeUnavailable(
+                    status="unavailable",
+                    currentVersion=live_version,
+                    instanceId=instance_id,
+                    detail="The Nudge region expired while it was being certified.",
+                )
+            self._certificates[session_id] = certificate
+            return response
+
+    def nudge(self, request: NudgeRequest) -> NudgeMutationResultValue:
+        with self._lock:
+            record, failure = self._lookup_locked(request.sessionId)
+            if failure is not None:
+                return failure
+            assert record is not None
+            current_version = self._version(record)
+            if request.expectedVersion != current_version:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=current_version,
+                    detail=f"The Design is now version {current_version}; request a new Nudge region.",
+                )
+            instance_index = self._instance_index(record.design, request.instanceId)
+            if instance_index is None:
+                return SwapUnknownInstance(
+                    status="unknown-instance",
+                    currentVersion=current_version,
+                    detail=f'No Placement instance has id "{request.instanceId}".',
+                )
+            certificate = self._certificates.get(request.sessionId)
+            if (
+                certificate is None
+                or certificate.region_id != request.regionId
+                or certificate.version != request.expectedVersion
+                or certificate.instance_id != request.instanceId
+                or self._clock() >= certificate.expires_at
+            ):
+                if certificate is not None and self._clock() >= certificate.expires_at:
+                    self._certificates.pop(request.sessionId, None)
+                return NudgeCertificateMissing(
+                    status="certificate-missing",
+                    currentVersion=current_version,
+                    detail="This Nudge region is missing, replaced, or expired. Request a new safe region.",
+                )
+            if not certificate_contains(certificate, request.target):
+                return NudgeRejected(
+                    status="rejected",
+                    code="outside-certified-region",
+                    currentVersion=current_version,
+                    detail="The requested Placement is outside the server-certified Nudge region.",
+                )
+            if request.target == certificate.origin:
+                return NudgeRejected(
+                    status="rejected",
+                    code="no-op",
+                    currentVersion=current_version,
+                    detail="The Placement is already at that position.",
+                )
+            placements = list(record.design.placements)
+            placements[instance_index] = nudged_placement(
+                record.design.products[instance_index],
+                record.design.room,
+                placements[instance_index],
+                request.target,
+            )
+            provisional = record.design.model_copy(update={"placements": tuple(placements)}, deep=True)
+
+        candidate, candidate_failure = self._validator(self._source, provisional, record.clearance_width_m)
+        if candidate is None:
+            assert candidate_failure is not None
+            return NudgeRejected(
+                status="rejected",
+                code=candidate_failure.code,
+                detail=candidate_failure.detail,
+                currentVersion=current_version,
+            )
+
+        with self._lock:
+            current, current_failure = self._lookup_locked(request.sessionId)
+            if current_failure is not None:
+                return current_failure
+            assert current is not None
+            live_version = self._version(current)
+            live_certificate = self._certificates.get(request.sessionId)
+            if live_version != request.expectedVersion or current is not record:
+                return SwapStaleVersion(
+                    status="stale-version",
+                    currentVersion=live_version,
+                    detail=f"The Design is now version {live_version}; the Nudge was not published.",
+                )
+            if (
+                live_certificate is not certificate
+                or self._clock() >= certificate.expires_at
+            ):
+                return NudgeCertificateMissing(
+                    status="certificate-missing",
+                    currentVersion=live_version,
+                    detail="The Nudge certificate changed or expired during validation, so nothing was published.",
+                )
+            next_version = live_version + 1
+            managed = self._bound_design(candidate, request.sessionId, next_version, record.clearance_width_m)
+            self._records[request.sessionId] = _SessionRecord(
+                design=managed,
+                room_type=record.room_type,
+                catalogue_version=record.catalogue_version,
+                clearance_width_m=record.clearance_width_m,
+                expires_at=record.expires_at,
+            )
+            self._invalidate_certificate_locked(request.sessionId)
+            return NudgeAccepted(
+                status="accepted",
+                sessionId=request.sessionId,
+                version=next_version,
+                detail="The Product was moved within its certified safe region.",
+                design=managed,
+            )
+
     def session_count(self) -> int:
         """Bounded diagnostic used by focused store tests."""
         with self._lock:
             self._cleanup_expired_locked(self._clock())
             return len(self._records)
+
+    def certificate_count(self) -> int:
+        """Bounded diagnostic used by focused store tests."""
+        with self._lock:
+            self._cleanup_expired_locked(self._clock())
+            return len(self._certificates)

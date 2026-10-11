@@ -80,3 +80,12 @@ def test_generated_contract_has_frontend_entry_types() -> None:
     ):
         assert declaration in text
     assert '"duplicate-product-reference"' not in text
+
+
+def test_nudge_routes_are_named_discriminated_contracts_without_client_geometry() -> None:
+    assert response_schema("/api/nudges/{session_id}/region") == {"$ref": "#/components/schemas/NudgeRegionResult"}
+    assert response_schema("/api/nudges", "post") == {"$ref": "#/components/schemas/NudgeMutationResult"}
+    schemas = app.openapi()["components"]["schemas"]
+    assert schemas["NudgeRegionResult"]["discriminator"]["propertyName"] == "status"
+    assert set(schemas["NudgeRequest"]["properties"]) == {"sessionId", "expectedVersion", "instanceId", "regionId", "target"}
+    assert schemas["NudgeRegionAvailable"]["properties"]["constraints"]["maxItems"] == 4096

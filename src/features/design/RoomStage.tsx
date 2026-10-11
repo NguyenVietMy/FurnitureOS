@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { DesignResult } from '@/shared/api/types';
+import type { NudgeController } from './useNudge';
 
 const RoomCanvas = lazy(() => import('./RoomCanvas'));
 
@@ -8,10 +9,12 @@ export function RoomStage({
   result,
   receivedAtMs,
   generationId,
+  nudge,
 }: {
   result: DesignResult;
   receivedAtMs?: number;
   generationId?: string;
+  nudge?: NudgeController;
 }) {
   if (result.status === 'failed') {
     if (result.arrangementHistory) {
@@ -40,15 +43,22 @@ export function RoomStage({
     <div className={`stage${isArrangement ? ' stage--overview' : ''}`} data-testid="stage">
       <Suspense fallback={<div className="stage-placeholder" data-testid="stage-placeholder">Preparing the Room…</div>}>
         <RoomCanvas
-          key={generationId ?? result.intents.map((intent) => intent.id).join(':')}
+          key={generationId ?? (result.swap?.status === 'available' ? result.swap.sessionId : result.intents.map((intent) => intent.id).join(':'))}
           room={result.room}
           products={result.products}
           placements={result.placements}
           overview={isArrangement}
           receivedAtMs={receivedAtMs}
           generationId={generationId}
+          nudge={nudge}
         />
       </Suspense>
+      {nudge && (nudge.enabled || nudge.status === 'committing' || nudge.status === 'reconciling') ? (
+        <div className="stage-nudge" data-testid="stage-nudge-status">
+          <span role="status">{nudge.message}</span>
+          {nudge.enabled ? <button type="button" onClick={nudge.cancel}>Cancel preview</button> : null}
+        </div>
+      ) : null}
       {isArrangement ? (
         <div className="stage-outcome" data-testid="stage-arrangement-outcome">
           <strong>Walking route clear</strong>
