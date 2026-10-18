@@ -35,4 +35,3 @@ export function RoomReviewPreview({ draft, confirmed }: { draft: CaptureDraft; c
     <ol>{draft.openings?.map((opening, i) => <li key={opening.id}>Opening {i + 1}: {opening.kind}, {wallLabel(draft.topology, opening.wallId)} · start offset {opening.distanceFromStartM ?? '?'} m · width {opening.widthM ?? '?'} m · bottom {opening.bottomM ?? '?'} m · height {opening.heightM ?? '?'} m · clearance {opening.clearanceDepthM ?? '?'} m{opening.kind === 'door' ? ` · ${opening.direction}/${opening.angle}° · hinge ${opening.hingeSide}` : ''}</li>)}</ol>
   </section>;
 }
-

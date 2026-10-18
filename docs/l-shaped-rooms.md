@@ -54,4 +54,3 @@ Local proof applies the old migrations to an empty fixture, adds the new migrati
 Controlled browser fixtures use six distinct synthetic JPEG byte hashes, controlled Auth/Storage/provider transport, actual Python normalization/confirmation/calibration and the real HTTP arrangement solver. They inspect actual Product Mesh rendering on desktop/mobile viewports. They do not establish actual-photo AI accuracy.
 
 Hosted activation remains a separately authorized, unrun action. Physical-phone and physical manual-calibration testing are waived. Actual-photo AI accuracy and paid provider integration remain UNRUN and deferred to the end of the project.
-

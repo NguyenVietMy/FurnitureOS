@@ -85,4 +85,3 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   await expect(page.getByText('This primary wall is inactive.', { exact: false })).toHaveCount(2);
   expect(flow.capture.photos.filter((p: any) => p.primaryWallId.startsWith('wall-notch')).length).toBe(2);
 });
-

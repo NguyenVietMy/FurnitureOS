@@ -24,4 +24,3 @@ export function RoomDimensions({ draft, edit, disabled, measurementsUnsaved }: {
     </fieldset>
   </section>;
 }
-

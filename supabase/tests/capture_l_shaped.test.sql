@@ -119,4 +119,3 @@ begin
  raise notice 'Ticket10 SQL: six-wall reserve/associate, all five dimensions, stale flags, topology/provenance, unknown/removed semantics, owner/denial passed';
 end $$;
 rollback;
-

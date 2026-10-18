@@ -32,4 +32,3 @@ export function floorGrid(points: RoomShell['floorPolygon']): Float32Array {
   }
   return new Float32Array(positions);
 }
-

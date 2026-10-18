@@ -21,4 +21,3 @@ export function draftWalls(draft: CaptureDraft): ReadonlyArray<PlanWall> | null 
     : [[0, 0], [w, 0], [w, d], [0, d]];
   return activeWalls(draft.topology).map((id, i) => ({ id, start: points[i]!, end: points[(i + 1) % points.length]!, length: Math.hypot(points[(i + 1) % points.length]![0] - points[i]![0], points[(i + 1) % points.length]![1] - points[i]![1]) }));
 }
-

@@ -47,4 +47,3 @@ describe('L Room presentation', () => {
     expect(draftWalls({...draft,topology:'rectangle',notchWidthM:900})?.map(w=>w.length)).toEqual([6,5,6,5]);
   });
 });
-

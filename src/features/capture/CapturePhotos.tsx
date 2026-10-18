@@ -21,4 +21,3 @@ export function CapturePhotos({ capture, topology, pending, analysisAvailable, u
     {!analysisAvailable ? <p className="capture-warning">Live photo analysis is unavailable in this runtime. No synthetic observations are supplied.</p> : null}
   </section>;
 }
-
