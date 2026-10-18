@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import secrets
 from threading import RLock
 import time
-from typing import Callable
+from typing import Callable, Literal
+from contextvars import ContextVar
 
 from .catalogue import Catalogue
 from .circulation import validate_circulation
@@ -64,12 +65,26 @@ class FixedPoseFailure:
 
 
 @dataclass(frozen=True)
+class CapturedSessionBinding:
+    owner_id: str
+    capture_id: str
+    confirmed_revision: int
+    room_hash: str
+    expires_at: float
+
+
+CAPTURE_SESSION_ACCESS: ContextVar[CapturedSessionBinding | None] = ContextVar("capture-session-access", default=None)
+
+
+@dataclass(frozen=True)
 class _SessionRecord:
     design: SolvedDesign
     room_type: RoomType
     catalogue_version: str
     clearance_width_m: float
     expires_at: float
+    access_policy: Literal["fixture-capability", "captured-owner"] = "fixture-capability"
+    binding: CapturedSessionBinding | None = None
 
 
 FixedPoseValidator = Callable[
@@ -208,7 +223,7 @@ class DesignSessionStore:
         SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | None,
     ]:
         record = self._records.get(session_id)
-        if record is None:
+        if record is None or not ((record.access_policy == "fixture-capability" and record.binding is None) or (record.access_policy == "captured-owner" and record.binding is not None and CAPTURE_SESSION_ACCESS.get() == record.binding)):
             return None, SwapUnknownSession(
                 status="unknown-session",
                 detail="This Swap session is unknown to this server process. Generate or select the Design again.",
@@ -258,7 +273,7 @@ class DesignSessionStore:
             ),
         }, deep=True)
 
-    def register(self, design: SolvedDesign, room_type: RoomType) -> SolvedDesign:
+    def register(self, design: SolvedDesign, room_type: RoomType, *, binding: CapturedSessionBinding | None = None) -> SolvedDesign:
         """Admit only a complete, currently valid server-produced Design."""
         existing_clearance = (
             design.circulation.clearanceWidthM
@@ -302,7 +317,9 @@ class DesignSessionStore:
                 room_type=room_type,
                 catalogue_version=self._source.version,
                 clearance_width_m=clearance_width_m,
-                expires_at=self._clock() + self._ttl_seconds,
+                expires_at=self._clock() + (min(self._ttl_seconds, max(0, binding.expires_at-time.time())) if binding else self._ttl_seconds),
+                access_policy="captured-owner" if binding else "fixture-capability",
+                binding=binding,
             )
             return managed
 
@@ -492,6 +509,8 @@ class DesignSessionStore:
                 catalogue_version=record.catalogue_version,
                 clearance_width_m=record.clearance_width_m,
                 expires_at=record.expires_at,
+                access_policy=record.access_policy,
+                binding=record.binding,
             )
             self._invalidate_certificate_locked(request.sessionId)
             return SwapAccepted(
@@ -677,6 +696,8 @@ class DesignSessionStore:
                 catalogue_version=record.catalogue_version,
                 clearance_width_m=record.clearance_width_m,
                 expires_at=record.expires_at,
+                access_policy=record.access_policy,
+                binding=record.binding,
             )
             self._invalidate_certificate_locked(request.sessionId)
             return NudgeAccepted(
@@ -698,3 +719,17 @@ class DesignSessionStore:
         with self._lock:
             self._cleanup_expired_locked(self._clock())
             return len(self._certificates)
+
+    def captured_binding(self, session_id: str) -> CapturedSessionBinding | None:
+        """Internal admission metadata only; callers must verify principal before geometry."""
+        with self._lock:
+            record = self._records.get(session_id)
+            return record.binding if record and record.access_policy == "captured-owner" else None
+
+    def revoke_capture(self, capture_id: str) -> None:
+        with self._lock:
+            for session_id, record in tuple(self._records.items()):
+                if record.binding and record.binding.capture_id == capture_id:
+                    self._records.pop(session_id, None)
+                    self._certificates.pop(session_id, None)
+                    self._certificate_tokens.pop(session_id, None)
