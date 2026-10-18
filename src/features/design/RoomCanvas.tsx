@@ -113,6 +113,7 @@ export default function RoomCanvas({
   products,
   placements,
   overview = false,
+  frameRoom = false,
   receivedAtMs,
   generationId,
   nudge,
@@ -121,6 +122,7 @@ export default function RoomCanvas({
   products: ReadonlyArray<Product>;
   placements: ReadonlyArray<Placement>;
   overview?: boolean;
+  frameRoom?: boolean;
   receivedAtMs?: number;
   generationId?: string;
   nudge?: NudgeController;
@@ -142,8 +144,10 @@ export default function RoomCanvas({
     };
   }, [sceneRevision]);
   const primaryPlacement = placements[0];
-  const orbitTarget = overview ? OVERVIEW_TARGET : ORBIT_TARGET;
-  const cameraPosition: Vec3 = overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
+  const xs=room.floorPolygon.map(point=>point[0]), zs=room.floorPolygon.map(point=>point[1]);
+  const span=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs),room.ceilingHeightM);
+  const orbitTarget: Vec3 = frameRoom ? [(Math.min(...xs)+Math.max(...xs))/2,Math.min(.8,room.ceilingHeightM/3),(Math.min(...zs)+Math.max(...zs))/2] : overview ? OVERVIEW_TARGET : ORBIT_TARGET;
+  const cameraPosition: Vec3 = frameRoom ? [span*.9,span*1.2,-span*1.5] : overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
   const dragging = nudge?.status === 'dragging' || nudge?.status === 'clamped';
   const debug = currentSceneDebug(sceneRevision);
   if (debug) debug.nudge = nudge ? { status: nudge.status, instanceId: nudge.instanceId,
@@ -157,7 +161,7 @@ export default function RoomCanvas({
       shadows
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
-      camera={{ position: cameraPosition, fov: 45, near: 0.1, far: 60 }}
+      camera={{ position: cameraPosition, fov: 45, near: 0.1, far: frameRoom?Math.max(60,span*10):60 }}
       data-testid="room-canvas"
       style={{ touchAction: nudge?.enabled ? 'none' : 'pan-y' }}
     >
@@ -165,17 +169,17 @@ export default function RoomCanvas({
       <hemisphereLight args={['#fefdfa', '#c4bcae', 0.7]} />
       <ambientLight intensity={0.25} />
       <directionalLight
-        position={[2.6, 4.2, 2.4]}
+        position={frameRoom?[span*.4,Math.max(4.2,room.ceilingHeightM*1.8),span*.4]:[2.6, 4.2, 2.4]}
         intensity={1.7}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
-        shadow-camera-left={-4}
-        shadow-camera-right={4}
-        shadow-camera-top={4}
-        shadow-camera-bottom={-4}
+        shadow-camera-left={frameRoom?-span:-4}
+        shadow-camera-right={frameRoom?span:4}
+        shadow-camera-top={frameRoom?span:4}
+        shadow-camera-bottom={frameRoom?-span:-4}
         shadow-camera-near={0.5}
-        shadow-camera-far={16}
+        shadow-camera-far={frameRoom?Math.max(16,span*4):16}
       />
 
       <RoomShellMesh room={room} contactWallId={primaryPlacement?.wallContact?.wallId ?? null} />

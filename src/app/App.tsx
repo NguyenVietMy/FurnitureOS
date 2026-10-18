@@ -5,6 +5,7 @@ import { RouteErrorBoundary } from './RouteErrorBoundary';
 
 const DesignPage = lazy(() => import('../features/design/DesignPage'));
 const LiveBedroomPage = lazy(() => import('../features/design/LiveBedroomPage'));
+const CapturePage = lazy(() => import('../features/capture/CapturePage'));
 const catalogueGalleryEnabled = import.meta.env.VITE_ENABLE_CATALOGUE_GALLERY === '1';
 const CatalogueGalleryPage = catalogueGalleryEnabled
   ? lazy(() => import('../features/catalogue-gallery/CatalogueGalleryPage'))
@@ -12,7 +13,7 @@ const CatalogueGalleryPage = catalogueGalleryEnabled
 
 export function App() {
   const { pathname } = useLocation();
-  const feature = pathname === '/' ? 'landing'
+  const feature = matchPath({ path: '/capture', caseSensitive: true, end: true }, pathname) ? 'capture' : pathname === '/' ? 'landing'
     : matchPath({ path: '/design', caseSensitive: true, end: true }, pathname)
       || matchPath({ path: '/design/live-bedroom', caseSensitive: true, end: true }, pathname) ? 'design'
       : CatalogueGalleryPage
@@ -25,14 +26,14 @@ export function App() {
     document.title = catalogueGalleryEnabled && feature === 'catalogue-gallery'
       ? 'FurnitureOS — controlled Catalogue measurement'
       : feature === 'landing' ? 'FurnitureOS — AI powered room design'
-        : feature === 'design' ? 'FurnitureOS — Room preview' : 'Page not found — FurnitureOS';
+        : feature === 'capture' ? 'FurnitureOS — Room Capture' : feature === 'design' ? 'FurnitureOS — Room preview' : 'Page not found — FurnitureOS';
     document.querySelector('meta[name="description"]')?.setAttribute(
       'content',
       catalogueGalleryEnabled && feature === 'catalogue-gallery'
         ? 'Controlled physical-device measurement build.'
         : feature === 'landing'
           ? 'Turn a real Room Capture into a furnished Design assembled from real Products.'
-          : feature === 'design'
+          : feature === 'capture' ? 'Private Room Capture, corrected Openings and explicitly confirmed scale.' : feature === 'design'
             ? 'A real, real-scale Product placed in a Room Shell.'
             : 'This FurnitureOS page could not be found.',
     );
@@ -52,6 +53,7 @@ export function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/design" caseSensitive element={<DesignPage />} />
           <Route path="/design/live-bedroom" caseSensitive element={<LiveBedroomPage />} />
+          <Route path="/capture" caseSensitive element={<CapturePage />} />
           {CatalogueGalleryPage ? (
             <Route path="/catalogue-gallery" caseSensitive element={<CatalogueGalleryPage />} />
           ) : null}

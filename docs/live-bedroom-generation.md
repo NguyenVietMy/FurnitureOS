@@ -222,3 +222,7 @@ of a parsed solved Design until every Placement's complete active LOD has
 rendered through the main camera with all visible meshes and materials,
 nontrivial screen/frustum coverage, and no asset error or texture fallback.
 Shadow-camera and single-fragment callbacks cannot complete the measurement.
+
+## Confirmed Capture Rooms
+
+`generate_bedroom_for_room` accepts the authoritative confirmed Room explicitly. Capture validation, revision/hash liveness and lease checks surround generation and private session publication. The existing `generate_live_bedroom` wrapper still supplies its fixture Room for old callers. Catalogue, placement guidance, Zones, solver and circulation share the explicit Room; private guidance bypasses cross-request LRU retention. The supported bed/optional-rug scope and provider/ledger stay unchanged. Invalid/unconfirmed Room, computationally unsupported Room, provider failure and solver no-fit remain distinct. See [Capture](capture.md).

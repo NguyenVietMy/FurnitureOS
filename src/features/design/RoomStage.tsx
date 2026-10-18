@@ -45,6 +45,7 @@ export function RoomStage({
         <RoomCanvas
           key={generationId ?? (result.swap?.status === 'available' ? result.swap.sessionId : result.intents.map((intent) => intent.id).join(':'))}
           room={result.room}
+          frameRoom={result.room.id.startsWith('capture-')}
           products={result.products}
           placements={result.placements}
           overview={isArrangement}
