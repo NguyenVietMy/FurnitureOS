@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CaptureConfig, CaptureDeletionStatus, CaptureDraft, CaptureGenerationResult, CaptureIssue, CaptureView } from '@/shared/api/types';
 import { CaptureApiError, captureRequest, setCaptureAuthorization } from '@/shared/api/client';
+import { dimensionFields } from './capture-topology';
 import { captureAuth, ensureAnonymous, isAnonymousSession, requireAnonymousSession } from '@/shared/auth/supabase';
 const blank: CaptureDraft = { roomType: '', topology: '', widthM: null, depthM: null, heightM: null,
   dimensionsConfirmed: false, wallReviews: [], openings: [], furnitureAcknowledged: false, dimensionEvidence: [] };
@@ -54,7 +55,17 @@ export function useCapture() {
     return()=>clearTimeout(timer);
   },[capture?.id,capture?.expiresAt]);
   const install = (next: CaptureView) => { setCapture(next); setDraftState(next.draft); setDirty(false); if(owner.current) localStorage.setItem(`furnitureos.capture.${owner.current}`,next.id); };
+  const roomDetailsUnsaved = Boolean(capture && (capture.draft.topology !== draft.topology
+    || dimensionFields(draft.topology).some(field => (capture.draft[field] ?? null) !== (draft[field] ?? null))));
   const edit = (next: CaptureDraft) => {
+    if (next.topology !== draft.topology) {
+      const cleared = {...next};
+      for (const evidence of draft.dimensionEvidence ?? []) {
+        if (!evidence.overrideReason?.trim() && draft[evidence.field] === evidence.valueM && cleared[evidence.field] === evidence.valueM) cleared[evidence.field] = null;
+      }
+      next = {...cleared, dimensionsConfirmed:false, wallReviews:[], dimensionEvidence:[],
+        openings:(next.openings ?? []).map(opening=>({...opening,wallId:null,reviewed:false}))};
+    }
     sequence.current++; active.current?.abort(); setPending(false); setGeneration(null); setIssues([]);
     setDraftState(next); setDirty(true);
   };
@@ -99,17 +110,26 @@ export function useCapture() {
       return captureRequest<CaptureView>(`/api/captures/${current.id}/photos/${photo.id}/content?expectedRevision=${reserved.revision}`,'POST',file,signal);
     },install);
   };
-  const photoAction = async (id:string, action:'analyze'|'remove'|'associate', wall?:string) => {
+  const photoAction = async (id:string, action:'analyze'|'remove'|'associate', wall?:string, observed?:ReadonlyArray<string>) => {
     if (!capture) return;
     const before=capture;
     await execute(async signal=>{
       const current=await savePendingDraft(before,signal);
       return captureRequest<CaptureView>(`/api/captures/${current.id}/photos/${id}${action==='analyze'?'/analyze':''}`,
         action==='analyze'?'POST':action==='remove'?'DELETE':'PATCH',
-        {expectedRevision:current.revision,...(action==='associate'?{primaryWallId:wall,observedWallIds:[]}: {})},signal);
+        {expectedRevision:current.revision,...(action==='associate'?{primaryWallId:wall,observedWallIds:observed??[]}: {})},signal);
     },install);
   };
+  const save = async () => {
+    if (!capture) return;
+    const current=capture;
+    await execute(signal=>captureRequest<CaptureView>(`/api/captures/${current.id}/draft`,'PATCH',
+      {expectedRevision:current.revision,draft},signal),saved=>{
+        install(saved);setMessage('Room details saved. Review the Opening inventory and explicitly confirm the saved dimensions.');
+      });
+  };
   const confirm = async () => {
+    if(roomDetailsUnsaved){setMessage('Save Room details before confirming measurements and reviewing the Opening inventory.');return;}
     if (!capture) return;
     const current=capture;
     await execute(async signal => {
@@ -146,5 +166,5 @@ export function useCapture() {
       && current.result.design.swap.sessionId===design.swap.sessionId && design.swap.version>=current.result.design.swap.version
       ? {...current,result:{...current.result,design}} : current);
   },[]);
-  return {config,capture,draft,edit,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
+  return {config,capture,draft,edit,save,roomDetailsUnsaved,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
 }

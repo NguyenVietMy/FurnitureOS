@@ -50,11 +50,22 @@ def collect(client):
         c=response.json()
     return c
 
+def save_reviewed(client,c,draft):
+    # Explicit user workflow: save changed dimensions, then review the normalized
+    # saved Room in a separate mutation. No hidden retry exists in the product.
+    first=client.patch(f"/api/captures/{c['id']}/draft",json={"expectedRevision":c["revision"],"draft":draft},headers=A)
+    assert first.status_code==200,first.text
+    c=first.json()
+    second=client.patch(f"/api/captures/{c['id']}/draft",json={"expectedRevision":c["revision"],"draft":draft},headers=A)
+    assert second.status_code==200,second.text
+    return second.json()
+
+
 def confirmed(client,width=6,depth=4):
     c=collect(client)
     draft={**c["draft"],"topology":"rectangle","roomType":"bedroom","widthM":width,"depthM":depth,"heightM":2.5,
            "dimensionsConfirmed":True,"wallReviews":["wall-north","wall-east","wall-south","wall-west"],"furnitureAcknowledged":True}
-    c=client.patch(f"/api/captures/{c['id']}/draft",json={"expectedRevision":c["revision"],"draft":draft},headers=A).json()
+    c=save_reviewed(client,c,draft)
     response=client.post(f"/api/captures/{c['id']}/confirm",json={"expectedRevision":c["revision"]},headers=A)
     assert response.json()["status"]=="confirmed",response.text
     return response.json()["capture"]
@@ -101,7 +112,7 @@ def test_missing_coverage_uncertain_swing_and_corrections(harness):
     draft={**c["draft"],"topology":"rectangle","roomType":"bedroom","widthM":6,"depthM":4,"heightM":2.5,
         "dimensionsConfirmed":True,"wallReviews":["wall-north","wall-east","wall-south","wall-west"],"furnitureAcknowledged":True,
         "openings":[{"id":"door","kind":"door","wallId":"wall-east","distanceFromStartM":0,"widthM":.8,"bottomM":0,"heightM":2,"clearanceDepthM":0,"reviewed":True}]}
-    c=client.patch(f"/api/captures/{c['id']}/draft",json={"expectedRevision":c["revision"],"draft":draft},headers=A).json()
+    c=save_reviewed(client,c,draft)
     response=client.post(f"/api/captures/{c['id']}/confirm",json={"expectedRevision":c["revision"]},headers=A)
     assert any(i["code"]=="unsupported-or-uncertain-swing" for i in response.json()["issues"])
     assert not provider.calls

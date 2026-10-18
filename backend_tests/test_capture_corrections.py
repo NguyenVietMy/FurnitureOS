@@ -11,7 +11,7 @@ from api.capture_auth import CaptureError,SupabaseAuth
 from api.main import create_app
 from api.provider import ProviderReply
 from api.swaps import DesignSessionStore
-from backend_tests.test_captures import harness,confirmed,collect,ControlledProvider,A
+from backend_tests.test_captures import save_reviewed, harness,confirmed,collect,ControlledProvider,A
 
 
 def test_deletion_poll_is_inaccessible_only_for_genuinely_deleting_rows(harness):
@@ -149,7 +149,7 @@ def test_released_late_analysis_cannot_overwrite_subsequent_user_corrections(har
         late=pending.result(timeout=15)
     assert late.status_code==409 and late.json()['detail']['code']=='stale-capture'
     current=base.get(f"/api/captures/{c['id']}",headers=A).json()
-    assert current['draft']==corrected and current['photos'][0]['semantics'] is None
+    assert current['draft']=={**corrected,'dimensionsConfirmed':False,'wallReviews':[]} and current['photos'][0]['semantics'] is None
     assert not service.leases
 
 
@@ -178,7 +178,9 @@ class ReplacementProvider(ControlledProvider):
 ],ids=['removed','moved','old-unknown-resolved','old-unknown-empty','new-unknown','both-unknown'])
 def test_reanalysis_requires_review_of_prior_and_current_proposal_walls(harness,old,new,observed,remaining):
     service,_,_=harness;provider=ReplacementProvider(old,new);client=remote_client(service,provider)
-    c=collect(client);pid=c['photos'][0]['id']
+    c=collect(client)
+    c=client.patch(f"/api/captures/{c['id']}/draft",headers=A,json={'expectedRevision':c['revision'],'draft':{**c['draft'],'topology':'rectangle'}}).json()
+    pid=c['photos'][0]['id']
     c=client.patch(f"/api/captures/{c['id']}/photos/{pid}",headers=A,
         json={'expectedRevision':c['revision'],'primaryWallId':'wall-north','observedWallIds':observed}).json()
     first=analyze(client,c);assert first.status_code==200
@@ -199,7 +201,7 @@ def test_reanalysis_requires_review_of_prior_and_current_proposal_walls(harness,
             'bottomM':1,'heightM':.8,'clearanceDepthM':0,'reviewed':True}],
         'dimensionEvidence':[{'field':'widthM','valueM':reference.json()['estimates'][0]['valueM'],'photoId':pid,
             'photoHash':c['photos'][0]['sha256'],'overrideReason':'Tape measured 6.4 m; controlled provisional reference retained.'}]}
-    c=client.patch(f"/api/captures/{c['id']}/draft",headers=A,json={'expectedRevision':c['revision'],'draft':corrected}).json()
+    c=save_reviewed(client,c,corrected)
     confirmation=client.post(f"/api/captures/{c['id']}/confirm",headers=A,json={'expectedRevision':c['revision']})
     assert confirmation.json()['status']=='confirmed',confirmation.text
     c=confirmation.json()['capture'];before=deepcopy(c)

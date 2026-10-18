@@ -6,9 +6,16 @@ from pydantic import Field, RootModel
 from .models import ContractModel, Finite, RoomShell
 from .live_generation import LiveGenerationSuccess, LiveGenerationFailure
 
-WallId = Literal["wall-north", "wall-east", "wall-south", "wall-west"]
+WallId = Literal["wall-north", "wall-east", "wall-south", "wall-west", "wall-notch-vertical", "wall-notch-horizontal"]
 WALL_IDS = ("wall-north", "wall-east", "wall-south", "wall-west")
-DimensionField = Literal["widthM", "depthM", "heightM"]
+L_WALL_IDS = ("wall-north", "wall-notch-vertical", "wall-notch-horizontal", "wall-east", "wall-south", "wall-west")
+DimensionField = Literal["widthM", "depthM", "heightM", "notchWidthM", "notchDepthM"]
+
+def active_wall_ids(topology: str) -> tuple[WallId, ...]:
+    return L_WALL_IDS if topology == "L-shaped" else WALL_IDS
+
+def active_dimension_fields(topology: str) -> tuple[str, ...]:
+    return ("widthM", "depthM", "heightM", "notchWidthM", "notchDepthM") if topology == "L-shaped" else ("widthM", "depthM", "heightM")
 CaptureId = Annotated[str, Field(pattern=r"^[0-9a-fA-F-]{36}$")]
 ShortId = Annotated[str, Field(min_length=1, max_length=64)]
 MAX_INPUT_BYTES = 4_000_000
@@ -87,8 +94,10 @@ class CaptureDraft(ContractModel):
     widthM: Finite | None = None
     depthM: Finite | None = None
     heightM: Finite | None = None
+    notchWidthM: Finite | None = None
+    notchDepthM: Finite | None = None
     dimensionsConfirmed: bool = False
-    wallReviews: tuple[WallId, ...] = Field(default=(), max_length=4)
+    wallReviews: tuple[WallId, ...] = Field(default=(), max_length=6)
     openings: tuple[OpeningDraft, ...] = Field(default=(), max_length=128)
     furnitureAcknowledged: bool = False
     dimensionEvidence: tuple[DimensionEvidence, ...] = Field(default=(), max_length=16)
@@ -112,7 +121,7 @@ class CaptureSemanticProposal(ContractModel):
 class CapturePhoto(ContractModel):
     id: CaptureId
     primaryWallId: WallId
-    observedWallIds: tuple[WallId, ...] = Field(default=(), max_length=4)
+    observedWallIds: tuple[WallId, ...] = Field(default=(), max_length=6)
     state: Literal["reserved", "accepted", "unavailable", "failed"]
     declaredBytes: int = Field(ge=1, le=MAX_INPUT_BYTES)
     inputBytes: int = Field(default=0, ge=0, le=MAX_INPUT_BYTES)
@@ -172,7 +181,7 @@ class PhotoReservation(ContractModel):
 class PhotoAssociation(ContractModel):
     expectedRevision: int = Field(ge=1)
     primaryWallId: WallId
-    observedWallIds: tuple[WallId, ...] = Field(default=(), max_length=4)
+    observedWallIds: tuple[WallId, ...] = Field(default=(), max_length=6)
 
 class CaptureRevision(ContractModel):
     expectedRevision: int = Field(ge=1)

@@ -28,7 +28,7 @@ export default function CapturePage() {
   const warn=capture?.photos?.some(p=>!p.semantics||p.semantics.detectedFurniture!=='absent')??false;
   const review=()=>reviewRef.current?.scrollIntoView({behavior:'auto',block:'start'});
   return <main className="capture-page" data-testid="capture-page"><header><Link to="/design">← Room preview</Link><p className="capture-eyebrow">Your Room Capture</p>
-    <h1>Capture, correct, then confirm</h1><p>Four stable walls. Explicit measurements. A Design checked against the Room you confirm.</p></header>
+    <h1>Capture, correct, then confirm</h1><p>Stable labelled walls. Explicit measurements. A Design checked against the Room you confirm.</p></header>
     {!flow.config?<p role="status">Loading Capture availability…</p>:null}
     {flow.config&&!flow.config.storageReady?<section role="status" className="capture-warning"><h2>Capture is unavailable right now</h2><p>Private photo uploads are not available in this environment. You can <Link to="/design">explore Room preview</Link> and try Capture again later.</p></section>:null}
     {flow.message?<p role="status" className="capture-message">{flow.message}</p>:null}
@@ -43,15 +43,16 @@ export default function CapturePage() {
         <button disabled={flow.pending} onClick={flow.reload}>Reload confirmed state</button><button disabled={flow.pending} onClick={flow.remove}>Delete Capture</button></div>
       <div className="capture-columns"><div className="capture-form">
         <ShapeSelection draft={flow.draft} edit={flow.edit} disabled={flow.pending}/>
-        <CapturePhotos capture={capture} pending={flow.pending} analysisAvailable={flow.config?.analysisAvailable??false} upload={flow.upload} action={flow.photoAction}/>
+        <CapturePhotos capture={capture} topology={flow.draft.topology} pending={flow.pending} analysisAvailable={flow.config?.analysisAvailable??false} upload={flow.upload} action={flow.photoAction}/>
         <section ref={reviewRef}><h2>Review all observed details</h2>
           {warn?<div className="capture-warning"><strong>Detected Furniture / unresolved detection</strong><p>This Design assumes an empty Room. Detected Furniture is not reconstructed or included.</p>
             <label className="check"><input type="checkbox" disabled={flow.pending} checked={flow.draft.furnitureAcknowledged??false} onChange={e=>flow.edit({...flow.draft,furnitureAcknowledged:e.target.checked})}/>I acknowledge the empty-Room assumption.</label></div>:null}
           <OpeningEditor draft={flow.draft} edit={flow.edit} disabled={flow.pending} proposals={proposals}/>
-          <ReferenceCalibration capture={capture} draft={flow.draft} edit={flow.edit} disabled={flow.pending}/>
-          <RoomDimensions draft={flow.draft} edit={flow.edit} disabled={flow.pending}/>
+          <ReferenceCalibration capture={capture} draft={flow.draft} edit={flow.edit} disabled={flow.pending||flow.roomDetailsUnsaved}/>
+          <RoomDimensions draft={flow.draft} edit={flow.edit} disabled={flow.pending} measurementsUnsaved={flow.roomDetailsUnsaved}/>
+          <button disabled={flow.pending||!flow.dirty} onClick={flow.save}>Save Room details</button>
           {flow.issues.length?<div ref={errorsRef} className="capture-errors" role="alert" tabIndex={-1}><h3>Required details to resolve</h3><ul>{flow.issues.map((issue,i)=><li key={i}>{issue.detail}</li>)}</ul></div>:null}
-          <button disabled={flow.pending} onClick={flow.confirm}>Review and confirm Room</button>
+          <button disabled={flow.pending||flow.roomDetailsUnsaved} onClick={flow.confirm}>Review and confirm Room</button>
         </section>
         <CaptureGeneration result={flow.generation} available={flow.config?.generationAvailable??false} confirmed={confirmed} pending={flow.pending} generate={flow.generate} review={review}/>
       </div><aside className="capture-preview"><RoomReviewPreview draft={flow.draft} confirmed={confirmed}/>

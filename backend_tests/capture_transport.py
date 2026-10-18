@@ -9,7 +9,8 @@ from uuid import UUID,uuid4
 import httpx
 from api.capture_auth import CaptureError,SupabaseSettings
 from api.capture_repository import SupabaseCaptureRepository
-from api.capture_models import CaptureDraft
+from api.capture_models import CaptureDraft,active_wall_ids
+from api.capture_transitions import normalize_draft
 
 OWNERS={"test-owner-a":"11111111-1111-1111-1111-111111111111","test-owner-b":"22222222-2222-2222-2222-222222222222"}
 class ControlledSupabase:
@@ -67,7 +68,12 @@ class ControlledSupabase:
             self.leases={key:value for key,value in self.leases.items() if value[1]!=cid}
             return row
         if any(value[1]==cid and value[2]==row["revision"] and value[3]>datetime.now(timezone.utc) for value in self.leases.values()): raise CaptureError("busy","Busy")
-        if action=="draft": row["draft"]=payload["draft"]
+        if action=="draft":
+            changed=row["draft"].get("topology","")!=payload["draft"].get("topology","")
+            row["draft"]=normalize_draft(row["draft"],payload["draft"])
+            if changed:
+                row["calibrations"]=[]
+                for photo in row["photos"]:photo.update(semantics=None,observedWallIds=[],analysisStatus="unknown")
         elif action=="reserve":
             if len(row["photos"])>=8 or sum(p["declaredBytes"] for p in row["photos"])+payload["declaredBytes"]>32000000: raise CaptureError("quota","Quota")
             row["photos"].append({"id":str(uuid4()),"primaryWallId":payload["primaryWallId"],"observedWallIds":[],"state":"reserved","declaredBytes":payload["declaredBytes"],
@@ -101,9 +107,9 @@ class ControlledSupabase:
             if photo["analysisStatus"]!="pending" or self.analysis_revisions.get(photo["id"])!=revision or photo["sha256"]!=payload["sha256"]: raise CaptureError("stale-capture","Changed")
             proposal=payload["semantics"]
             openings=(photo.get("semantics") or {}).get("openings",[])+proposal["openings"]
-            valid_walls={"wall-north","wall-east","wall-south","wall-west"}
+            valid_walls=set(active_wall_ids(row["draft"].get("topology","")))
             affected={photo["primaryWallId"],*photo["observedWallIds"],*(opening["wallId"] for opening in openings if opening.get("wallId") in valid_walls)}
-            if any(opening.get("wallId") is None for opening in openings):affected=valid_walls
+            if any(opening.get("wallId") not in valid_walls for opening in openings):affected=valid_walls
             photo.update(semantics=proposal,analysisStatus="complete")
             row["draft"]["wallReviews"]=[wall for wall in row["draft"]["wallReviews"] if wall not in affected]
             if proposal["detectedFurniture"]!="absent":row["draft"]["furnitureAcknowledged"]=False

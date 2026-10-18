@@ -4,7 +4,7 @@ import { capturePhotoUrl, captureRequest } from '@/shared/api/client';
 type Point=readonly[number,number];
 export function ReferenceCalibration({capture,draft,edit,disabled}:{capture:CaptureView;draft:CaptureDraft;edit:(value:CaptureDraft)=>void;disabled:boolean}) {
   const [photoId,setPhotoId]=useState(''),[url,setUrl]=useState(''),[points,setPoints]=useState<ReadonlyArray<Point>>([]);
-  const [plane,setPlane]=useState<'floor'|'wall'>('floor'),[field,setField]=useState<'widthM'|'depthM'|'heightM'>('widthM');
+  const [plane,setPlane]=useState<'floor'|'wall'>('floor'),[field,setField]=useState<'widthM'|'depthM'|'heightM'|'notchWidthM'|'notchDepthM'>('widthM');
   const [type,setType]=useState<'a4'|'measured'>('a4'),[refWidth,setRefWidth]=useState(.210),[refHeight,setRefHeight]=useState(.297);
   const [ack,setAck]=useState(false),[result,setResult]=useState<ReferenceResult|null>(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const photo=capture.photos?.find(p=>p.id===photoId && p.state==='accepted');
@@ -17,11 +17,12 @@ export function ReferenceCalibration({capture,draft,edit,disabled}:{capture:Capt
     capturePhotoUrl(capture.id,photo.id,abort.signal).then(value=>{objectUrl=value;if(!abort.signal.aborted)setUrl(value);else URL.revokeObjectURL(value);})
       .catch(()=>{if(!abort.signal.aborted)setMessage('Canonical photo is unavailable. Use typed dimensions.');});
     return()=>{abort.abort();calculation.current?.abort();if(objectUrl)URL.revokeObjectURL(objectUrl);};
-  },[capture.id,capture.revision,photo?.id,photo?.sha256]);
+  },[capture.id,capture.revision,photo?.id,photo?.sha256,draft.topology]);
   const calculate=async()=>{
     if(!photo||!photo.sha256||points.length!==6)return;
     setBusy(true);setMessage('');
     calculation.current?.abort();const abort=new AbortController();calculation.current=abort;
+    if(!['widthM','depthM','heightM',...(draft.topology==='L-shaped'?['notchWidthM','notchDepthM']:[])].includes(field)){setMessage('Choose an active Room dimension.');setBusy(false);return;}
     const request:ReferenceRequest={expectedRevision:capture.revision,photoId:photo.id,photoHash:photo.sha256,referenceType:type,
       referenceWidthM:refWidth,referenceHeightM:refHeight,plane,perspective1x:ack,coplanar:ack,visible:ack,dimensionsReviewed:ack,marksReviewed:ack,
       corners:points.slice(0,4) as unknown as ReferenceRequest['corners'],segments:[{field,start:points[4]!,end:points[5]!}]};
@@ -50,7 +51,7 @@ export function ReferenceCalibration({capture,draft,edit,disabled}:{capture:Capt
         <label>Reference height (m)<input type="number" value={refHeight} step=".001" readOnly={type==='a4'} onChange={e=>{setRefHeight(Number(e.target.value));setAck(false);}}/></label></div>
       <label>Physical plane<select value={plane} onChange={e=>{const next=e.target.value as typeof plane;setPlane(next);setField(next==='wall'?'heightM':'widthM');setAck(false);}}><option value="floor">Flat floor plane</option><option value="wall">Flush wall plane</option></select></label>
       <label>Complete dimension segment<select value={field} onChange={e=>setField(e.target.value as typeof field)}>
-        {plane==='floor'?<><option value="widthM">Width: full floor-wall edge</option><option value="depthM">Depth: full floor-wall edge</option></>:<option value="heightM">Height: floor to ceiling</option>}</select></label>
+        {plane==='floor'?<><option value="widthM">Width: full floor-wall edge</option><option value="depthM">Depth: full floor-wall edge</option>{draft.topology==='L-shaped'?<><option value="notchWidthM">Notch width: full horizontal notch edge</option><option value="notchDepthM">Notch depth: full vertical notch edge</option></>:null}</>:<option value="heightM">Height: floor to ceiling</option>}</select></label>
       {url&&photo?<><p>Mark corners 1–4 around the known rectangle, starting at the width edge; then the two actual dimension endpoints. Coordinates use the canonical oriented image.</p>
         <button type="button" onClick={()=>{setPoints([]);setAck(false);}}>Clear marks</button>
         <div className="calibration-image"><img src={url} alt="Private canonical photo for user-authored calibration"

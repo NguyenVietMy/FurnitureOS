@@ -1,6 +1,7 @@
 import type { CaptureDraft, OpeningDraft, SemanticOpening } from '@/shared/api/types';
-import { walls } from './CapturePhotos';
+import { activeWalls, wallLabel } from './capture-topology';
 export function OpeningEditor({draft,edit,disabled,proposals}:{draft:CaptureDraft;edit:(value:CaptureDraft)=>void;disabled:boolean;proposals:ReadonlyArray<SemanticOpening>}) {
+  const walls=activeWalls(draft.topology);
   const openings=draft.openings??[];
   const update=(index:number,patch:Partial<OpeningDraft>)=>edit({...draft,dimensionsConfirmed:false,openings:openings.map((opening,i)=>i===index?{...opening,...patch}:opening)});
   const add=(proposal?:SemanticOpening)=>edit({...draft,dimensionsConfirmed:false,openings:[...openings,{
@@ -14,7 +15,7 @@ export function OpeningEditor({draft,edit,disabled,proposals}:{draft:CaptureDraf
     <button type="button" onClick={()=>add()}>Add missed Opening</button>
     {openings.map((opening,index)=><fieldset className="opening-fields" key={opening.id}><legend>Opening {index+1}</legend>
       <label>Opening wall <select aria-label={`Opening ${index+1} wall`} value={opening.wallId??''} onChange={event=>update(index,{wallId:(event.target.value||null) as OpeningDraft['wallId'],reviewed:false})}>
-        <option value="">Unknown wall</option>{walls.map((wall,i)=><option key={wall} value={wall}>Wall {'ABCD'[i]}</option>)}</select></label>
+        <option value="">Unknown wall</option>{walls.map((wall,i)=><option key={wall} value={wall}>{wallLabel(draft.topology,wall)}</option>)}</select></label>
       <label>Opening type <select aria-label={`Opening ${index+1} type`} value={opening.kind} onChange={event=>update(index,{kind:event.target.value as OpeningDraft['kind'],reviewed:false,direction:'unknown',angle:'unknown',hingeSide:'unknown',bottomM:event.target.value==='door'?0:null})}>
         <option value="unknown">Unknown</option><option value="door">Door</option><option value="window">Window</option></select></label>
       {([['distanceFromStartM','Distance from wall start'],['widthM','Width'],['bottomM','Bottom / sill height'],['heightM','Height'],['clearanceDepthM','Inward clearance']] as const).map(([key,label])=><label key={key}>{label} (m)
@@ -30,7 +31,7 @@ export function OpeningEditor({draft,edit,disabled,proposals}:{draft:CaptureDraf
     </fieldset>)}
     <fieldset><legend>Complete inventory review</legend>{walls.map((wall,index)=><label className="check" key={wall}>
       <input type="checkbox" checked={draft.wallReviews?.includes(wall)??false} onChange={event=>edit({...draft,wallReviews:event.target.checked?[...(draft.wallReviews??[]),wall]:(draft.wallReviews??[]).filter(item=>item!==wall)})}/>
-      I reviewed every Opening on Wall {'ABCD'[index]}, including if there are none.</label>)}</fieldset>
+      I reviewed every Opening on {wallLabel(draft.topology,wall)}, including if there are none.</label>)}</fieldset>
     </fieldset>
   </section>;
 }

@@ -13,6 +13,7 @@ from .capture_models import (CaptureConfig,CaptureView,CreateCapture,DraftUpdate
     PhotoAssociation,CaptureRevision,CaptureReview,CaptureGenerationRequest,CaptureGenerationResult,
     CaptureBlocked,CaptureGenerated,CalibrationRecord,CaptureDeletionStatus)
 from .capture_files import normalize_photo
+from .capture_transitions import normalize_draft
 from .capture_reference import ReferenceRequest,ReferenceResult,calibrate
 from .capture_room import validate_capture_rectangle,room_hash,computational_support
 from .capture_vision import analyze_photo
@@ -95,8 +96,9 @@ class CaptureService:
         @router.patch("/api/captures/{capture_id}/draft",response_model=CaptureView)
         def draft(capture_id:UUID,body:DraftUpdate,authorization:str|None=Header(default=None)):
             repository,principal=self.dependencies(authorization)
-            self.read(repository,principal,str(capture_id),body.expectedRevision)
-            updated=repository.user(principal,"draft",str(capture_id),body.expectedRevision,{"draft":body.draft.model_dump(mode="json")})
+            current=self.read(repository,principal,str(capture_id),body.expectedRevision)
+            normalized=normalize_draft(current.draft.model_dump(mode="json"),body.draft.model_dump(mode="json"))
+            updated=repository.user(principal,"draft",str(capture_id),body.expectedRevision,{"draft":normalized})
             self.sessions.revoke_capture(str(capture_id))
             return CaptureView.model_validate(updated)
 
@@ -200,6 +202,9 @@ class CaptureService:
             capture=self.read(repository,principal,str(capture_id),body.expectedRevision)
             selected=next((p for p in capture.photos if p.id==str(photo_id) and p.state=="accepted"),None)
             if selected is None: raise CaptureError("not-found","This photo is unavailable.",404)
+            from .capture_models import active_wall_ids
+            if selected.primaryWallId not in active_wall_ids(capture.draft.topology):
+                raise CaptureError("inactive-photo-wall","Reassociate this photo to an active Room wall.")
             with repository.lease(principal,capture.id,capture.revision,"vision") as lease:
                 repository.authority(principal,"begin-analysis",capture.id,capture.revision,lease,{"photoId":selected.id})
                 try:
@@ -208,7 +213,7 @@ class CaptureService:
                     if sha256(data).hexdigest()!=selected.sha256: raise CaptureError("photo-unavailable","Accepted photo changed.")
                     try: repository.assert_lease(principal,capture.id,capture.revision,lease)
                     except CaptureError: raise CaptureError("not-found","This photo is unavailable.",404) from None
-                    semantics=analyze_photo(data,selected.primaryWallId,self.vision_provider)
+                    semantics=analyze_photo(data,selected.primaryWallId,self.vision_provider,topology=capture.draft.topology)
                     result=repository.authority(principal,"semantics",capture.id,capture.revision,lease,
                         {"photoId":selected.id,"sha256":selected.sha256,"semantics":semantics.model_dump(mode="json")})
                     self.sessions.revoke_capture(capture.id)
@@ -224,6 +229,9 @@ class CaptureService:
             capture=self.read(repository,principal,str(capture_id),body.expectedRevision)
             photo=next((p for p in capture.photos if p.id==body.photoId and p.sha256==body.photoHash and p.state=="accepted"),None)
             if photo is None: raise CaptureError("stale-calibration","Choose a current accepted canonical photo.")
+            from .capture_models import active_dimension_fields
+            if any(segment.field not in active_dimension_fields(capture.draft.topology) for segment in body.segments):
+                raise CaptureError("inactive-calibration","Choose a dimension of the current Room topology.")
             with repository.lease(principal,capture.id,capture.revision,"calibration") as lease:
                 result=calibrate(body,photo.widthPx,photo.heightPx)
                 record=CalibrationRecord(request=body,result=result)

@@ -18,7 +18,7 @@ safe point to the first half-plane hit, rechecks the candidate, and never shows
 the unchecked pointer target. Sparse pointer events therefore cannot cross a
 thin obstacle, select another free-space component, or teleport around a bend.
 
-For each Room wall, all vertices of the selected body and its required access
+For convex Rooms, each boundary wall constrains all vertices of the selected body and its required access
 footprints give an affine containment bound. For each forbidden moving/static
 pair, a SAT edge axis and its orientation are chosen at the baseline; preserving
 that same inequality preserves separation for every translation in the region.
@@ -51,7 +51,7 @@ opposite side accesses, so farther attachments are necessary. Every baseline
 tether is independently checked by the owning swept predicates. It connects
 the fixed walker square at `q` to the translated access-target square:
 
-* Room half-planes contain both endpoints, hence their whole convex hull.
+* Convex outer-hull half-planes contain both endpoints, hence their whole convex hull. In an L Room, one common oriented separator also keeps both endpoints on the same side of the excluded notch triangle. Separate opposite endpoint constraints would not prove the tether.
 * For each static obstacle, **one common oriented axis** separates both
   endpoints from that obstacle. Only walker x/z axes and fixed obstacle axes
   are used; those remain owning SAT axes after translation. Independently
@@ -69,6 +69,8 @@ and static-obstacle inequalities; it needs no connecting tree. No fixed anchor
 for multiple selected accesses, insufficient useful margin, or excessive work
 returns unavailable. Final ordinary whole-Design validation is a backstop and
 publication gate, not the proof of the intervening preview.
+
+For supported L Rooms, outer-hull half-planes plus one stable SAT separator against the excluded reflex triangle contain each moving convex footprint. Attachment connectors pass the same complete swept-polygon authority. Tight certificates still return unavailable; L Nudges are not globally disabled. Wall contacts survive only while their finite directed intervals, alignment and gap remain valid. See [L-shaped Rooms](l-shaped-rooms.md).
 
 ## Numeric policy and bounds
 
@@ -152,6 +154,5 @@ session or an older version.
 
 Touch tests explicitly use `hasTouch=true`, `isMobile=true`, 390x844 and Chromium
 touchStart/move/end input on the real Mesh. Controlled failure/live-generation
-responses are labelled separately from real API authority checks. Physical-phone
-proof and deployment behavior remain unrun owner gates. Sessions remain
+responses are labelled separately from real API authority checks. Physical-phone proof is waived by owner decision; deployment behavior remains a separate unrun gate. Sessions remain
 process-local, without multi-worker/persistent ownership guarantees.

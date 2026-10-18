@@ -6,6 +6,7 @@ import heapq
 from math import atan2, cos, hypot, isfinite, pi, sin
 from typing import Iterator, Literal
 
+from .room_geometry import inward_normal, prepare_polygon, point_depth, polygon_clearance
 from .catalogue.contract import Catalogue
 from .models import (
     AccessRegion, DesignFailure, DesignRequest, DesignResultValue, FitMeasurements,
@@ -50,6 +51,22 @@ def rectangular_room_shell(room_id: str, width_m: float, depth_m: float, ceiling
             {"id": "wall-south", "label": "South wall", "start": south_east, "end": south_west},
             {"id": "wall-west", "label": "West wall", "start": south_west, "end": north_west},
         ],
+    })
+
+
+def l_shaped_room_shell(room_id: str, width_m: float, depth_m: float, notch_width_m: float,
+                        notch_depth_m: float, ceiling_height_m: float) -> RoomShell:
+    values = (width_m, depth_m, notch_width_m, notch_depth_m, ceiling_height_m)
+    if not all(isfinite(v) and 0 < v <= MAX_GEOMETRY_M for v in values) or not (notch_width_m < width_m and notch_depth_m < depth_m):
+        raise ValueError("L dimensions must be positive and its notch smaller than the overall Room")
+    x, z = width_m / 2, depth_m / 2
+    points = ((-x, -z), (x-notch_width_m, -z), (x-notch_width_m, -z+notch_depth_m),
+              (x, -z+notch_depth_m), (x, z), (-x, z))
+    ids = ("wall-north", "wall-notch-vertical", "wall-notch-horizontal", "wall-east", "wall-south", "wall-west")
+    return RoomShell.model_validate({
+        "id": room_id, "floorPolygon": points, "ceilingHeightM": ceiling_height_m,
+        "walls": [{"id": wall_id, "label": "Wall "+chr(65+i), "start": points[i], "end": points[(i+1)%6]}
+                  for i, wall_id in enumerate(ids)],
     })
 
 
@@ -129,12 +146,7 @@ def get_wall(room: RoomShell, wall_id: str) -> WallSegment:
 
 
 def wall_inward_normal(room: RoomShell, wall: WallSegment) -> Vec2:
-    along = (wall.end[0] - wall.start[0], wall.end[1] - wall.start[1])
-    candidate = _normalise((-along[1], along[0]))
-    centre = floor_centre(room)
-    midpoint = ((wall.start[0] + wall.end[0]) / 2, (wall.start[1] + wall.end[1]) / 2)
-    towards_centre = (centre[0] - midpoint[0], centre[1] - midpoint[1])
-    return candidate if candidate[0] * towards_centre[0] + candidate[1] * towards_centre[1] >= 0 else (-candidate[0], -candidate[1])
+    return inward_normal(room.floorPolygon, wall.start, wall.end)
 
 
 def wall_facing_yaw(room: RoomShell, wall: WallSegment) -> float:
@@ -154,11 +166,25 @@ def signed_distance_to_wall(room: RoomShell, wall: WallSegment, point: Vec2) -> 
 
 
 def inside_depth(room: RoomShell, point: Vec2) -> float:
-    return min(signed_distance_to_wall(room, wall, point) for wall in room.walls)
+    return point_depth(prepare_polygon(room.floorPolygon), point)
 
 
 def _clearance(room: RoomShell, footprint: Footprint) -> float:
-    return min(inside_depth(room, corner) for corner in footprint.corners)
+    return polygon_clearance(prepare_polygon(room.floorPolygon), footprint.corners)
+
+
+def contact_within_wall(product: Product, wall: WallSegment, centre: Vec2, yaw: float,
+                        face: ProductFace, slack_m: float) -> bool:
+    length = hypot(wall.end[0]-wall.start[0], wall.end[1]-wall.start[1])
+    along = ((wall.end[0]-wall.start[0])/length, (wall.end[1]-wall.start[1])/length)
+    normal = face_normal(face,yaw)
+    extent = face_half_extent_m(product,face)
+    contact = (centre[0]+normal[0]*extent, centre[1]+normal[1]*extent)
+    tangent = yaw_to_right(yaw) if face in ("front","back") else yaw_to_forward(yaw)
+    half_span = (product.dimensionsM.widthM if face in ("front","back") else product.dimensionsM.depthM)/2
+    offset = (contact[0]-wall.start[0])*along[0]+(contact[1]-wall.start[1])*along[1]
+    projected = abs(tangent[0]*along[0]+tangent[1]*along[1])*half_span
+    return offset-projected >= -slack_m and offset+projected <= length+slack_m
 
 
 def _measurements(
@@ -329,6 +355,8 @@ def validate_placement(
             if clearance < -tolerances.bounds_slack_m and _product_exceeds_room_span(product, room, tolerances):
                 return _invalid("product-exceeds-room-bounds", f"{product.id} footprint does not fit inside the Room Shell", product, room, measurements)
             return _invalid("wall-shorter-than-product", f"{product.id} spans {span:.3f} m along {contact.wallId}, which is {wall_length:.3f} m", product, room, measurements)
+        if clearance >= -tolerances.bounds_slack_m and not contact_within_wall(product, wall, centre, placement.yaw, contact.face, tolerances.bounds_slack_m):
+            return _invalid("not-touching-declared-wall", f"{product.id} contact face extends beyond the finite segment {contact.wallId}", product, room, measurements)
     if clearance < -tolerances.bounds_slack_m:
         reason: InvalidFitReason = "product-exceeds-room-bounds" if _product_exceeds_room_span(product, room, tolerances) else "footprint-outside-room"
         return _invalid(reason, f"{product.id} footprint does not fit inside the Room Shell", product, room, measurements)
@@ -695,7 +723,7 @@ def _actual_wall_contacts(
                 centre[0] + normal[0] * half_extent,
                 centre[1] + normal[1] * half_extent,
             )
-            if abs(signed_distance_to_wall(room, wall, contact_point)) <= tolerances.wall_contact_m:
+            if abs(signed_distance_to_wall(room, wall, contact_point)) <= tolerances.wall_contact_m and contact_within_wall(product, wall, centre, yaw, face, tolerances.bounds_slack_m):
                 contacts.append(WallContact(wallId=wall.id, face=face))
     return tuple(contacts)
 

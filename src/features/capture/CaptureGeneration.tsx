@@ -16,6 +16,7 @@ export function CaptureGeneration({result,available,confirmed,pending,generate,r
     {failed?<div className="capture-result" role="alert"><strong>{failed.code==='no-valid-design'
       ? failed.designFailure?.search.exhaustive?'No valid Design fits these supported requests.':'No valid Design found within the supported search.'
       :'Generation could not complete.'}</strong><p>{failed.detail}</p>
+      <p data-testid="capture-limiting-constraint">Limiting constraint: {failed.designFailure?.limitingConstraint?.code??failed.designFailure?.reason??failed.code}. {failed.designFailure?.limitingConstraint?.detail??''}</p>
       <button onClick={review}>Review dimensions and Openings</button><button disabled={pending||!available} onClick={()=>generate(reference)}>Retry generation explicitly</button></div>:null}
   </section>;
 }

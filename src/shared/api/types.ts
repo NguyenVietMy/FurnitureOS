@@ -99,8 +99,10 @@ export interface CaptureDraft {
   readonly widthM?: number | null;
   readonly depthM?: number | null;
   readonly heightM?: number | null;
+  readonly notchWidthM?: number | null;
+  readonly notchDepthM?: number | null;
   readonly dimensionsConfirmed?: boolean;
-  readonly wallReviews?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west">;
+  readonly wallReviews?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
   readonly openings?: ReadonlyArray<OpeningDraft>;
   readonly furnitureAcknowledged?: boolean;
   readonly dimensionEvidence?: ReadonlyArray<DimensionEvidence>;
@@ -129,8 +131,8 @@ export interface CaptureIssue {
 
 export interface CapturePhoto {
   readonly id: string;
-  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west";
-  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west">;
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
+  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
   readonly state: "reserved" | "accepted" | "unavailable" | "failed";
   readonly declaredBytes: number;
   readonly inputBytes?: number;
@@ -233,7 +235,7 @@ export interface DesignRequest {
 export type DesignResult = SolvedDesign | DesignFailure;
 
 export interface DimensionEvidence {
-  readonly field: "widthM" | "depthM" | "heightM";
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
   readonly valueM: number;
   readonly photoId: string;
   readonly photoHash: string;
@@ -476,7 +478,7 @@ export interface Opening {
 
 export interface OpeningDraft {
   readonly id: string;
-  readonly wallId?: "wall-north" | "wall-east" | "wall-south" | "wall-west" | null;
+  readonly wallId?: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal" | null;
   readonly kind?: "door" | "window" | "unknown";
   readonly distanceFromStartM?: number | null;
   readonly widthM?: number | null;
@@ -492,14 +494,14 @@ export interface OpeningDraft {
 
 export interface PhotoAssociation {
   readonly expectedRevision: number;
-  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west";
-  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west">;
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
+  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
 }
 
 export interface PhotoReservation {
   readonly expectedRevision: number;
   readonly declaredBytes: number;
-  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west";
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
 }
 
 export interface Placement {
@@ -579,7 +581,7 @@ export interface PurchaseDisclosure {
 }
 
 export interface ReferenceEstimate {
-  readonly field: "widthM" | "depthM" | "heightM";
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
   readonly valueM: number;
   readonly sensitivity: number;
 }
@@ -612,7 +614,7 @@ export interface ReferenceResult {
 }
 
 export interface ReferenceSegment {
-  readonly field: "widthM" | "depthM" | "heightM";
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
   readonly start: readonly [number, number];
   readonly end: readonly [number, number];
 }
@@ -640,7 +642,7 @@ export interface SelectionRejection {
 
 export interface SemanticOpening {
   readonly id: string;
-  readonly wallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | null;
+  readonly wallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal" | null;
   readonly kind: "door" | "window" | "unknown";
   readonly location: "near-start" | "middle" | "near-end" | "unknown";
   readonly direction: "unknown" | "inward" | "outward" | "sliding" | "other";

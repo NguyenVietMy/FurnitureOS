@@ -4,7 +4,7 @@ export function ShapeSelection({draft,edit,disabled}:{draft:CaptureDraft;edit:(v
     <label><input type="radio" name="capture-room-type" checked={draft.roomType==='bedroom'} onChange={()=>edit({...draft,roomType:'bedroom',dimensionsConfirmed:false})}/> Bedroom</label>
   </fieldset><fieldset disabled={disabled}><legend>Room shape</legend>{['rectangle','L-shaped','other'].map(shape=><label key={shape}>
     <input type="radio" name="capture-shape" checked={draft.topology===shape} onChange={()=>edit({...draft,topology:shape,dimensionsConfirmed:false})}/>{shape==='rectangle'?'Rectangle':shape}</label>)}</fieldset>
-    {draft.topology && draft.topology!=='rectangle'?<div role="alert" className="capture-warning">This topology is unsupported. It will not be replaced with a rectangle.
+    {draft.topology && !['rectangle','L-shaped'].includes(draft.topology)?<div role="alert" className="capture-warning">This topology is unsupported. It will not be replaced with a rectangle.
       <button onClick={()=>edit({...draft,topology:'',dimensionsConfirmed:false})}>Return to shape selection</button></div>:null}
   </section>;
 }

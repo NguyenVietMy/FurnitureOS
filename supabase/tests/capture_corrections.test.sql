@@ -122,7 +122,7 @@ end $$;
 reset role;
 do $$declare c public.captures;begin
  select * into c from public.captures where id=current_setting('test.semantic_capture')::uuid;
- if c.revision<>4 or c.draft is distinct from '{"widthM":8,"wallReviews":["wall-north"]}'::jsonb then raise exception 'late result mutated current draft'; end if;
+ if c.revision<>4 or c.draft is distinct from '{"widthM":8,"wallReviews":[],"dimensionsConfirmed":false,"openings":[],"notchWidthM":null,"notchDepthM":null}'::jsonb then raise exception 'late result mutated current draft'; end if;
  if (select semantics->>'detectedFurniture' from public.capture_photos where capture_id=c.id)<>'unknown' then raise exception 'late result installed evidence'; end if;
 end $$;
 rollback;
@@ -151,6 +151,7 @@ begin
   snapshot:=public.capture_user_operation('create',p_payload=>'{"consent":true}');
   cid:=(snapshot->>'id')::uuid;
   execute 'reset role';
+  update public.captures set draft=draft||'{"topology":"rectangle"}'::jsonb where id=cid;
   insert into public.capture_photos(id,capture_id,owner_id,object_key,primary_wall_id,observed_wall_ids,state,declared_bytes,sha256)
    values(pid,cid,owner,owner::text||'/'||cid::text||'/'||pid::text||'.jpg','wall-north',scenario.observed,'accepted',1000,repeat('c',64));
   old_proposal:=jsonb_build_object('openings',jsonb_build_array(jsonb_build_object('id','old-opening','wallId',scenario.old_wall)),
@@ -168,11 +169,14 @@ begin
   if snapshot->'photos'->0->'semantics' is distinct from old_proposal then raise exception '%: old evidence not stored',scenario.label; end if;
   execute 'set local role authenticated';
   perform public.capture_user_operation('release',cid,1,jsonb_build_object('lease',lease_id));
-  corrected:=jsonb_build_object('roomType','bedroom','topology','rectangle','widthM',6.4,'depthM',4.2,'heightM',2.5,'dimensionsConfirmed',true,
+  corrected:=jsonb_build_object('roomType','bedroom','topology','rectangle','widthM',6.4,'depthM',4.2,'heightM',2.5,'dimensionsConfirmed',true,'notchWidthM',null,'notchDepthM',null,
    'wallReviews','["wall-north","wall-east","wall-south","wall-west"]'::jsonb,'furnitureAcknowledged',true,
    'openings','[{"id":"manual-window","wallId":"wall-west","kind":"window","widthM":0.7,"reviewed":true}]'::jsonb,
    'dimensionEvidence',jsonb_build_array(jsonb_build_object('field','widthM','valueM',6.4,'photoId',pid,'photoHash',repeat('c',64),'overrideReason','Verified measured correction')));
   snapshot:=public.capture_user_operation('draft',cid,2,jsonb_build_object('draft',corrected));
+  revision:=(snapshot->>'revision')::integer;
+  -- Explicit second user review after the normalized metric save.
+  snapshot:=public.capture_user_operation('draft',cid,revision,jsonb_build_object('draft',corrected));
   revision:=(snapshot->>'revision')::integer;
   lease_id:=(public.capture_user_operation('lease',cid,revision,'{"kind":"calibration"}')->>'lease')::uuid;
   execute 'reset role';

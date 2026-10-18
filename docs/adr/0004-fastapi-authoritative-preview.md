@@ -10,3 +10,8 @@ The approved preview initially used a shared TypeScript placement module and a N
 ## Consequences
 
 The preview's OpenAPI schema is the contract consumed by the renderer; TypeScript types are generated from it and checked before typechecking. Provider vocabulary is confined to its Catalogue adapter, while the published asset manifest is the sole dimensional and normalization source. FastAPI serves the built Vite SPA safely in local full-app mode; Vercel serves the same static output and routes API requests to the Python entrypoint. A future Nudge must not quietly reuse the old shared-solver assumption: it needs an explicit client-preview experience and a deliberate parity contract with server validation. Supabase remains planned but is not implemented by this slice. This ADR supersedes only the stack/shared-runtime assumption; ADR-0001 through ADR-0003 remain in force.
+
+
+## 2026-10-18 supported topology extension
+
+Ticket 10 extends the original convex Room scope with simple orthogonal six-wall L Rooms, including rotations and reversed winding. FastAPI retains the single geometry authority for complete containment, finite wall contact, Zones, Openings, circulation, Swaps and conservative Nudge certificates. React renders the confirmed Room and clips only against server-certified Nudge constraints. This extends supported topology without restoring a client solver; see [the L contract](../l-shaped-rooms.md).
