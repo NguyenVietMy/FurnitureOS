@@ -60,6 +60,123 @@ export interface Attribution {
   readonly licenseEvidence: ReadonlyArray<LicenseEvidence>;
 }
 
+export interface CalibrationRecord {
+  readonly request: ReferenceRequest;
+  readonly result: ReferenceResult;
+}
+
+export interface CaptureBlocked {
+  readonly status?: "blocked";
+  readonly code: string;
+  readonly detail: string;
+  readonly issues?: ReadonlyArray<CaptureIssue>;
+  readonly providerCalls?: 0;
+}
+
+export interface CaptureConfig {
+  readonly storageReady: boolean;
+  readonly analysisAvailable: boolean;
+  readonly generationAvailable: boolean;
+  readonly retentionHours?: 24;
+  readonly maxPhotos?: 8;
+  readonly maxInputBytes?: 4000000;
+  readonly supportedFormats?: ReadonlyArray<string>;
+  readonly detail: string;
+  readonly authUrl?: string;
+  readonly publishableKey?: string;
+}
+
+export interface CaptureDeletionStatus {
+  readonly id: string;
+  readonly state?: "deleting";
+  readonly inaccessible?: true;
+  readonly cleanupStatus?: string;
+}
+
+export interface CaptureDraft {
+  readonly roomType?: string;
+  readonly topology?: string;
+  readonly widthM?: number | null;
+  readonly depthM?: number | null;
+  readonly heightM?: number | null;
+  readonly notchWidthM?: number | null;
+  readonly notchDepthM?: number | null;
+  readonly dimensionsConfirmed?: boolean;
+  readonly wallReviews?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
+  readonly openings?: ReadonlyArray<OpeningDraft>;
+  readonly furnitureAcknowledged?: boolean;
+  readonly dimensionEvidence?: ReadonlyArray<DimensionEvidence>;
+}
+
+export interface CaptureGenerated {
+  readonly status?: "generated";
+  readonly captureId: string;
+  readonly confirmedRevision: number;
+  readonly roomHash: string;
+  readonly result: LiveGenerationSuccess | LiveGenerationFailure;
+}
+
+export interface CaptureGenerationRequest {
+  readonly expectedRevision: number;
+  readonly referenceId: string;
+}
+
+export type CaptureGenerationResult = CaptureBlocked | CaptureGenerated;
+
+export interface CaptureIssue {
+  readonly code: string;
+  readonly field: string;
+  readonly detail: string;
+}
+
+export interface CapturePhoto {
+  readonly id: string;
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
+  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
+  readonly state: "reserved" | "accepted" | "unavailable" | "failed";
+  readonly declaredBytes: number;
+  readonly inputBytes?: number;
+  readonly canonicalBytes?: number;
+  readonly sha256?: string | null;
+  readonly widthPx?: number;
+  readonly heightPx?: number;
+  readonly analysisStatus?: "pending" | "complete" | "failed" | "unknown";
+  readonly analysisAttempts?: number;
+  readonly semantics?: CaptureSemanticProposal | null;
+}
+
+export interface CaptureReview {
+  readonly status: "review" | "confirmed";
+  readonly capture: CaptureView;
+  readonly room?: RoomShell | null;
+  readonly issues?: ReadonlyArray<CaptureIssue>;
+}
+
+export interface CaptureRevision {
+  readonly expectedRevision: number;
+}
+
+export interface CaptureSemanticProposal {
+  readonly openings: ReadonlyArray<SemanticOpening>;
+  readonly detectedFurniture: "present" | "absent" | "unknown";
+  readonly observation: "clear" | "partial" | "unknown";
+}
+
+export interface CaptureView {
+  readonly id: string;
+  readonly revision: number;
+  readonly state: "draft" | "confirmed" | "deleting";
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly draft: CaptureDraft;
+  readonly photos?: ReadonlyArray<CapturePhoto>;
+  readonly confirmedRevision?: number | null;
+  readonly roomHash?: string | null;
+  readonly room?: RoomShell | null;
+  readonly cleanupStatus?: string;
+  readonly calibrations?: ReadonlyArray<CalibrationRecord>;
+}
+
 export interface CatalogueGallery {
   readonly catalogueVersion: string;
   readonly products: ReadonlyArray<Product>;
@@ -79,6 +196,10 @@ export interface CirculationRegion {
   readonly ownerType: "door" | "product";
   readonly ownerId: string;
   readonly corners: readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]];
+}
+
+export interface CreateCapture {
+  readonly consent: true;
 }
 
 export interface DesignFailure {
@@ -113,6 +234,14 @@ export interface DesignRequest {
 
 export type DesignResult = SolvedDesign | DesignFailure;
 
+export interface DimensionEvidence {
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
+  readonly valueM: number;
+  readonly photoId: string;
+  readonly photoHash: string;
+  readonly overrideReason?: string;
+}
+
 export interface Dimensions {
   readonly widthM: number;
   readonly heightM: number;
@@ -121,6 +250,11 @@ export interface Dimensions {
 
 export interface DoorSwing {
   readonly hingeSide: "start" | "end";
+}
+
+export interface DraftUpdate {
+  readonly expectedRevision: number;
+  readonly draft: CaptureDraft;
 }
 
 export interface FitMeasurements {
@@ -342,6 +476,34 @@ export interface Opening {
   readonly doorSwing?: DoorSwing | null;
 }
 
+export interface OpeningDraft {
+  readonly id: string;
+  readonly wallId?: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal" | null;
+  readonly kind?: "door" | "window" | "unknown";
+  readonly distanceFromStartM?: number | null;
+  readonly widthM?: number | null;
+  readonly bottomM?: number | null;
+  readonly heightM?: number | null;
+  readonly clearanceDepthM?: number | null;
+  readonly direction?: "unknown" | "inward" | "outward" | "sliding" | "other";
+  readonly angle?: "unknown" | "90" | "other";
+  readonly hingeSide?: "unknown" | "start" | "end";
+  readonly reviewed?: boolean;
+  readonly evidenceIds?: ReadonlyArray<string>;
+}
+
+export interface PhotoAssociation {
+  readonly expectedRevision: number;
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
+  readonly observedWallIds?: ReadonlyArray<"wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal">;
+}
+
+export interface PhotoReservation {
+  readonly expectedRevision: number;
+  readonly declaredBytes: number;
+  readonly primaryWallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal";
+}
+
 export interface Placement {
   readonly instanceId?: string | null;
   readonly productId: string;
@@ -418,6 +580,45 @@ export interface PurchaseDisclosure {
   readonly note: string;
 }
 
+export interface ReferenceEstimate {
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
+  readonly valueM: number;
+  readonly sensitivity: number;
+}
+
+export interface ReferenceRequest {
+  readonly expectedRevision: number;
+  readonly photoId: string;
+  readonly photoHash: string;
+  readonly referenceType: "a4" | "measured";
+  readonly referenceWidthM: number;
+  readonly referenceHeightM: number;
+  readonly plane: "floor" | "wall";
+  readonly perspective1x: boolean;
+  readonly coplanar: boolean;
+  readonly visible: boolean;
+  readonly dimensionsReviewed: boolean;
+  readonly marksReviewed: boolean;
+  readonly corners: readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]];
+  readonly segments: ReadonlyArray<ReferenceSegment>;
+}
+
+export interface ReferenceResult {
+  readonly status: "provisional" | "typed-input-required";
+  readonly reason: string;
+  readonly estimates?: ReadonlyArray<ReferenceEstimate>;
+  readonly method?: "coplanar-rectangle-homography-v1";
+  readonly requiresConfirmation?: true;
+  readonly photoId: string;
+  readonly photoHash: string;
+}
+
+export interface ReferenceSegment {
+  readonly field: "widthM" | "depthM" | "heightM" | "notchWidthM" | "notchDepthM";
+  readonly start: readonly [number, number];
+  readonly end: readonly [number, number];
+}
+
 export interface RoomShell {
   readonly id: string;
   readonly floorPolygon: ReadonlyArray<readonly [number, number]>;
@@ -437,6 +638,18 @@ export interface SelectionRejection {
   readonly detail: string;
   readonly path?: string | null;
   readonly intentId?: string | null;
+}
+
+export interface SemanticOpening {
+  readonly id: string;
+  readonly wallId: "wall-north" | "wall-east" | "wall-south" | "wall-west" | "wall-notch-vertical" | "wall-notch-horizontal" | null;
+  readonly kind: "door" | "window" | "unknown";
+  readonly location: "near-start" | "middle" | "near-end" | "unknown";
+  readonly direction: "unknown" | "inward" | "outward" | "sliding" | "other";
+  readonly angle: "unknown" | "90" | "other";
+  readonly hingeSide: "unknown" | "start" | "end";
+  readonly visibility: "clear" | "partial" | "unknown";
+  readonly description: string;
 }
 
 export interface SolvedDesign {

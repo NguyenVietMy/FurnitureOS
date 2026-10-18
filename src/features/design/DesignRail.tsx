@@ -92,6 +92,7 @@ export function DesignRail({
     <aside className="panel" data-testid="design-panel" ref={panelRef}>
       <Link className="home-link" to="/">← FurnitureOS home</Link>
       <Link className="live-link" to="/design/live-bedroom">Generate a live bedroom →</Link>
+      <Link className="live-link" to="/capture">Capture and confirm your Room →</Link>
       {isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}
       <FixtureSelector fixtures={fixtures} selectedId={selectedId} onSelect={onSelect} />
       {!isArrangement ? <ArrangementFeedback result={result} fixture={selectedFixture} /> : null}

@@ -14,6 +14,29 @@ import type {
   SwapRequest,
 } from './types';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+let captureAuthorization: (() => Promise<string>) | null = null;
+export function setCaptureAuthorization(provider: (() => Promise<string>) | null) { captureAuthorization = provider; }
+export class CaptureApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+async function privateHeaders(): Promise<Record<string, string>> {
+  const provider = captureAuthorization;
+  return provider ? { Authorization: `Bearer ${await provider()}` } : {};
+}
+export async function captureRequest<T>(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const binary = body instanceof Blob;
+  const response = await fetch(`${API_BASE}${path}`, { method, signal, headers: {
+    ...(await privateHeaders()), accept: 'application/json', ...(body===undefined?{}:{'Content-Type':binary?body.type:'application/json'}),
+  }, body: body===undefined?undefined:binary?body:JSON.stringify(body) });
+  const value = await response.json();
+  if (!response.ok) throw new CaptureApiError(value?.detail?.detail ?? (typeof value?.detail==='string'?value.detail:`Capture request returned ${response.status}`),response.status);
+  return value as T;
+}
+export async function capturePhotoUrl(captureId: string, photoId: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/captures/${captureId}/photos/${photoId}/content`, {signal,headers:await privateHeaders()});
+  if (!response.ok) throw new Error('Private photo is unavailable.');
+  return URL.createObjectURL(await response.blob());
+}
 const mutationReadSignal = (signal?: AbortSignal) => signal
   ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000);
 export async function fetchPreviewDesign(signal?: AbortSignal): Promise<PreviewDesign> {
@@ -90,7 +113,7 @@ export async function fetchSwapCandidates(
   });
   const response = await fetch(`${API_BASE}/api/swaps/${encodeURIComponent(sessionId)}/candidates?${query}`, {
     signal,
-    headers: { accept: 'application/json' },
+    headers: { ...(await privateHeaders()), accept: 'application/json' },
   });
   if (!response.ok) throw new Error(`Swap candidates API returned ${response.status}`);
   return response.json() as Promise<SwapCandidateResult>;
@@ -100,7 +123,7 @@ export async function submitSwap(request: SwapRequest): Promise<SwapMutationResu
   const response = await fetch(`${API_BASE}/api/swaps`, {
     method: 'POST',
     signal: mutationReadSignal(),
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    headers: { ...(await privateHeaders()), accept: 'application/json', 'content-type': 'application/json' },
     body: JSON.stringify(request),
   });
   if (!response.ok) throw new Error(`Swap API returned ${response.status}`);
@@ -113,7 +136,7 @@ export async function fetchCurrentSwapSession(
 ): Promise<SwapCurrentResult> {
   const response = await fetch(`${API_BASE}/api/swaps/${encodeURIComponent(sessionId)}`, {
     signal: mutationReadSignal(signal),
-    headers: { accept: 'application/json' },
+    headers: { ...(await privateHeaders()), accept: 'application/json' },
   });
   if (!response.ok) throw new Error(`Current Swap session API returned ${response.status}`);
   return response.json() as Promise<SwapCurrentResult>;
@@ -127,7 +150,7 @@ export async function fetchNudgeRegion(
 ): Promise<NudgeRegionResult> {
   const query = new URLSearchParams({ expectedVersion: String(expectedVersion), instanceId });
   const response = await fetch(`${API_BASE}/api/nudges/${encodeURIComponent(sessionId)}/region?${query}`, {
-    signal: mutationReadSignal(signal), headers: { accept: 'application/json' },
+    signal: mutationReadSignal(signal), headers: { ...(await privateHeaders()), accept: 'application/json' },
   });
   if (!response.ok) throw new Error(`Nudge region API returned ${response.status}`);
   return response.json() as Promise<NudgeRegionResult>;
@@ -137,7 +160,7 @@ export async function submitNudge(request: NudgeRequest): Promise<NudgeMutationR
   const response = await fetch(`${API_BASE}/api/nudges`, {
     method: 'POST',
     signal: mutationReadSignal(),
-    headers: { accept: 'application/json', 'content-type': 'application/json' },
+    headers: { ...(await privateHeaders()), accept: 'application/json', 'content-type': 'application/json' },
     body: JSON.stringify(request),
   });
   if (!response.ok) throw new Error(`Nudge API returned ${response.status}`);

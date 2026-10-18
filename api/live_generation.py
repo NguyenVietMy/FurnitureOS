@@ -533,10 +533,12 @@ def _bed_placement_guidance(
     zone_offer: ZoneOffer,
     eligible: tuple[Product, ...],
     capabilities: WallCapabilityMap,
+    *, use_cache: bool = True,
 ) -> dict[str, Any]:
     """Produce bounded coordinate-free bed guidance from the real authority."""
     capability_items = tuple(sorted(capabilities.items()))
-    return json.loads(_cached_bed_placement_guidance(
+    guide = _cached_bed_placement_guidance if use_cache else _cached_bed_placement_guidance.__wrapped__
+    return json.loads(guide(
         source,
         source.version,
         room,
@@ -1329,10 +1331,12 @@ def _live_selection_products(products: tuple[Product, ...]) -> tuple[Product, ..
     return tuple(product for product in products if product.category in LIVE_SELECTION_CATEGORIES)
 
 
-def generate_live_bedroom(
+def generate_bedroom_for_room(
     source: Catalogue,
     request: LiveGenerationRequest,
     *,
+    room: RoomShell,
+    private_room: bool = False,
     provider: GenerationProvider | None = None,
     generation_id_factory: Callable[[], str] = lambda: str(uuid4()),
 ) -> LiveGenerationResultValue:
@@ -1360,11 +1364,10 @@ def generate_live_bedroom(
     except ProviderCallError as error:
         return _failure(generation_id, request.referenceId, error.code, error.detail, 0, 0, [])
 
-    room = intent_fixture_room()
     zone_offer = derive_zones(room)
     capabilities = _wall_capability_map(room, style_eligible)
     deadline_at = monotonic() + OVERALL_DEADLINE_SECONDS
-    bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities)
+    bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities, use_cache=not private_room)
     calls = 0
     latency_ms = 0
     usages: list[ProviderUsage | None] = []
@@ -1551,6 +1554,14 @@ def generate_live_bedroom(
         final,
         tuple(rejections),
     )
+
+
+def generate_live_bedroom(source: Catalogue, request: LiveGenerationRequest, *,
+                          provider: GenerationProvider | None = None,
+                          generation_id_factory: Callable[[], str] = lambda: str(uuid4())) -> LiveGenerationResultValue:
+    """Legacy fixture caller; private Capture never calls this wrapper."""
+    return generate_bedroom_for_room(source, request, room=intent_fixture_room(), provider=provider,
+                                    generation_id_factory=generation_id_factory)
 
 
 def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:

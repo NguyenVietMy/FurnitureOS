@@ -7,7 +7,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import unquote
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +34,9 @@ from .models import (
 )
 from .swaps import DesignSessionStore
 from .zones import ZoneDerivationError, derive_zones
+from .captures import CaptureService, CaptureBodyLimit
+from .capture_auth import CaptureError
+from .models import SwapUnknownSession
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,12 +59,17 @@ def create_app(
     generation_provider: GenerationProvider | None = None,
     catalogue_source: Catalogue | None = None,
     swap_store: DesignSessionStore | None = None,
+    capture_repository=None,
+    capture_auth=None,
+    capture_vision_provider=None,
 ) -> FastAPI:
     """Build the API and bind static roots explicitly for tests and deployment."""
     public = root / "public"
     dist = root / "dist"
     source = catalogue if catalogue_source is None else catalogue_source
     sessions = swap_store or DesignSessionStore(source)
+    captures = CaptureService(source, sessions, repository=capture_repository, auth=capture_auth,
+                              vision_provider=capture_vision_provider, generation_provider=generation_provider)
     application = FastAPI(title="FurnitureOS Preview API", version="0.2.0")
     gallery_enabled = (
         os.environ.get("FURNITUREOS_ENABLE_CATALOGUE_GALLERY") == "1"
@@ -71,7 +79,7 @@ def create_app(
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -134,25 +142,34 @@ def create_app(
             }, deep=True)
         return LiveGenerationResult(root=generated)
 
+    application.add_middleware(CaptureBodyLimit)
+    application.include_router(captures.router())
+
+    def session_operation(session_id, authorization, operation):
+        try:
+            with captures.session_access(session_id, authorization): return operation()
+        except CaptureError:
+            return SwapUnknownSession(status="unknown-session", detail="This Swap session is unknown to this server process. Generate or select the Design again.")
+
     @application.get("/api/swaps/{session_id}", response_model=SwapCurrentResult)
-    def current_swap_session(session_id: str) -> SwapCurrentResult:
-        return SwapCurrentResult(root=sessions.current(session_id))
+    def current_swap_session(session_id: str, authorization: str | None = Header(default=None)) -> SwapCurrentResult:
+        return SwapCurrentResult(root=session_operation(session_id, authorization, lambda: sessions.current(session_id)))
 
     @application.get("/api/swaps/{session_id}/candidates", response_model=SwapCandidateResult)
-    def swap_candidates(session_id: str, expectedVersion: int, instanceId: str) -> SwapCandidateResult:
-        return SwapCandidateResult(root=sessions.candidates(session_id, expectedVersion, instanceId))
+    def swap_candidates(session_id: str, expectedVersion: int, instanceId: str, authorization: str | None = Header(default=None)) -> SwapCandidateResult:
+        return SwapCandidateResult(root=session_operation(session_id, authorization, lambda: sessions.candidates(session_id, expectedVersion, instanceId)))
 
     @application.post("/api/swaps", response_model=SwapMutationResult)
-    def product_swap(request: SwapRequest) -> SwapMutationResult:
-        return SwapMutationResult(root=sessions.swap(request))
+    def product_swap(request: SwapRequest, authorization: str | None = Header(default=None)) -> SwapMutationResult:
+        return SwapMutationResult(root=session_operation(request.sessionId, authorization, lambda: sessions.swap(request)))
 
     @application.get("/api/nudges/{session_id}/region", response_model=NudgeRegionResult)
-    def nudge_region(session_id: str, expectedVersion: int, instanceId: str) -> NudgeRegionResult:
-        return NudgeRegionResult(root=sessions.nudge_region(session_id, expectedVersion, instanceId))
+    def nudge_region(session_id: str, expectedVersion: int, instanceId: str, authorization: str | None = Header(default=None)) -> NudgeRegionResult:
+        return NudgeRegionResult(root=session_operation(session_id, authorization, lambda: sessions.nudge_region(session_id, expectedVersion, instanceId)))
 
     @application.post("/api/nudges", response_model=NudgeMutationResult)
-    def product_nudge(request: NudgeRequest) -> NudgeMutationResult:
-        return NudgeMutationResult(root=sessions.nudge(request))
+    def product_nudge(request: NudgeRequest, authorization: str | None = Header(default=None)) -> NudgeMutationResult:
+        return NudgeMutationResult(root=session_operation(request.sessionId, authorization, lambda: sessions.nudge(request)))
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)

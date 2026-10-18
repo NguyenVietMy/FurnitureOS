@@ -51,3 +51,7 @@ Run root `npm run typecheck`, `npm run test -- --run`, `uv run pytest`, `npm run
 The Vercel config builds this root Vite app, sends `/api/*` to `api/index.py`, and limits SPA fallback to extensionless non-asset app routes. No deployment or project configuration change is implied by this guide. The historical `web/` Next.js app has been retired; old plans and captures under `docs/landing` remain provenance, not startup instructions.
 
 See [integration evidence](landing/verification/integration.md) for measured design conformance, exact test results and inherited limitations. The 901×1000 Room camera framing and the landing's 9px heading content-box overrun at 901px are inherited; neither changes the frame rules or causes page-wide horizontal scrolling.
+
+## Capture correction flow
+
+`/capture` is a lazy route with real Supabase anonymous Auth, server-verified private requests, stable A/B/C/D wall coverage, all Opening corrections and a measured rectangle preview. Generation renders the returned confirmed Room through the existing RoomStage and private-session Swap/Nudge clients. Auth loss, Room edits, expiry and deletion clear private results; late responses cannot restore them. See [Capture activation and proof](capture.md) for bounds, disclosure, calibration protocol and unrun live/phone gates.

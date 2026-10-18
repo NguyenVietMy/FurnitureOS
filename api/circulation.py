@@ -5,6 +5,7 @@ from collections import deque
 from dataclasses import dataclass
 from math import floor, hypot
 
+from .room_geometry import RoomGeometry, prepare_polygon, contains_convex
 from .domain import (
     _polygons_overlap,
     _wall_basis,
@@ -101,30 +102,18 @@ def _polygon_footprint(points: tuple[Vec2, ...]) -> Footprint:
     )
 
 
-_PreparedRoomGeometry = tuple[tuple[Vec2, Vec2], ...]
+_PreparedRoomGeometry = RoomGeometry
 
 
 def _prepare_room_geometry(room: RoomShell) -> _PreparedRoomGeometry:
-    return tuple(
-        (wall.start, _wall_basis(room, wall)[1])
-        for wall in room.walls
-    )
+    planes = tuple((wall.start, _wall_basis(room, wall)[1]) for wall in room.walls)
+    geometry = prepare_polygon(room.floorPolygon)
+    # Retain the established convex arithmetic/order, including tolerance edges.
+    return geometry if geometry.notch else RoomGeometry(room.floorPolygon, planes)
 
 
-def _inside_prepared_room(
-    geometry: _PreparedRoomGeometry,
-    polygon: tuple[Vec2, ...],
-) -> bool:
-    # The Room is convex, so containing every swept-polygon vertex contains the
-    # complete swept polygon. Wall starts and inward normals are invariant for
-    # the complete validation and prepared once by validate_circulation.
-    return all(
-        min(
-            (point[0] - start[0]) * inward[0] + (point[1] - start[1]) * inward[1]
-            for start, inward in geometry
-        ) >= -CIRCULATION_TOLERANCE_M
-        for point in polygon
-    )
+def _inside_prepared_room(geometry: _PreparedRoomGeometry, polygon: tuple[Vec2, ...]) -> bool:
+    return contains_convex(geometry, polygon, CIRCULATION_TOLERANCE_M)
 
 
 def _collisions(

@@ -1,0 +1,5 @@
+project_id = "furnitureos-ticket9-captures"
+
+[functions.capture-cleanup]
+verify_jwt = false
+# Custom 256-bit trigger authentication is enforced by the function before service calls.

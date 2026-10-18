@@ -19,6 +19,7 @@ from .circulation import (
 )
 from .domain import (
     DEFAULT_TOLERANCES,
+    contact_within_wall,
     _axis_projections,
     _door_swing_polygon,
     _normalise,
@@ -164,12 +165,14 @@ def _room_half_planes(
     reason: str,
 ) -> tuple[HalfPlane, ...]:
     values = []
-    for start, inward in witness.room_geometry:
+    for start, inward in witness.room_geometry.planes:
         baseline = min((point[0] - start[0]) * inward[0] + (point[1] - start[1]) * inward[1] for point in polygon)
         maximum = baseline + slack_m - CERTIFICATE_INWARD_MARGIN_M
         if maximum <= CLIENT_MEMBERSHIP_MARGIN_M:
             raise NudgeProofError(f"The current pose has no numeric margin for {reason}.")
         values.append(HalfPlane((-inward[0], -inward[1]), maximum, reason))
+    if witness.room_geometry.notch:
+        values.append(_best_separator(polygon, witness.room_geometry.notch, slack_m, reason + ' excluded notch'))
     return tuple(values)
 
 
@@ -300,6 +303,11 @@ def _choose_attachment(
                 CIRCULATION_TOLERANCE_M,
                 "selected access tether Room containment",
             ))
+            if witness.room_geometry.notch:
+                constraints.append(_common_endpoint_separator(
+                    moving_square, square, witness.room_geometry.notch,
+                    CIRCULATION_TOLERANCE_M, "selected access tether versus excluded notch",
+                ))
             for obstacle_id, obstacle in witness.obstacles:
                 if obstacle_id == selected_instance_id:
                     continue
@@ -473,11 +481,11 @@ def build_nudge_certificate(
     # Bound before allocating footprint/constraint lists. This is an upper
     # bound, deliberately counting optional vertical/exemption branches too.
     constraint_budget = (
-        4 + len(design.room.walls) * (1 + selected_access_count)
+        4 + (len(design.room.walls) + 1) * (1 + selected_access_count)
         + len(design.room.openings) * (2 + 2 * selected_access_count)
         + len(design.products) * (1 + selected_access_count) + all_access_count
         + MAX_WITNESS_POLYGONS
-        + selected_access_count * (1 + len(design.room.walls) + len(design.products))
+        + selected_access_count * (2 + len(design.room.walls) + len(design.products))
     )
     if constraint_budget > MAX_HALF_PLANES:
         raise NudgeProofError(f"Nudge proof exceeds the {MAX_HALF_PLANES} half-plane preallocation budget.")
@@ -738,6 +746,8 @@ def nudged_placement(
     retained: list[WallContact] = []
     for contact in placement.wallContacts:
         wall = get_wall(room, contact.wallId)
+        if not contact_within_wall(product, wall, target, placement.yaw, contact.face, DEFAULT_TOLERANCES.bounds_slack_m):
+            continue
         normal = face_normal(contact.face, placement.yaw)
         outward = tuple(-value for value in wall_inward_normal(room, wall))
         if normal[0] * outward[0] + normal[1] * outward[1] < 1 - 1e-7:

@@ -21,3 +21,4 @@ api/catalogue/providers/asset-manifest.json
 api/catalogue/providers/manifests/
 .venv/
 __pycache__/
+supabase/.temp/

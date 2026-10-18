@@ -1,10 +1,11 @@
-"""Deterministic server-owned Zone derivation for convex Room Shells."""
+"""Deterministic server-owned Zone derivation for supported Room Shells."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
 from math import cos, hypot, pi, sin
 
+from .room_geometry import inward_normal, prepare_polygon, contains_convex
 from .models import RoomShell, Vec2, WallSegment, Zone, ZoneBounds, ZoneDerivationReport, ZoneOffer
 
 SUBDIVISION_M = 0.25
@@ -47,20 +48,10 @@ def _normalise(vector: Vec2) -> Vec2:
     return (vector[0] / length, vector[1] / length)
 
 
-def _floor_centre(room: RoomShell) -> Vec2:
-    return (
-        sum(point[0] for point in room.floorPolygon) / len(room.floorPolygon),
-        sum(point[1] for point in room.floorPolygon) / len(room.floorPolygon),
-    )
-
-
 def _wall_basis(room: RoomShell, wall: WallSegment) -> tuple[Vec2, Vec2, Vec2]:
     along = _normalise((wall.end[0] - wall.start[0], wall.end[1] - wall.start[1]))
-    candidate = (-along[1], along[0])
     midpoint = ((wall.start[0] + wall.end[0]) / 2, (wall.start[1] + wall.end[1]) / 2)
-    centre = _floor_centre(room)
-    towards_centre = (centre[0] - midpoint[0], centre[1] - midpoint[1])
-    inward = candidate if candidate[0] * towards_centre[0] + candidate[1] * towards_centre[1] >= 0 else (-candidate[0], -candidate[1])
+    inward = inward_normal(room.floorPolygon, wall.start, wall.end)
     return along, inward, midpoint
 
 
@@ -119,18 +110,6 @@ def _polygon_bounds(points: tuple[Vec2, ...], room_bounds: _Rect) -> _Rect | Non
     if max_x - min_x <= BOUNDARY_TOLERANCE_M or max_z - min_z <= BOUNDARY_TOLERANCE_M:
         return None
     return _Rect(min_z, min_x, max_z, max_x)
-
-
-def _point_inside_convex(room: RoomShell, point: Vec2) -> bool:
-    signs: list[float] = []
-    for index, first in enumerate(room.floorPolygon):
-        second = room.floorPolygon[(index + 1) % len(room.floorPolygon)]
-        cross = (second[0] - first[0]) * (point[1] - first[1]) - (second[1] - first[1]) * (point[0] - first[0])
-        edge_length = hypot(second[0] - first[0], second[1] - first[1])
-        signed_distance = cross / edge_length
-        if abs(signed_distance) > BOUNDARY_TOLERANCE_M:
-            signs.append(signed_distance)
-    return not signs or all(value >= 0 for value in signs) or all(value <= 0 for value in signs)
 
 
 def _rectangles_overlap(first: _Rect, second: _Rect) -> bool:
@@ -200,6 +179,7 @@ def _canonical(value: float) -> str:
 
 def derive_zones(room: RoomShell) -> ZoneOffer:
     """Return only bounded, contained rectangles derived from server Room facts."""
+    geometry = prepare_polygon(room.floorPolygon)
     xs = tuple(point[0] for point in room.floorPolygon)
     zs = tuple(point[1] for point in room.floorPolygon)
     room_bounds = _Rect(min(zs), min(xs), max(zs), max(xs))
@@ -222,7 +202,7 @@ def derive_zones(room: RoomShell) -> ZoneOffer:
     for z_index in range(len(z_cuts) - 1):
         for x_index in range(len(x_cuts) - 1):
             cell = _Rect(z_cuts[z_index], x_cuts[x_index], z_cuts[z_index + 1], x_cuts[x_index + 1])
-            if not all(_point_inside_convex(room, corner) for corner in cell.corners()):
+            if not contains_convex(geometry, cell.corners(), BOUNDARY_TOLERANCE_M):
                 continue
             if any(_rectangles_overlap(cell, exclusion) for exclusion in exclusions):
                 continue
@@ -236,7 +216,8 @@ def derive_zones(room: RoomShell) -> ZoneOffer:
     retained = tuple(
         rectangle
         for rectangle in sorted(merged)
-        if rectangle.width + BOUNDARY_TOLERANCE_M >= MINIMUM_ZONE_M
+        if contains_convex(geometry, rectangle.corners(), BOUNDARY_TOLERANCE_M)
+        and rectangle.width + BOUNDARY_TOLERANCE_M >= MINIMUM_ZONE_M
         and rectangle.depth + BOUNDARY_TOLERANCE_M >= MINIMUM_ZONE_M
     )
     zones: list[Zone] = []

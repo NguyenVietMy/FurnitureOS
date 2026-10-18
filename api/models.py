@@ -5,6 +5,8 @@ from datetime import date
 from math import hypot
 from typing import Annotated, Literal
 
+from .room_geometry import supported_l
+
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationInfo, model_validator
 
 Finite = Annotated[float, Field(allow_inf_nan=False)]
@@ -319,8 +321,8 @@ class RoomShell(ContractModel):
             if abs(cross) <= 1e-12:
                 raise ValueError("Room Shell floorPolygon cannot contain collinear adjacent edges")
             signs.append(cross)
-        if any(value * signs[0] < 0 for value in signs[1:]):
-            raise ValueError("Room Shell floorPolygon must be convex")
+        if any(value * signs[0] < 0 for value in signs[1:]) and not supported_l(points):
+            raise ValueError("Room Shell floorPolygon must be convex or a simple orthogonal six-wall L")
         polygon_edges = {_edge_key(point, points[(index + 1) % len(points)]) for index, point in enumerate(points)}
         wall_edges = {_edge_key(wall.start, wall.end) for wall in self.walls}
         if len(self.walls) != len(points) or wall_edges != polygon_edges:
