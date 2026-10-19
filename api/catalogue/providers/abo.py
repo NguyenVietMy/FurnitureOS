@@ -236,7 +236,20 @@ def asset_manifest(product_id: str) -> AssetManifest:
 
 
 def _to_entry(record: SeedProduct) -> CatalogueEntry:
-    manifest = asset_manifest(record.productId)
+    return entry_from_manifest(record, asset_manifest(record.productId))
+
+
+def entry_from_manifest(
+    record: SeedProduct,
+    manifest: AssetManifest,
+    *,
+    room_types: tuple[str, ...] = ("bedroom",),
+    private_style_ids: tuple[str, ...] | None = None,
+    mesh_base_url: str | None = None,
+) -> CatalogueEntry:
+    """Project measured provider input; the local curator supplies immutable URLs."""
+    if manifest.productId != record.productId:
+        raise ValueError("asset manifest Product identity mismatch")
     expected_url = (
         "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/"
         f"{record.sourcePath}"
@@ -253,7 +266,7 @@ def _to_entry(record: SeedProduct) -> CatalogueEntry:
         "brand": record.brand,
         "colour": record.colour,
         "category": record.category,
-        "roomTypes": ["bedroom"],
+        "roomTypes": room_types,
         "dimensionsM": {"widthM": width, "heightM": height, "depthM": depth},
         "frontAxis": manifest.normalization.frontAxis,
         "wallContactFaces": record.wallContactFaces,
@@ -261,11 +274,12 @@ def _to_entry(record: SeedProduct) -> CatalogueEntry:
         "accessRegions": [region.model_dump() for region in record.accessRegions],
         "mesh": {
             "lods": [
-                lod.model_dump(include={"level", "url", "triangles", "exclusiveBytes"})
+                {**lod.model_dump(include={"level", "url", "triangles", "exclusiveBytes"}),
+                 "url": f"{mesh_base_url}/lod{lod.level}.gltf" if mesh_base_url else lod.url}
                 for lod in manifest.lods
             ],
             "sharedTextureUrls": [
-                f"/products/{record.productId}/{texture.file}"
+                f"{mesh_base_url or f'/products/{record.productId}'}/{texture.file}"
                 for texture in manifest.sharedTextures
             ],
             "normalization": {
@@ -306,7 +320,10 @@ def _to_entry(record: SeedProduct) -> CatalogueEntry:
             "licenseEvidence": _DATASET["licenseEvidence"],
         },
     })
-    return CatalogueEntry(product=product, private_style_ids=record.privateStyleIds)
+    return CatalogueEntry(
+        product=product,
+        private_style_ids=private_style_ids if private_style_ids is not None else record.privateStyleIds,
+    )
 
 
 @lru_cache

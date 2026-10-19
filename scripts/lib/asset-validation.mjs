@@ -19,7 +19,7 @@ export function normalizationTranslation(measure) {
 
 export function assertNormalizedBounds(label, measure) {
   const metrics = normalizationMetrics(measure);
-  if (Object.values(metrics).some((value) => value > NORMALIZATION_TOLERANCE_M)) {
+  if (Object.values(metrics).some((value) => !Number.isFinite(value) || value > NORMALIZATION_TOLERANCE_M)) {
     throw new Error(
       `${label} violates floor-centre normalization: ` +
         `floor gap ${metrics.floorGapM}, doubled X centre ${metrics.doubledCentreXM}, ` +
@@ -34,7 +34,7 @@ function assertMeasuredArray(label, field, actual, declared) {
     throw new Error(`${label} manifest ${field} is not comparable with measured geometry`);
   }
   actual.forEach((value, index) => {
-    if (Math.abs(value - declared[index]) > MANIFEST_BOUNDS_TOLERANCE_M) {
+    if (!Number.isFinite(value) || !Number.isFinite(declared[index]) || Math.abs(value - declared[index]) > MANIFEST_BOUNDS_TOLERANCE_M) {
       throw new Error(
         `${label} measured ${field}[${index}] ${value} does not match manifest ${declared[index]}`,
       );

@@ -10,6 +10,7 @@ import { ktx2Info } from './lib/ktx2-info.mjs';
 import { measureGltf } from './lib/gltf-measure.mjs';
 import { repoPath } from './lib/paths.mjs';
 import { assertManifestMeasurement, assertNormalizedBounds } from './lib/asset-validation.mjs';
+import { verifyProductAssets } from './lib/verify-product-assets.mjs';
 
 const productsDir = repoPath('public', 'products');
 if (!existsSync(productsDir)) {
@@ -34,6 +35,7 @@ if (JSON.stringify(publishedIds) !== JSON.stringify(expectedIds)) {
 for (const productId of publishedIds) {
   const dir = join(productsDir, productId);
   if (!statSync(dir).isDirectory()) continue;
+  await verifyProductAssets(dir, PRODUCT_ASSET_SOURCES.find((source) => source.productId === productId));
   const manifest = JSON.parse(await readFile(join(dir, 'asset-manifest.json'), 'utf8'));
   console.log(`\n${productId}`);
 
