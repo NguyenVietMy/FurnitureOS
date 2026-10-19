@@ -19,6 +19,7 @@ import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import {
   ASSET_BUDGET_BYTES,
@@ -46,13 +47,13 @@ const WORK_DIR = process.env.FURNITUREOS_ASSET_WORK_DIR
   ? path.resolve(process.env.FURNITUREOS_ASSET_WORK_DIR)
   : path.join(tmpdir(), 'furnitureos-assets', 'work');
 
-async function ensureSource({ sourceUrl, sourceFile, sourceSha256, sourceBytes }) {
-  const target = path.join(SOURCE_DIR, sourceFile);
+async function ensureSource({ sourceUrl, sourceFile, sourceSha256, sourceBytes }, sourceDir) {
+  const target = path.join(sourceDir, sourceFile);
   if (!existsSync(target)) {
     console.log(`  downloading ${sourceUrl}`);
     const res = await fetch(sourceUrl);
     if (!res.ok) throw new Error(`Failed to download ${sourceUrl}: HTTP ${res.status}`);
-    await mkdir(SOURCE_DIR, { recursive: true });
+    await mkdir(sourceDir, { recursive: true });
     await writeFile(target, Buffer.from(await res.arrayBuffer()));
   }
   const digest = await sha256File(target);
@@ -112,9 +113,9 @@ async function unpackSource(sourcePath, workDir) {
   return { unpacked, rawMeasure, normalizedMeasure, translation };
 }
 
-async function buildLod(bin, unpackedSource, workDir, lod) {
+async function buildLod(bin, unpackedSource, workDir, lod, immutable) {
   const lodDir = path.join(workDir, `lod${lod.level}`);
-  await rm(lodDir, { recursive: true, force: true });
+  if (!immutable) await rm(lodDir, { recursive: true, force: true });
   await mkdir(lodDir, { recursive: true });
   const out = path.join(lodDir, `lod${lod.level}.gltf`);
   execFileSync(
@@ -192,25 +193,33 @@ function assertCanonicalSource(product) {
   }
 }
 
-async function publishProduct(product) {
+export async function buildProduct(product, options = {}) {
+  const immutable = options.outputDir !== undefined;
+  if (immutable && (!options.workDir || !options.sourceDir || !options.bin)) {
+    throw new Error('Explicit output requires explicit work/source directories and resolved native binary');
+  }
+  const progress = options.progress ?? (() => {});
   console.log(`\n${product.productId}`);
   assertCanonicalSource(product);
-  const bin = await ensureGltfpack();
-  const source = await ensureSource(product);
+  await progress('source');
+  const bin = options.bin ?? await ensureGltfpack();
+  const source = await ensureSource(product, options.sourceDir ?? SOURCE_DIR);
   console.log(
     `  source ${path.basename(source.path)} ${source.bytes} bytes sha256:${source.sha256.slice(0, 12)}`,
   );
 
-  const workDir = path.join(WORK_DIR, product.productId);
-  await rm(workDir, { recursive: true, force: true });
-  await mkdir(workDir, { recursive: true });
+  const workDir = options.workDir ?? path.join(WORK_DIR, product.productId);
+  if (!immutable) await rm(workDir, { recursive: true, force: true });
+  await mkdir(workDir, { recursive: !immutable });
+  await progress('normalization');
   const { unpacked, rawMeasure: sourceMeasure, normalizedMeasure, translation } =
     await unpackSource(source.path, workDir);
   assertNormalizedBounds(product.productId, normalizedMeasure);
 
-  const outDir = repoPath('public', 'products', product.productId);
+  const outDir = options.outputDir ?? repoPath('public', 'products', product.productId);
   const textureDir = path.join(outDir, 'textures');
-  await rm(outDir, { recursive: true, force: true });
+  if (!immutable) await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: !immutable });
   await mkdir(textureDir, { recursive: true });
 
   /** content hash -> published file name, so every LOD shares one texture copy. */
@@ -218,7 +227,8 @@ async function publishProduct(product) {
   const lods = [];
 
   for (const lod of LOD_LEVELS) {
-    const { lodDir, gltfPath } = await buildLod(bin, unpacked, workDir, lod);
+    await progress(`lod${lod.level}`);
+    const { lodDir, gltfPath } = await buildLod(bin, unpacked, workDir, lod, immutable);
     const gltf = JSON.parse(await readFile(gltfPath, 'utf8'));
     const simplifiedMeasure = await measureGltf(gltfPath);
     const postSimplificationTranslation = reanchorSimplifiedGltf(gltf, simplifiedMeasure);
@@ -328,6 +338,7 @@ async function publishProduct(product) {
   return manifest;
 }
 
+export async function main() {
 const requestedIds = process.argv.slice(2);
 const selectedProducts = requestedIds.length
   ? PRODUCT_ASSET_SOURCES.filter((product) => requestedIds.includes(product.productId))
@@ -338,5 +349,8 @@ const unknownIds = requestedIds.filter(
 if (unknownIds.length) throw new Error(`Unknown Product id(s): ${unknownIds.join(', ')}`);
 
 const manifests = [];
-for (const product of selectedProducts) manifests.push(await publishProduct(product));
+for (const product of selectedProducts) manifests.push(await buildProduct(product));
 console.log(`\nBuilt ${manifests.length} Product asset set(s).`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
