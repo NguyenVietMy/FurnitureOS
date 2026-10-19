@@ -22,7 +22,10 @@
     "pretest:e2e": "node scripts/copy-decoders.mjs",
     "test:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-e2e.ps1",
     "assets:build": "node scripts/build-product-assets.mjs",
-    "assets:report": "node scripts/report-asset-budget.mjs"
+    "assets:report": "node scripts/report-asset-budget.mjs",
+    "curator": "node tools/product-curator/server.mjs",
+    "curator:typecheck": "tsc --noEmit --project tools/product-curator/tsconfig.json",
+    "curator:test": "node --test tools/product-curator/tests/*.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "5.3.0",
