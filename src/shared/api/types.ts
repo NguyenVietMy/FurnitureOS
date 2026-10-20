@@ -60,6 +60,11 @@ export interface Attribution {
   readonly licenseEvidence: ReadonlyArray<LicenseEvidence>;
 }
 
+export interface BedroomGenerationRequest {
+  readonly roomType: "bedroom";
+  readonly referenceId: string;
+}
+
 export interface CalibrationRecord {
   readonly request: ReferenceRequest;
   readonly result: ReferenceResult;
@@ -331,7 +336,20 @@ export interface LiveBedroomConfig {
   readonly phoneGate?: "waived";
 }
 
+export interface LiveDesignConfig {
+  readonly roomType: "bedroom" | "living-room";
+  readonly referenceSetVersion: string;
+  readonly referenceApproval: "pending" | "approved";
+  readonly scheduleApproval: "pending" | "approved";
+  readonly references: ReadonlyArray<PublicReference>;
+  readonly providerModel?: "claude-opus-5";
+  readonly providerCapability?: "verified";
+  readonly realCallsEnabled: boolean;
+  readonly phoneGate?: "waived";
+}
+
 export interface LiveGenerationFailure {
+  readonly roomType?: "bedroom" | "living-room";
   readonly status: "failed";
   readonly generationId: string;
   readonly referenceId: string;
@@ -346,13 +364,14 @@ export interface LiveGenerationFailure {
 }
 
 export interface LiveGenerationRequest {
-  readonly roomType: "bedroom";
+  readonly roomType: "bedroom" | "living-room";
   readonly referenceId: string;
 }
 
 export type LiveGenerationResult = LiveGenerationSuccess | LiveGenerationFailure;
 
 export interface LiveGenerationSuccess {
+  readonly roomType?: "bedroom" | "living-room";
   readonly status: "solved";
   readonly generationId: string;
   readonly referenceId: string;

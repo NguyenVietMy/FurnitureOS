@@ -27,6 +27,27 @@ from api.models import (
 from api.zones import derive_zones
 
 
+def test_public_zone_offers_are_consumable_by_both_real_http_solvers(client) -> None:
+    room = rectangular_room_shell('public-zone-offer-roundtrip', 8, 8, 2.7).model_dump(mode='json')
+    response = client.post('/api/zones', json={'room': room})
+    assert response.status_code == 200
+    offer = response.json()
+    assert offer['status'] == 'offered' and offer['zones']
+    intent = {'id': 'public-offer-anchor', 'productId': FEATURED_PRODUCT_ID,
+              'kind': 'in_zone', 'zoneId': offer['zones'][0]['id']}
+    design = client.post('/api/design-solve', json={'room': room, 'intents': [intent]})
+    assert design.status_code == 200 and design.json()['status'] == 'solved', design.text
+    arrangement = client.post('/api/arrangement-solve', json={
+        'room': room, 'selections': [{'id': 'public-offer', 'intents': [intent]}],
+        'policies': [{'requestId': intent['id'], 'required': True, 'anchor': True}],
+        'clearanceWidthM': .6, 'maxCandidates': 256})
+    assert arrangement.status_code == 200 and arrangement.json()['status'] == 'solved', arrangement.text
+    bad = {**intent, 'zoneId': 'seating-v1-invented'}
+    rejected = client.post('/api/design-solve', json={'room': room, 'intents': [bad]})
+    assert rejected.status_code == 200 and rejected.json()['status'] == 'failed'
+    assert client.post('/api/zones', json={'room': room, 'roomType': 'living-room'}).status_code == 422
+
+
 def product_variant(
     product_id: str,
     *,

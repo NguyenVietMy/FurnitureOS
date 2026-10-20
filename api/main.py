@@ -4,7 +4,7 @@ from __future__ import annotations
 from math import isfinite
 import os
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import unquote
 
 from fastapi import FastAPI, HTTPException, Header
@@ -16,12 +16,13 @@ from fastapi.staticfiles import StaticFiles
 
 from .catalogue import Catalogue, catalogue
 from .arrangement import resolve_arrangement
-from .design import bedroom_design, design_fixtures, resolve_fixture
+from .design import object_intent_fixture_room, intent_fixture_room, bedroom_design, design_fixtures, resolve_fixture
 from .domain import resolve_design, validate_placement
 from .live_generation import (
     GenerationProvider,
     LiveBedroomConfig,
     LiveGenerationRequest,
+    BedroomGenerationRequest, LiveDesignConfig, shared_config, generate_for_room,
     LiveGenerationResult,
     generate_live_bedroom,
     public_config,
@@ -127,10 +128,11 @@ def create_app(
 
     @application.get("/api/live-bedroom/config", response_model=LiveBedroomConfig)
     def live_bedroom_config() -> LiveBedroomConfig:
-        return public_config()
+        config = public_config()
+        return config.model_copy(update={"realCallsEnabled": generation_provider is not None or config.realCallsEnabled})
 
     @application.post("/api/live-bedroom/generate", response_model=LiveGenerationResult)
-    def live_bedroom_generate(request: LiveGenerationRequest) -> LiveGenerationResult:
+    def live_bedroom_generate(request: BedroomGenerationRequest) -> LiveGenerationResult:
         generated = generate_live_bedroom(
             source,
             request,
@@ -140,6 +142,18 @@ def create_app(
             generated = generated.model_copy(update={
                 "design": sessions.register(generated.design, "bedroom"),
             }, deep=True)
+        return LiveGenerationResult(root=generated)
+
+    @application.get("/api/live-design/config", response_model=LiveDesignConfig)
+    def live_design_config(roomType: Literal["bedroom", "living-room"]) -> LiveDesignConfig:
+        config = shared_config(roomType)
+        return config.model_copy(update={"realCallsEnabled": generation_provider is not None or config.realCallsEnabled})
+
+    @application.post("/api/live-design/generate", response_model=LiveGenerationResult)
+    def live_design_generate(request: LiveGenerationRequest) -> LiveGenerationResult:
+        generated = generate_for_room(source, request, room=(object_intent_fixture_room().model_copy(update={"id": "room-living-seating-v1"}) if request.roomType == "living-room" else intent_fixture_room()), provider=generation_provider)
+        if generated.status == "solved":
+            generated = generated.model_copy(update={"design": sessions.register(generated.design, request.roomType)}, deep=True)
         return LiveGenerationResult(root=generated)
 
     application.add_middleware(CaptureBodyLimit)

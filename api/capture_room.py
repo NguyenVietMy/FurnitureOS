@@ -21,8 +21,8 @@ def validate_capture_rectangle(capture: CaptureView) -> tuple[RoomShell | None, 
     fields = active_dimension_fields(draft.topology)
     if draft.topology not in ("rectangle", "L-shaped"):
         issue("unsupported-topology","topology","Choose Rectangle or L-shaped. Other Room shapes are not supported.")
-    if draft.roomType != "bedroom":
-        issue("unsupported-room-type","roomType","Declare Bedroom; other Room Types are not supported by this generator.")
+    if draft.roomType not in ("bedroom", "living-room"):
+        issue("unsupported-room-type","roomType","Declare Bedroom or Living room.")
     accepted = [p for p in capture.photos if p.state == "accepted"]
     if set(p.primaryWallId for p in accepted) != set(walls) or len(accepted)<len(walls):
         issue("missing-wall-coverage","photos","Add a distinct accepted primary photo for every active labelled wall.")
