@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { fetchLiveBedroomConfig, generateLiveBedroom } from '@/shared/api/client';
-import type { LiveBedroomConfig, LiveGenerationFailure, LiveGenerationSuccess, SolvedDesign } from '@/shared/api/types';
+import { fetchLiveBedroomConfig, generateLiveBedroom, fetchLiveDesignConfig, generateLiveDesign } from '@/shared/api/client';
+import type { LiveDesignConfig, LiveGenerationFailure, LiveGenerationSuccess, SolvedDesign } from '@/shared/api/types';
 import { RoomStage } from './RoomStage';
+import { ProductDisclosures } from './ProductDisclosures';
 import { clearSceneDebug } from './scene-debug';
 import { SwapControls } from './SwapControls';
 import { NudgeControls } from './NudgeControls';
@@ -17,11 +18,13 @@ type RequestState =
   | { status: 'failed'; failure: LiveGenerationFailure }
   | { status: 'solved'; success: LiveGenerationSuccess; receivedAtMs: number };
 
-export default function LiveBedroomPage() {
-  const [config, setConfig] = useState<LiveBedroomConfig | null>(null);
+export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?: boolean }) {
+  const [config, setConfig] = useState<LiveDesignConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [referenceId, setReferenceId] = useState('');
-  const [roomType, setRoomType] = useState('');
+  const [roomType, setRoomType] = useState<'' | 'bedroom' | 'living-room'>('');
+  const roomLabel = roomType === 'living-room' ? 'living room' : 'bedroom';
+  const configRoomType = bedroomOnly ? 'bedroom' : roomType || 'bedroom';
   const [requestState, setRequestState] = useState<RequestState>({ status: 'idle' });
   const controllerRef = useRef<AbortController | null>(null);
   const sequenceRef = useRef(0);
@@ -36,15 +39,16 @@ export default function LiveBedroomPage() {
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
-    fetchLiveBedroomConfig(controller.signal).then((value) => {
-      if (current && !controller.signal.aborted) setConfig(value);
+    setConfigError(null);
+    (bedroomOnly ? fetchLiveBedroomConfig(controller.signal) : fetchLiveDesignConfig(configRoomType, controller.signal)).then((value) => {
+      if (current && !controller.signal.aborted) setConfig({ ...value, roomType: value.roomType ?? 'bedroom' });
     }).catch((cause: unknown) => {
       if (current && !controller.signal.aborted) {
         setConfigError(cause instanceof Error ? cause.message : 'Unable to load live generation choices.');
       }
     });
     return () => { current = false; controller.abort(); };
-  }, []);
+  }, [bedroomOnly, configRoomType]);
 
   useEffect(() => () => {
     controllerRef.current?.abort();
@@ -60,7 +64,7 @@ export default function LiveBedroomPage() {
   };
 
   const generate = async () => {
-    if (!referenceId || roomType !== 'bedroom') return;
+    if (!referenceId || !roomType) return;
     const sequence = sequenceRef.current + 1;
     sequenceRef.current = sequence;
     controllerRef.current?.abort();
@@ -69,7 +73,7 @@ export default function LiveBedroomPage() {
     controllerRef.current = controller;
     setRequestState({ status: 'loading' });
     try {
-      const { result, receivedAtMs } = await generateLiveBedroom(referenceId, controller.signal);
+      const { result, receivedAtMs } = await (bedroomOnly ? generateLiveBedroom(referenceId, controller.signal) : generateLiveDesign(roomType, referenceId, controller.signal));
       if (controller.signal.aborted || sequenceRef.current !== sequence) return;
       if (result.status !== 'solved') clearSceneDebug();
       setRequestState(result.status === 'solved'
@@ -87,8 +91,9 @@ export default function LiveBedroomPage() {
 
   if (configError) return (
     <main className="stage-placeholder" data-testid="live-config-error">
-      <h1>Live bedroom choices are unavailable.</h1>
+      <h1>Live Design choices are unavailable.</h1>
       <p role="alert">{configError}</p>
+      <button type="button" onClick={() => window.location.reload()}>Retry choices</button>
       <Link to="/design">Return to fixture preview</Link>
     </main>
   );
@@ -108,25 +113,25 @@ export default function LiveBedroomPage() {
         />
       ) : requestState.status === 'loading' ? (
         <section className="stage-placeholder" role="status" data-testid="live-loading">
-          <strong>Creating your bedroom Design…</strong>
+          <strong>Creating your {roomLabel} Design…</strong>
           <span>Checking furniture fit and walking space.</span>
         </section>
       ) : failure || clientError ? (
         <section className="stage-placeholder live-failure" data-testid="live-failure">
-          <strong>{failure?.code === 'no-valid-design' ? 'No bedroom Design fit this Room.' : 'This Design could not be created.'}</strong>
+          <strong>{failure?.code === 'no-valid-design' ? `No ${roomLabel} Design fit this Room.` : 'This Design could not be created.'}</strong>
           <span role="alert">{failure?.detail ?? clientError}</span>
           <button type="button" onClick={generate}>Retry this generation</button>
         </section>
       ) : (
         <section className="stage-placeholder live-empty" data-testid="live-idle">
-          <strong>Choose an image and Bedroom to begin.</strong>
+          <strong>Choose an image and Room Type to begin.</strong>
           <span>Your furnished Design will appear here.</span>
         </section>
       )}
 
       <aside className="panel live-panel">
         <Link className="home-link" to="/design">← Fixture preview</Link>
-        <p className="eyebrow">Live bedroom</p>
+        <p className="eyebrow">{bedroomOnly ? "Live bedroom" : "Live Room Design"}</p>
         <h1>Choose the feeling, then generate</h1>
         <p className="subtle">Pick the room image closest to what you like.</p>
 
@@ -142,7 +147,9 @@ export default function LiveBedroomPage() {
             />
             Bedroom
           </label>
+          {!bedroomOnly && <label><input type="radio" name="room-type" value="living-room" checked={roomType === 'living-room'} onChange={() => { setRoomType('living-room'); clearGeneration(); }} />Living room</label>}
         </fieldset>
+        {roomType === 'living-room' && <p className="subtle">One sofa, one coffee table and one chair are required, with an optional second chair, rug and floor lamp. Seating Zones offer places to try; fit and connected walking space are checked for the whole Design. The initial policy requires 0.60 m front access, so tighter familiar arrangements may be unavailable.</p>}
 
         <fieldset className="reference-fieldset">
           <legend>Style inspiration</legend>
@@ -172,19 +179,22 @@ export default function LiveBedroomPage() {
         <button
           className="generate-button"
           type="button"
-          disabled={!config.realCallsEnabled || !referenceId || roomType !== 'bedroom' || requestState.status === 'loading'}
+          disabled={!config.realCallsEnabled || (!bedroomOnly && config.roomType !== roomType) || !referenceId || !roomType || requestState.status === 'loading'}
           onClick={generate}
         >
-          {requestState.status === 'loading' ? 'Generating…' : 'Generate bedroom'}
+          {requestState.status === 'loading' ? 'Generating…' : !bedroomOnly && !roomType ? 'Generate Design' : `Generate ${roomLabel}`}
         </button>
         {!config.realCallsEnabled ? <p className="warning" role="status">Generation is not available right now.</p> : null}
 
+        {requestState.status === 'solved' && roomType === 'living-room' && <section aria-label="Seating Zones"><h2>Seating Zones</h2><p>Server-offered areas; these offers do not guarantee that a seating group fits.</p><ul>{requestState.success.design.zones?.map(zone => <li key={zone.id}>{zone.label}: {(zone.bounds.maxX-zone.bounds.minX).toFixed(2)} m wide × {(zone.bounds.maxZ-zone.bounds.minZ).toFixed(2)} m deep</li>)}</ul></section>}
         {requestState.status === 'solved' ? (
           <>
             <NudgeControls design={requestState.success.design} nudge={nudge} lock={mutationLock} />
             <SwapControls design={requestState.success.design} onDesignChange={installDesign} mutationLock={mutationLock} />
           </>
         ) : null}
+
+        {requestState.status === 'solved' ? <ProductDisclosures products={requestState.success.design.products} /> : null}
 
         {requestState.status === 'solved' || failure ? (
           <details className="technical-details generation-details">

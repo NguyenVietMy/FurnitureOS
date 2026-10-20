@@ -9,6 +9,7 @@ import { ReferenceCalibration } from './ReferenceCalibration';
 import { RoomReviewPreview } from './RoomReviewPreview';
 import { CaptureGeneration } from './CaptureGeneration';
 import { RoomStage } from '@/features/design/RoomStage';
+import { ProductDisclosures } from '@/features/design/ProductDisclosures';
 import { SwapControls } from '@/features/design/SwapControls';
 import { NudgeControls } from '@/features/design/NudgeControls';
 import { useMutationLock } from '@/features/design/useMutationLock';
@@ -54,10 +55,10 @@ export default function CapturePage() {
           {flow.issues.length?<div ref={errorsRef} className="capture-errors" role="alert" tabIndex={-1}><h3>Required details to resolve</h3><ul>{flow.issues.map((issue,i)=><li key={i}>{issue.detail}</li>)}</ul></div>:null}
           <button disabled={flow.pending||flow.roomDetailsUnsaved} onClick={flow.confirm}>Review and confirm Room</button>
         </section>
-        <CaptureGeneration result={flow.generation} available={flow.config?.generationAvailable??false} confirmed={confirmed} pending={flow.pending} generate={flow.generate} review={review}/>
+        <CaptureGeneration roomType={capture.draft.roomType ?? ''} result={flow.generation} available={flow.config?.generationAvailable??false} confirmed={confirmed} pending={flow.pending} generate={flow.generate} review={review}/>
       </div><aside className="capture-preview"><RoomReviewPreview draft={flow.draft} confirmed={confirmed}/>
         {success?<><h2>Validated furnished Room</h2><RoomStage result={success.design} receivedAtMs={flow.receivedAtMs} generationId={success.generationId} nudge={nudge}/>
-          <NudgeControls design={success.design} nudge={nudge} lock={lock}/><SwapControls design={success.design} onDesignChange={flow.installDesign} mutationLock={lock}/></>:null}
+          <NudgeControls design={success.design} nudge={nudge} lock={lock}/><SwapControls design={success.design} onDesignChange={flow.installDesign} mutationLock={lock}/><ProductDisclosures products={success.design.products}/></>:null}
       </aside></div>
     </>:null}
   </main>;

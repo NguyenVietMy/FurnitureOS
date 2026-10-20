@@ -3,6 +3,7 @@ import type {
   DesignFixtures,
   DesignResult,
   LiveBedroomConfig,
+  LiveDesignConfig,
   LiveGenerationResult,
   NudgeMutationResult,
   NudgeRegionResult,
@@ -99,6 +100,18 @@ export async function generateLiveBedroom(
   if (!response.ok) throw new Error(`Live bedroom generation returned ${response.status}`);
   const result = await response.json() as LiveGenerationResult;
   return { result, receivedAtMs: performance.now() };
+}
+
+export async function fetchLiveDesignConfig(roomType: 'bedroom' | 'living-room', signal?: AbortSignal): Promise<LiveDesignConfig> {
+  const response = await fetch(`${API_BASE}/api/live-design/config?${new URLSearchParams({ roomType })}`, { signal, headers: { accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Live Design configuration returned ${response.status}`);
+  return response.json() as Promise<LiveDesignConfig>;
+}
+
+export async function generateLiveDesign(roomType: 'bedroom' | 'living-room', referenceId: string, signal?: AbortSignal): Promise<{ result: LiveGenerationResult; receivedAtMs: number }> {
+  const response = await fetch(`${API_BASE}/api/live-design/generate`, { method: 'POST', signal, headers: { accept: 'application/json', 'content-type': 'application/json' }, body: JSON.stringify({ roomType, referenceId }) });
+  if (!response.ok) throw new Error(`Live Design generation returned ${response.status}`);
+  return { result: await response.json() as LiveGenerationResult, receivedAtMs: performance.now() };
 }
 
 export async function fetchSwapCandidates(

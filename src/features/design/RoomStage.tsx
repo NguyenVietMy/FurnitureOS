@@ -48,6 +48,7 @@ export function RoomStage({
           frameRoom={result.room.id.startsWith('capture-')}
           products={result.products}
           placements={result.placements}
+          zones={result.zones}
           overview={isArrangement}
           receivedAtMs={receivedAtMs}
           generationId={generationId}
