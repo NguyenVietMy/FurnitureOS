@@ -36,7 +36,7 @@ Each feature stylesheet nests beneath `html[data-feature]`. App selects that sco
 
 `public/images` and `public/icon.svg` preserve the landing files and [credits](landing/assets.md). Normal image elements retain the previous absolute fill, object fit and aspect ratios; they now deliver the original local JPEGs without an image optimization server. `src/app/global.css` references the exact Fontsource 5.3.0 Latin WOFF2 files previously used by the landing. Vite emits their hashes locally, with the same Manrope 200–800 and Roboto Mono 400 faces and swap behavior.
 
-`public/products` contains the 20 curated, normalized Product publications. Prebuild copies their Catalogue manifests for Python packaging and BasisU decoders for same-origin delivery. `npm run assets:report` remeasures every Product against the strict decimal `< 5,000,000`-byte threshold and counts shared paths once. Generated decoder/build output stays ignored.
+`public/products` contains 23 curated, normalized Product publications: the unchanged bedroom20 plus two reviewed sofas and one coffee table. Prebuild copies their Catalogue manifests for Python packaging and BasisU decoders for same-origin delivery. `npm run assets:report` remeasures every Product against the strict decimal `< 5,000,000`-byte threshold and counts shared paths once. Generated decoder/build output stays ignored.
 
 ## Controlled Catalogue measurement
 
@@ -54,4 +54,20 @@ See [integration evidence](landing/verification/integration.md) for measured des
 
 ## Capture correction flow
 
-`/capture` is a lazy route with real Supabase anonymous Auth, server-verified private requests, stable A/B/C/D wall coverage, all Opening corrections and a measured rectangle preview. Generation renders the returned confirmed Room through the existing RoomStage and private-session Swap/Nudge clients. Auth loss, Room edits, expiry and deletion clear private results; late responses cannot restore them. See [Capture activation and proof](capture.md) for bounds, disclosure, calibration protocol and unrun live/phone gates.
+`/capture` is a lazy route with real Supabase anonymous Auth, server-verified private requests, stable A/B/C/D wall coverage, all Opening corrections and a measured rectangle preview. Generation renders the returned confirmed Room through the existing RoomStage and private-session Swap/Nudge clients. Auth loss, Room edits, expiry and deletion clear private results; late responses cannot restore them. See [Capture activation and proof](capture.md) for bounds, disclosure, calibration protocol, deferred live checks and the waived physical-phone gate.
+
+
+## Explicit Room Type and living seed
+
+`/design/live` offers unselected Bedroom/Living room radios and the existing
+reference images. It calls `/api/live-design` with the declared Room Type;
+`/design/live-bedroom` retains strict Bedroom compatibility. Capture saves and
+confirms that declaration before generation and uses it for mutation sessions.
+Changing Room Type or image aborts and clears stale generation state. Living
+seating Zone outlines and a text legend render only server-offered bounds.
+
+The bounded living proposal and immutable local previews do not enable a
+production Catalogue. Until genuine agent or actual owner review and explicit local promotion,
+living requests return a typed eligible-catalogue error without provider calls.
+See [living seed, access policy and proof](living-rooms.md). No SQL or hosted
+activation is part of this extension.
