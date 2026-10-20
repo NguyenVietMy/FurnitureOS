@@ -2,8 +2,23 @@
 
 This is an internal, Windows-only local workbench for re-reviewing exactly the
 20 pinned ABO source identities. It does not grow or install the production
-Catalogue. The real owner sample is **UNRUN**. Automated tests and the one-lamp
-pipeline proof do not constitute owner judgments, owner time or commercial rights.
+Catalogue by default. The historical Ticket 11 owner20 sample completed on
+2026-10-19 (20 accepted, 575.715 active seconds); this checkout has not rerun it.
+Ticket 12 genuine agent review accepted seven and rejected one candidate, followed by audited local promotion of three new identities alongside four reused Products. Independent source/seed inspection remains pending; optional owner evidence is UNRUN. Automated tests and native
+pipeline proofs do not constitute owner judgments or commercial rights.
+
+For the separate bounded living profile, `--actor agent --reviewer-id <identity>`
+requires explicit `--profile living-seed-v1`, `--state-dir`, `--prepared-dir` and
+`--port`. Its purpose/identity/evidence are immutable. Start/Resume reveals the
+actual Meshes and frozen Style references; front/back/side and Large viewport
+controls support inspection. Notes and explicit Living tags precede real native
+acceptance. Pause after conversion settles; Finish freezes all final decisions.
+Its report can become `COMPLETED_VALID_AGENT_REVIEW` while owner evidence stays
+`UNRUN`. Controlled/test agent workspaces cannot escalate or promote. The
+separate promotion CLI accepts `--actor agent --reviewer-id <same-identity>`;
+dry-run first, inspect inventory/conflicts, then deliberate `--apply` locally.
+Rejected candidates are omitted, with five accepted functional categories and
+a common-Style sofa/table/chair trio still required. No owner workspace is reused.
 
 Start from this checkout with its fresh npm dependencies and Python `.venv`:
 
@@ -183,6 +198,6 @@ default `createCurator`/`buildUI`, checks worker inheritance and selected neutra
 Catalogue filtering, and retains actual input/source/native/output/implementation
 hashes. It performs no bulk build. Ordinary e2e uses the existing controlled
 measurement build and restores normal dist afterward; point its evidence env
-and output directory outside source. Real owner judgments remain UNRUN. Physical
+and output directory outside source. Ticket 12 genuine agent review and local promotion are complete; optional human seed evidence remains UNRUN. Ticket 11 owner20 completed historically. Physical
 phone/manual calibration is waived; actual-room-photo accuracy and paid-provider
 checks remain DEFERRED_UNRUN until END OF PROJECT.

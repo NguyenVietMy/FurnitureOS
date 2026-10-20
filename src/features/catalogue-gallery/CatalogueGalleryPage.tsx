@@ -64,7 +64,7 @@ export default function CatalogueGalleryPage() {
     <main className="catalogue-gallery" data-testid="catalogue-gallery">
       <header>
         <p className="gallery-kicker">Controlled measurement build</p>
-        <h1>20 real-scale Products</h1>
+        <h1>{gallery.products.length} real-scale Products</h1>
         <p>This route is compiled only for approved device testing. No private Style names are exposed.</p>
         <dl>
           <div><dt>Build</dt><dd data-testid="measurement-build-id">{BUILD_ID}</dd></div>

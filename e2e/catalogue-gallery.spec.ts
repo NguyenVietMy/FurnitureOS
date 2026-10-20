@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { expectedPublication } from '../tests/catalogue-expectations';
 
 const evidenceDir = process.env.FURNITUREOS_EVIDENCE_DIR;
 test.describe.configure({ timeout: 240_000 });
 
-test('@measurement renders all 20 real Products progressively and exports observable evidence', async ({ page }) => {
+test('@measurement renders the exact published union progressively and exports observable evidence', async ({ page }) => {
+  const expected = expectedPublication();
   const responses: string[] = [];
   page.on('response', (response) => {
     if (/\/products\/.+\/(lod[012]\.gltf|textures\/.+\.ktx2)$/.test(new URL(response.url()).pathname)) {
@@ -14,7 +16,11 @@ test('@measurement renders all 20 real Products progressively and exports observ
   });
   await page.goto('/catalogue-gallery');
   await expect(page.getByTestId('catalogue-gallery')).toBeVisible();
-  await expect(page.getByTestId('product-count')).toHaveText('20');
+  await expect(page.getByTestId('product-count')).toHaveText(String(expected.ids.length));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${expected.ids.length} real-scale Products`);
+  const catalogue = await (await page.request.get('/api/catalogue-gallery')).json();
+  expect(catalogue.catalogueVersion).toBe(expected.version);
+  expect(catalogue.products.map((p: { id: string }) => p.id).sort()).toEqual(expected.ids);
   await page.waitForFunction(() => {
     const measurement = window.__catalogueMeasurement;
     return Boolean(measurement)
@@ -26,7 +32,7 @@ test('@measurement renders all 20 real Products progressively and exports observ
   }, undefined, { timeout: 240_000 });
   const measurement = await page.evaluate(() => window.__catalogueMeasurement!);
   expect(measurement).toBeDefined();
-  expect(Object.keys(measurement.products)).toHaveLength(20);
+  expect(Object.keys(measurement.products).sort()).toEqual(expected.ids);
   for (const product of Object.values(measurement.products)) {
     expect(product.error).toBeNull();
     expect(product.initialLod).toBe(2);
@@ -38,9 +44,9 @@ test('@measurement renders all 20 real Products progressively and exports observ
       product.refinements.find((event) => event.lod === 1)!.visibleMs,
     );
   }
-  expect(new Set(responses.filter((url) => url.endsWith('/lod2.gltf'))).size).toBe(20);
-  expect(new Set(responses.filter((url) => url.endsWith('/lod1.gltf'))).size).toBe(20);
-  expect(new Set(responses.filter((url) => url.endsWith('/lod0.gltf'))).size).toBe(20);
+  for (const lod of [0, 1, 2]) {
+    expect([...new Set(responses.filter((url) => url.endsWith(`/lod${lod}.gltf`)).map((url) => url.split('/')[2]))].sort()).toEqual(expected.ids);
+  }
 
   if (evidenceDir) {
     await mkdir(evidenceDir, { recursive: true });

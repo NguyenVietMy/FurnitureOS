@@ -8,7 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from api.catalogue import catalogue
+from api.catalogue import catalogue, StaticCatalogue
+from api.catalogue.providers.abo import abo_entries, catalogue_version
+from backend_tests.catalogue_expectations import expected_publication
 from api.live_generation import LiveGenerationRequest, frozen_generation_configuration, generate_live_bedroom
 from api.provider import MODEL_ID, ProviderReply, ProviderUsage
 from scripts import ticket6_evidence as evidence
@@ -876,8 +878,12 @@ def test_frozen_configuration_binds_complete_catalogue_for_every_reference() -> 
     configuration = frozen_generation_configuration(catalogue)
     assert configuration["proposedTenRunSchedule"] == ["ref-01"] * 5 + ["ref-06"] * 5
     frozen_products = configuration["catalogue"]["products"]
-    assert len(frozen_products) == len(catalogue.list()) == 20
-    assert {item["id"] for item in frozen_products} == {product.id for product in catalogue.list()}
+    legacy_ids, living_ids, version = expected_publication()
+    assert len(legacy_ids) == 20
+    assert len(frozen_products) == len(catalogue.list()) == len(legacy_ids | living_ids)
+    assert {item["id"] for item in frozen_products} == legacy_ids | living_ids
+    assert configuration['catalogueVersion'] == version
+    bedroom_source = StaticCatalogue(catalogue_version(), abo_entries())
     assert set(configuration["catalogue"]["eligibleProductIdsByReference"]) == {
         reference["id"] for reference in configuration["references"]
     }
@@ -886,8 +892,8 @@ def test_frozen_configuration_binds_complete_catalogue_for_every_reference() -> 
     }
     for reference in configuration["references"]:
         style_expected = sorted(
-            product.id for product in catalogue.list()
-            if reference["privateStyleId"] in catalogue.private_style_ids(product.id)
+            product.id for product in bedroom_source.list()
+            if reference["privateStyleId"] in bedroom_source.private_style_ids(product.id)
             and "bedroom" in product.roomTypes
         )
         live_expected = sorted(

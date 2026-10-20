@@ -3,14 +3,18 @@ from __future__ import annotations
 from collections import Counter
 from copy import deepcopy
 from pathlib import Path
+import json
 
 import pytest
 from pydantic import ValidationError
 
 from api.catalogue import CatalogueEntry, CatalogueQuery, StaticCatalogue, catalogue, dimension_evidence
-from api.catalogue.providers.abo import ASSET_BUDGET_BYTES, asset_manifest, seed_catalogue
+from api.catalogue.providers.abo import ASSET_BUDGET_BYTES, asset_manifest, seed_catalogue, abo_entries
 from api.design import FEATURED_PRODUCT_ID
 from api.models import Attribution, Product
+from backend_tests.catalogue_expectations import expected_publication
+
+legacy_catalogue = StaticCatalogue(seed_catalogue().catalogueVersion, abo_entries())
 
 
 def as_dict(product: Product) -> dict:
@@ -18,7 +22,7 @@ def as_dict(product: Product) -> dict:
 
 
 def test_catalogue_has_exactly_twenty_distinct_real_products() -> None:
-    products = catalogue.list()
+    products = legacy_catalogue.list()
     assert len(products) == 20
     assert len({product.id for product in products}) == 20
     assert len({product.attribution.materialUrl for product in products}) == 20
@@ -30,7 +34,7 @@ def test_catalogue_has_exactly_twenty_distinct_real_products() -> None:
 
 def test_catalogue_version_and_provisional_style_vocabulary_are_private() -> None:
     seed = seed_catalogue()
-    assert catalogue.version == seed.catalogueVersion
+    assert catalogue.version == expected_publication()[2]
     assert seed.styleVocabulary.status == "provisional-pending-owner-approval"
     assert len(seed.styleVocabulary.styles) == 5
     assert all(style.referenceImageStatus == "pending-owner-approval" for style in seed.styleVocabulary.styles)
@@ -186,7 +190,7 @@ def test_product_rejects_blank_attribution(product, field) -> None:
 
 
 def test_every_curated_product_publishes_its_provider_neutral_placement_class() -> None:
-    for product in catalogue.list():
+    for product in legacy_catalogue.list():
         assert product.roomTypes == ("bedroom",)
         expected = "floor-covering" if product.category == "rug" else "floor-standing"
         assert product.placementClass == expected
@@ -202,7 +206,7 @@ def test_rug_and_lamp_seed_records_declare_placement_class_explicitly() -> None:
 
 
 def test_wall_contact_metadata_matches_product_use() -> None:
-    wall_categories = {"bed", "nightstand", "wardrobe", "dresser"}
+    wall_categories = {"bed", "nightstand", "wardrobe", "dresser", "sofa"}
     for product in catalogue.list():
         expected = (
             ("back", "left", "right")
@@ -260,7 +264,27 @@ def test_every_mesh_has_decreasing_three_level_lods() -> None:
     (CatalogueQuery(private_style_id="style-99"), 0),
 ])
 def test_catalogue_queries(query, expected) -> None:
-    assert len(catalogue.list(query)) == expected
+    assert len(legacy_catalogue.list(query)) == expected
+
+
+def test_public_catalogue_is_exact_reviewed_union_with_unchanged_bedroom_eligibility():
+    legacy, living, version = expected_publication()
+    assert {p.id for p in catalogue.list()} == legacy | living
+    assert {p.id for p in catalogue.list(CatalogueQuery(room_type='bedroom'))} == legacy
+    assert {p.id for p in catalogue.list(CatalogueQuery(room_type='living-room'))} == living
+    assert catalogue.version == version
+    reviewed=Path(__file__).resolve().parents[1]/'api/catalogue/providers/abo-living-reviewed.json'
+    reviewed_entries=json.loads(reviewed.read_bytes())['entries'] if reviewed.exists() else []
+    for style in seed_catalogue().styleVocabulary.styles:
+        expected={e['productId'] for e in reviewed_entries if style.id in e['privateStyleIds']}
+        assert {p.id for p in catalogue.list(CatalogueQuery(room_type='living-room',private_style_id=style.id))}==expected
+    for old in legacy_catalogue.list():
+        public = catalogue.get(old.id)
+        assert public.model_dump(exclude={'roomTypes'}) == old.model_dump(exclude={'roomTypes'})
+        assert public.roomTypes == (('bedroom', 'living-room') if old.id in living else ('bedroom',))
+        for style in seed_catalogue().styleVocabulary.styles:
+            query = CatalogueQuery(room_type='bedroom', private_style_id=style.id)
+            assert {p.id for p in catalogue.list(query)} == {p.id for p in legacy_catalogue.list(query)}
 
 
 def test_catalogue_returns_none_for_unknown_product() -> None:

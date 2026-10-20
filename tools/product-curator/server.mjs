@@ -40,9 +40,9 @@ async function jsonBody(request) {
   try { return JSON.parse(Buffer.concat(pieces).toString('utf8')); }
   catch { throw new HttpError(400, 'Malformed JSON'); }
 }
-export async function createCurator({ stateDir, actor = 'owner', port = 0, controlled = false, runner, uiDir, clock } = {}) {
+export async function createCurator({ stateDir, actor = 'owner', port = 0, controlled = false, runner, uiDir, clock, profile, preparedDir, ownerIdentity, reviewerIdentity } = {}) {
   assertLocalContext();
-  const engine = await Engine.open({ stateDir, actor, controlled, runner, clock });
+  const engine = await Engine.open({ stateDir, actor, controlled, runner, clock, profile, preparedDir, ownerIdentity, reviewerIdentity });
   let staticRoot;
   try { staticRoot = uiDir ?? await buildUI(engine.root); }
   catch (error) { await engine.close(); throw error; }
@@ -87,6 +87,10 @@ export async function createCurator({ stateDir, actor = 'owner', port = 0, contr
         send(200, await engine.serialize(() => engine.entries(query))); return;
       }
       const original = url.pathname.match(/^\/mesh\/original\/([a-f0-9]{64})\/([a-z0-9-]+)\/(.+)$/);
+      const reviewImage = url.pathname.match(/^\/review-images\/([a-f0-9]{64})\/(ref-0[1-6]\.jpg)$/);
+      if (reviewImage) {
+        send(200, await engine.serialize(() => engine.reviewImage(reviewImage[1], reviewImage[2])), 'image/jpeg'); return;
+      }
       const attempt = url.pathname.match(/^\/mesh\/attempt\/([a-f0-9-]{36})\/(.+)$/);
       if (original || attempt) {
         const file = original ? original[3] : attempt[2];
@@ -130,15 +134,23 @@ export function parseArgs(args) {
     const key = args[i], value = args[i + 1];
     if (!value) throw new Error(`Missing value for ${key}`);
     if (key === '--state-dir') options.stateDir = path.resolve(value);
-    else if (key === '--actor' && ['owner', 'automated'].includes(value)) options.actor = value;
+    else if (key === '--profile' && ['bedroom20', 'living-seed-v1'].includes(value)) options.profile = value;
+    else if (key === '--prepared-dir') options.preparedDir = path.resolve(value);
+    else if (key === '--owner-id') options.ownerIdentity = value;
+    else if (key === '--reviewer-id') options.reviewerIdentity = value;
+    else if (key === '--actor' && ['owner', 'automated', 'agent'].includes(value)) options.actor = value;
     else if (key === '--port' && /^\d+$/.test(value) && Number(value) <= 65535) options.port = Number(value);
     else throw new Error(`Unknown/invalid option ${key}; queue size and host cannot be overridden`);
+  }
+  if (options.actor === 'agent') {
+    if (options.profile !== 'living-seed-v1' || !options.reviewerIdentity || !args.includes('--state-dir') || !args.includes('--port')) throw new Error('Agent review requires living profile, --reviewer-id, explicit --state-dir and --port');
   }
   return options;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = await createCurator(parseArgs(process.argv.slice(2)));
-  console.log(`FurnitureOS local Product curator: ${app.origin}\nActor: ${app.engine.state.actor}; state: ${app.engine.root}\nOwner sample timing begins only with explicit Start. Shutdown during ACTIVE invalidates it; Pause first after work settles.`);
+  const reviewHelp = app.engine.state.freeze.profile ? 'Start the separate living seed review explicitly. Shutdown pauses review and preserves decisions. Activity timing is not an acceptance gate.' : 'Owner sample timing begins only with explicit Start. Shutdown during ACTIVE invalidates it; Pause first after work settles.';
+  console.log(`FurnitureOS local Product curator: ${app.origin}\nActor: ${app.engine.state.actor}; state: ${app.engine.root}\n${reviewHelp}`);
   let stopping = false;
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => {
     if (stopping) return; stopping = true;

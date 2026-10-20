@@ -36,7 +36,7 @@ class StaticCatalogue:
             and
             (query.room_type is None or query.room_type in product.roomTypes)
             and (query.category is None or query.category == product.category)
-            and (query.private_style_id is None or query.private_style_id in entry.private_style_ids))
+            and (query.private_style_id is None or query.private_style_id in dict(entry.room_style_ids).get(query.room_type, entry.private_style_ids)))
 
     def get(self, product_id: str) -> Product | None:
         entry = self._by_id.get(product_id)

@@ -8,16 +8,17 @@ import { markLoadError, markRendered } from './measurement';
 
 const CELL_M = 4;
 
-function CameraFit() {
+function CameraFit({ productCount }: { productCount: number }) {
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
   useEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return;
     camera.position.set(0, 20, 22);
     camera.lookAt(0, 0, 0);
-    camera.zoom = Math.min(size.width / 23, size.height / 18);
+    const rows = Math.ceil(productCount / 5);
+    camera.zoom = Math.min(size.width / 23, size.height / Math.max(18, rows * CELL_M * .75 + 6));
     camera.updateProjectionMatrix();
-  }, [camera, size]);
+  }, [camera, size, productCount]);
   return null;
 }
 
@@ -104,7 +105,7 @@ function GalleryProducts({
     const column = index % 5;
     const row = Math.floor(index / 5);
     const x = (column - 2) * CELL_M;
-    const z = (1.5 - row) * CELL_M;
+    const z = ((Math.ceil(products.length / 5) - 1) / 2 - row) * CELL_M;
     return (
       <group key={product.id}>
         <gridHelper args={[3.7, 4, '#b9b2a5', '#d8d1c5']} position={[x, 0, z]} />
@@ -137,7 +138,7 @@ export default function CatalogueGalleryCanvas({
       <color attach="background" args={['#eeeae2']} />
       <hemisphereLight args={['#fffdf7', '#b8ad9c', 1.1]} />
       <directionalLight position={[8, 16, 12]} intensity={1.8} castShadow />
-      <CameraFit />
+      <CameraFit productCount={products.length} />
       <GalleryProducts products={products} onLoadError={onLoadError} />
     </Canvas>
   );

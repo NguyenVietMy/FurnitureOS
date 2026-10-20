@@ -1,3 +1,4 @@
+import { PUBLISHED_PRODUCT_ASSET_SOURCES } from './asset-pipeline.config.mjs';
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +9,7 @@ const seed = JSON.parse(readFileSync(seedPath, 'utf8'));
 const destinationDir = join(root, 'api', 'catalogue', 'providers', 'manifests');
 rmSync(destinationDir, { recursive: true, force: true });
 mkdirSync(destinationDir, { recursive: true });
-for (const { productId } of seed.products) {
+for (const { productId } of PUBLISHED_PRODUCT_ASSET_SOURCES) {
   const source = join(root, 'public', 'products', productId, 'asset-manifest.json');
   const destination = join(destinationDir, `${productId}.json`);
   mkdirSync(dirname(destination), { recursive: true });

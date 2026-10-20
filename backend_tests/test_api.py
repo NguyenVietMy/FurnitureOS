@@ -10,6 +10,7 @@ from api.catalogue import CatalogueEntry, StaticCatalogue
 import api.main as main
 from api.main import create_app
 from api.models import Product
+from backend_tests.catalogue_expectations import expected_publication
 
 
 def validation_body(design: dict) -> dict:
@@ -48,8 +49,10 @@ def test_controlled_catalogue_gallery_exposes_products_but_not_private_styles() 
     response = controlled.get("/api/catalogue-gallery")
     assert response.status_code == 200
     body = response.json()
-    assert body["catalogueVersion"]
-    assert len(body["products"]) == 20
+    legacy, living, version = expected_publication()
+    assert body['catalogueVersion'] == version
+    assert {p['id'] for p in body['products']} == legacy | living
+    assert len(body['products']) == len(legacy | living)
     serialized = response.text
     assert "privateStyle" not in serialized
     assert "Warm Minimal" not in serialized

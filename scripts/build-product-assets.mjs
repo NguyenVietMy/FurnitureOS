@@ -26,7 +26,7 @@ import {
   CANONICAL_FRONT_AXIS,
   LOD_LEVELS,
   MAX_TEXTURE_PX,
-  PRODUCT_ASSET_SOURCES,
+  PUBLISHED_PRODUCT_ASSET_SOURCES,
 } from './asset-pipeline.config.mjs';
 import { ensureGltfpack, sha256File } from './lib/ensure-gltfpack.mjs';
 import { measureGltf } from './lib/gltf-measure.mjs';
@@ -341,10 +341,10 @@ export async function buildProduct(product, options = {}) {
 export async function main() {
 const requestedIds = process.argv.slice(2);
 const selectedProducts = requestedIds.length
-  ? PRODUCT_ASSET_SOURCES.filter((product) => requestedIds.includes(product.productId))
-  : PRODUCT_ASSET_SOURCES;
+  ? PUBLISHED_PRODUCT_ASSET_SOURCES.filter((product) => requestedIds.includes(product.productId))
+  : PUBLISHED_PRODUCT_ASSET_SOURCES;
 const unknownIds = requestedIds.filter(
-  (productId) => !PRODUCT_ASSET_SOURCES.some((product) => product.productId === productId),
+  (productId) => !PUBLISHED_PRODUCT_ASSET_SOURCES.some((product) => product.productId === productId),
 );
 if (unknownIds.length) throw new Error(`Unknown Product id(s): ${unknownIds.join(', ')}`);
 

@@ -1,0 +1,300 @@
+{
+  "productId": "sofa-stone-beam-hillman-ivory",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B07QHYD995.glb",
+    "sha256": "97521aa38b6f6e2bc98fed3566b9e4d6f6e473aa8435a40833e3071f147491e6",
+    "bytes": 65727976,
+    "bounds": {
+      "min": [
+        -0.994312,
+        0,
+        -0.483327
+      ],
+      "max": [
+        0.994312,
+        0.860245,
+        0.508115
+      ],
+      "size": [
+        1.988624,
+        0.860245,
+        0.991442
+      ]
+    },
+    "triangles": 63652
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.994312,
+        0,
+        -0.495721
+      ],
+      "max": [
+        0.994312,
+        0.860245,
+        0.495721
+      ],
+      "size": [
+        1.988624,
+        0.860245,
+        0.991442
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        -0.012393999999999988
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 3137094,
+    "sharedBytes": 2574967
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-5d422de1961f.ktx2",
+      "bytes": 598452,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-7525add82787.ktx2",
+      "bytes": 22549,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-85dfe8503e7f.ktx2",
+      "bytes": 136036,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-3254b45942ed.ktx2",
+      "bytes": 639300,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-8d9257c0b929.ktx2",
+      "bytes": 165792,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-aef7ada7ec8d.ktx2",
+      "bytes": 49039,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-ae54da3999ce.ktx2",
+      "bytes": 713856,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-e844f17628ab.ktx2",
+      "bytes": 59675,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-eb4ee14412e5.ktx2",
+      "bytes": 190268,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/sofa-stone-beam-hillman-ivory/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 63652,
+      "vertices": 35082,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 342385,
+      "bounds": {
+        "min": [
+          -0.994312,
+          0,
+          -0.495721
+        ],
+        "max": [
+          0.994312,
+          0.860235,
+          0.495723
+        ],
+        "size": [
+          1.988624,
+          0.860235,
+          0.991445
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/sofa-stone-beam-hillman-ivory/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 25460,
+      "vertices": 14963,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 160986,
+      "bounds": {
+        "min": [
+          -0.994282,
+          0,
+          -0.495721
+        ],
+        "max": [
+          0.994303,
+          0.860248,
+          0.495582
+        ],
+        "size": [
+          1.988585,
+          0.860248,
+          0.991304
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.00014100000000000223
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/sofa-stone-beam-hillman-ivory/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 7638,
+      "vertices": 4962,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 58756,
+      "bounds": {
+        "min": [
+          -0.994083,
+          0,
+          -0.495165
+        ],
+        "max": [
+          0.993996,
+          0.859392,
+          0.494126
+        ],
+        "size": [
+          1.988079,
+          0.859392,
+          0.989292
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.001597000000000015
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

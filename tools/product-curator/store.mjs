@@ -37,6 +37,7 @@ export class Store {
       store.dir = await ownedPath(root, 'journal');
       const initializationPath = await ownedPath(root, 'journal-initialized.json');
       const identity = { schemaVersion: 1, actor: initial.actor, seedSha256: initial.freeze.seedSha256 };
+      if (initial.actor === 'agent') Object.assign(identity, { evidenceKind: initial.evidenceKind, reviewerIdentity: initial.freeze.reviewerIdentity, purpose: initial.freeze.purpose });
       let initialized = false;
       try {
         assert.deepEqual(JSON.parse(await readFile(initializationPath, 'utf8')), identity, 'Journal initialization identity changed; preserve and use a fresh workspace');
@@ -73,9 +74,11 @@ export class Store {
         assert.equal(payload.state.freeze.seedSha256, initial.freeze.seedSha256, 'Pinned seed identity changed; use a fresh workspace');
         assert.deepEqual(payload.state.freeze, initial.freeze, 'Frozen source/preview metadata identity changed');
         assert.equal(payload.state.actor, initial.actor, 'Actor cannot change for a workspace');
+        assert.equal(payload.state.evidenceKind, initial.evidenceKind, 'Evidence kind cannot change for a workspace');
+        assert.equal(payload.state.sample.actor, initial.actor, 'Sample actor cannot change for a workspace');
         assert.equal(payload.state.sample.protocol, initial.sample.protocol, 'Frozen timing protocol changed; preserve and use a fresh workspace');
-        assert.equal(payload.state.sample.denominator, 20, 'Frozen sample denominator changed');
-        assert(payload.state.candidates.length === 20 && payload.state.cursor >= 0 && payload.state.cursor < 20, 'Invalid bounded state');
+        assert.equal(payload.state.sample.denominator, initial.sample.denominator, 'Frozen sample denominator changed');
+        assert(payload.state.candidates.length === initial.candidates.length && payload.state.cursor >= 0 && payload.state.cursor < initial.candidates.length, 'Invalid bounded state');
         store.state = payload.state;
         store.events.push({ revision: i, ...payload.event });
         store.chain = hash;

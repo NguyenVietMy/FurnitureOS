@@ -20,6 +20,7 @@ class CatalogueEntry:
 
     product: Product
     private_style_ids: tuple[str, ...]
+    room_style_ids: tuple[tuple[RoomType, tuple[str, ...]], ...] = ()
 
 
 class Catalogue(Protocol):

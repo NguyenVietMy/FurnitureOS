@@ -162,6 +162,27 @@ class SeedCatalogue(StrictModel):
         return self
 
 
+class LivingCandidateCatalogue(SeedCatalogue):
+    """Separate bounded proposal; this is never production eligibility."""
+
+    products: tuple[SeedProduct, ...] = Field(min_length=5, max_length=8)
+
+    @model_validator(mode="after")
+    def bounded_living_candidates(self) -> "LivingCandidateCatalogue":
+        categories = [p.category for p in self.products]
+        if set(categories) != {"sofa", "table", "chair", "rug", "lamp"}:
+            raise ValueError("Living candidates must cover sofa/table/chair/rug/lamp")
+        if categories.count("sofa") + categories.count("table") > 4:
+            raise ValueError("At most four new sofa/table identities")
+        for product in self.products:
+            if product.category in {"sofa", "table", "chair"} and not any(
+                a.face == "front" and a.required and a.depthM >= .60
+                for a in product.accessRegions
+            ):
+                raise ValueError("Seating and coffee tables require 0.60 m front access")
+        return self
+
+
 _DATASET = {
     "name": "Amazon Berkeley Objects (ABO)",
     "holder": "Amazon.com, Inc.",
@@ -246,6 +267,7 @@ def entry_from_manifest(
     room_types: tuple[str, ...] = ("bedroom",),
     private_style_ids: tuple[str, ...] | None = None,
     mesh_base_url: str | None = None,
+    curated_on: str | None = None,
 ) -> CatalogueEntry:
     """Project measured provider input; the local curator supplies immutable URLs."""
     if manifest.productId != record.productId:
@@ -299,7 +321,7 @@ def entry_from_manifest(
         "purchaseUrl": "",
         "purchase": {
             "availability": "unknown",
-            "checkedOn": seed_catalogue().curatedOn,
+            "checkedOn": curated_on or seed_catalogue().curatedOn,
             "note": "Purchase availability was not verified; the dataset listing is provenance only.",
         },
         "attribution": {
