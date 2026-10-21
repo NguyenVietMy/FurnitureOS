@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, m
 from .arrangement import ArrangementSession, MAX_ARRANGEMENT_SOLVES, MAX_REPAIR_ATTEMPTS
 from .catalogue.contract import Catalogue, CatalogueQuery
 from .circulation import validate_circulation
-from .design import intent_fixture_room
+from .design import intent_fixture_room, object_intent_fixture_room
 from .domain import SEARCH_STEP_M, WallPlacementCapability, resolve_design, wall_placement_capabilities
 from .models import (
     ArrangementRequest,
@@ -54,6 +54,7 @@ from .provider import (
     provider_configuration_available,
 )
 from .zones import derive_zones
+from .room_policy import RoomPolicy, BEDROOM_POLICY, room_policy
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_MANIFEST = Path(__file__).with_name("live-reference-manifest.json")
@@ -153,8 +154,16 @@ class LiveBedroomConfig(StrictModel):
 
 
 class LiveGenerationRequest(StrictModel):
-    roomType: Literal["bedroom"]
+    roomType: RoomType
     referenceId: str = Field(pattern=r"^ref-0[1-6]$")
+
+
+class BedroomGenerationRequest(LiveGenerationRequest):
+    roomType: Literal["bedroom"]
+
+
+class LiveDesignConfig(LiveBedroomConfig):
+    roomType: RoomType
 
 
 IntentKind = Literal["against", "centred_on", "in_corner", "adjacent_to", "facing", "flanking", "in_zone"]
@@ -280,6 +289,7 @@ class UsageSummary(StrictModel):
 
 
 class LiveGenerationSuccess(StrictModel):
+    roomType: RoomType = "bedroom"
     status: Literal["solved"]
     generationId: str
     referenceId: str
@@ -292,6 +302,7 @@ class LiveGenerationSuccess(StrictModel):
 
 
 class LiveGenerationFailure(StrictModel):
+    roomType: RoomType = "bedroom"
     status: Literal["failed"]
     generationId: str
     referenceId: str
@@ -655,6 +666,7 @@ def _replacement_intents(
 def _pair_scope(
     intents: tuple[PlacementIntent, ...],
     replacements: tuple[PlacementIntent, ...],
+    anchor_ids: frozenset[str] = BEDROOM_POLICY.anchor_ids,
 ) -> tuple[PlacementIntent, ...]:
     """Keep the affected dependency group plus only the context needed to solve it."""
     candidate = _replacement_intents(intents, replacements)
@@ -681,7 +693,7 @@ def _pair_scope(
                 affected.add(intent.id)
                 changed = True
 
-    included = {ANCHOR_ID, *affected}
+    included = {*anchor_ids, *affected}
     for request_id in tuple(affected):
         reference_id = by_id[request_id].referenceId
         while reference_id is not None and reference_id not in included:
@@ -716,6 +728,7 @@ def _composition_alternatives(
     eligible: tuple[Product, ...],
     capabilities: WallCapabilityMap,
     zone_offer: ZoneOffer,
+    anchor_ids: frozenset[str] = BEDROOM_POLICY.anchor_ids,
 ) -> tuple[_CompositionAlternative, ...]:
     """Enumerate bounded coordinate-free edits without changing identity or Product."""
     intents = selection.intents
@@ -735,7 +748,7 @@ def _composition_alternatives(
             alternatives.append(_CompositionAlternative(request_ids, replacements))
 
     handled_flanking: set[str] = set()
-    for intent in sorted(intents, key=lambda item: (item.id == ANCHOR_ID, item.id)):
+    for intent in sorted(intents, key=lambda item: (item.id in anchor_ids, item.id)):
         if intent.kind in {"against", "centred_on", "in_corner"}:
             for option in capabilities[intent.productId]:
                 if option.kind != intent.kind:
@@ -827,17 +840,18 @@ def _composition_correction_guidance(
     selection: ArrangementSelection,
     *,
     max_probes: int = MAX_COMPOSITION_GUIDANCE_PROBES,
+    policy: RoomPolicy = BEDROOM_POLICY,
 ) -> dict[str, Any]:
     """Derive advisory pair/full witnesses without mutating the live Arrangement."""
     if not 1 <= max_probes <= MAX_COMPOSITION_GUIDANCE_PROBES:
         raise ValueError("composition guidance probe bound must be between one and 32")
     budget = _CompositionProbeBudget(max_probes=max_probes)
     pair_witnesses: list[tuple[_CompositionAlternative, dict[str, Any]]] = []
-    alternatives = _composition_alternatives(selection, eligible, capabilities, zone_offer)
+    alternatives = _composition_alternatives(selection, eligible, capabilities, zone_offer, policy.anchor_ids)
     for alternative in alternatives:
         if budget.exhausted or budget.pair_probes >= min(MAX_COMPOSITION_PAIR_PROBES, max_probes):
             break
-        pair_intents = _pair_scope(selection.intents, alternative.replacements)
+        pair_intents = _pair_scope(selection.intents, alternative.replacements, policy.anchor_ids)
         status = _probe_composition_intents(
             source, room, zone_offer, pair_intents, budget, pair_only=True,
         )
@@ -976,6 +990,7 @@ def _prompt(
     composition_guidance: dict[str, Any] | None = None,
     correction: SelectionRejection | None = None,
     rejected_draft: dict[str, Any] | None = None,
+    policy: RoomPolicy = BEDROOM_POLICY,
 ) -> str:
     product_view = [{
         "id": product.id,
@@ -995,7 +1010,7 @@ def _prompt(
     history = None
     complete_design_status = None
     prompt_bed_guidance = bed_guidance
-    if previous is not None and session is not None:
+    if previous is not None and session is not None and policy.room_type == "bedroom":
         initial = session.selections[0]
         initial_bed = next(intent for intent in initial.intents if intent.id == ANCHOR_ID)
         prompt_bed_guidance = {
@@ -1094,6 +1109,23 @@ def _prompt(
         "correctionFeedback": correction.model_dump(mode="json") if correction else None,
         "rejectedDraft": rejected_draft,
     }
+    if policy.room_type == "living-room":
+        context["task"] = "Select a living-room seating Design inspired by the attached pixels. Return only eligible Product IDs and coordinate-free supported Intents."
+        context["roomType"] = policy.room_type
+        context["rules"].update({
+            "anchor": "Exactly one anchor-sofa, one anchor-table (vetted coffee table) and one anchor-chair are required. All three Product identities remain locked across repairs. At most one additional chair is optional.",
+            "selectionScope": {"version": policy.version, "required": [{"requestId": i, "category": c, "count": 1} for i, c in policy.anchors], "optional": [{"category": c, "maximumCount": n} for c, n in policy.optional], "maximumRequests": policy.request_limit, "otherCategories": "forbidden"},
+            "requestLimit": policy.request_limit,
+            "repair": "Preserve every request ID/category and all three required anchor Product identities. Spatial Intents may change; all constraints are solved again.",
+            "feasibility": "A seating Zone offers geometry, not a group-fit guarantee. A floating sofa may use in_zone without wall contacts; a table adjacent_to its front needs gapM >= 0.60. Coffee tables also require 0.60 m front access. Do not shrink access. Only server-provided Zones are valid.",
+        })
+        context["rules"]["relativeGrammar"]["flanking"]["scope"] = "A chair flanking pair may contain anchor-chair and the one optional second chair. It is atomic and cannot be dropped when its closure contains any required anchor."
+        context["placementGuidance"] = {k: placement_guidance[k] for k in ("accessRelationshipRule", "accessRelationshipWarnings", "completeDesignStatus")}
+        if session is not None:
+            initial = session.selections[0]
+            context["immutableRepairContract"] = {"identitySet": [i.id for i in initial.intents], "requiredAnchors": [{"id": i.id, "productId": i.productId} for i in initial.intents if i.id in policy.anchor_ids], "categories": {i.id: next(p.category for p in eligible if p.id == i.productId) for i in initial.intents}}
+            context["actualPrecedingFeedback"] = session.latest_attempt.model_dump(mode="json") if session.latest_attempt else None
+            context["chronologicalHistory"] = [a.model_dump(mode="json") for a in session.attempts]
     prompt = json.dumps(context, separators=(",", ":"), sort_keys=True)
     if len(prompt.encode("utf-8")) > MAX_PROMPT_TEXT_BYTES:
         raise ProviderCallError(
@@ -1235,6 +1267,7 @@ def _validated_selection(
     selection_id: str,
     initial: ArrangementSelection | None,
     enforce_live_scope: bool = False,
+    policy: RoomPolicy = BEDROOM_POLICY,
 ) -> ArrangementSelection:
     try:
         selection = ProviderSelection.model_validate(payload)
@@ -1264,14 +1297,11 @@ def _validated_selection(
             path="intents.productId",
         ))
     intents = tuple(PlacementIntent.model_validate(intent.model_dump(mode="json")) for intent in selection.intents)
-    beds = [intent for intent in intents if products[intent.productId].category == "bed"]
-    if len(beds) != 1 or beds[0].id != ANCHOR_ID:
-        raise SelectionRejected(SelectionRejection(
-            code="anchor-error",
-            detail=f'Exactly one bed with request id "{ANCHOR_ID}" is required.',
-            path="intents.id",
-            intentId=beds[0].id if len(beds) == 1 else None,
-        ))
+    for anchor_id, category in policy.anchors:
+        anchors = [intent for intent in intents if intent.id == anchor_id]
+        category_count = sum(products[intent.productId].category == category for intent in intents)
+        if len(anchors) != 1 or products[anchors[0].productId].category != category or (category not in dict(policy.optional) and category_count != 1):
+            raise SelectionRejected(SelectionRejection(code="anchor-error", detail=f'Exactly one {category} with request id "{anchor_id}" is required.', path="intents.id"))
     _validate_graph(intents, products, zone_offer, capabilities)
     candidate = ArrangementSelection(id=selection_id, intents=intents)
     if initial is not None:
@@ -1283,12 +1313,12 @@ def _validated_selection(
                 detail="Repair must preserve the initial request identity set.",
                 path="intents.id",
             ))
-        if current_by_id[ANCHOR_ID].productId != initial_by_id[ANCHOR_ID].productId:
+        if any(current_by_id[i].productId != initial_by_id[i].productId for i in policy.anchor_ids):
             raise SelectionRejected(SelectionRejection(
                 code="repair-anchor-error",
-                detail="Repair must preserve the required bed Product identity.",
+                detail="Repair must preserve every required anchor Product identity.",
                 path="intents.productId",
-                intentId=ANCHOR_ID,
+                intentId=next(i for i in policy.anchor_ids if current_by_id[i].productId != initial_by_id[i].productId),
             ))
         for request_id, first in initial_by_id.items():
             if products[current_by_id[request_id].productId].category != products[first.productId].category:
@@ -1300,13 +1330,13 @@ def _validated_selection(
                 ))
     categories = [products[intent.productId].category for intent in intents]
     if enforce_live_scope and (
-        any(category not in LIVE_SELECTION_CATEGORIES for category in categories)
-        or len(intents) > 2
-        or categories.count("rug") > 1
+        any(category not in policy.categories for category in categories)
+        or len(intents) > policy.request_limit
+        or any(categories.count(category) > policy.category_limit(category) for category in policy.categories)
     ):
         raise SelectionRejected(SelectionRejection(
             code="selection-scope-error",
-            detail="The current live stage accepts exactly one bed and zero or one rug.",
+            detail="Selection exceeds the declared Room Type category or request limits.",
             path="intents",
         ))
     return candidate
@@ -1316,22 +1346,22 @@ def _generation_error_code(code: str) -> GenerationFailureCode:
     return "provider-schema-error" if code == "schema-error" else code  # type: ignore[return-value]
 
 
-def _policies(selection: ArrangementSelection, eligible: tuple[Product, ...]) -> tuple[PlacementPolicy, ...]:
+def _policies(selection: ArrangementSelection, eligible: tuple[Product, ...], policy: RoomPolicy = BEDROOM_POLICY) -> tuple[PlacementPolicy, ...]:
     products = {product.id: product for product in eligible}
     return tuple(PlacementPolicy(
         requestId=intent.id,
-        required=intent.id == ANCHOR_ID,
-        anchor=intent.id == ANCHOR_ID,
-        optionalKind=None if intent.id == ANCHOR_ID else _category_policy(products[intent.productId].category),
+        required=intent.id in policy.anchor_ids,
+        anchor=intent.id in policy.anchor_ids,
+        optionalKind=None if intent.id in policy.anchor_ids else _category_policy(products[intent.productId].category),
     ) for intent in selection.intents)
 
 
-def _live_selection_products(products: tuple[Product, ...]) -> tuple[Product, ...]:
+def _live_selection_products(products: tuple[Product, ...], policy: RoomPolicy = BEDROOM_POLICY) -> tuple[Product, ...]:
     """Narrow Style eligibility only at the live provider boundary."""
-    return tuple(product for product in products if product.category in LIVE_SELECTION_CATEGORIES)
+    return tuple(product for product in products if product.category in policy.categories)
 
 
-def generate_bedroom_for_room(
+def _generate_for_room(
     source: Catalogue,
     request: LiveGenerationRequest,
     *,
@@ -1340,20 +1370,20 @@ def generate_bedroom_for_room(
     provider: GenerationProvider | None = None,
     generation_id_factory: Callable[[], str] = lambda: str(uuid4()),
 ) -> LiveGenerationResultValue:
+    policy = room_policy(request.roomType)
     generation_id = generation_id_factory()
     manifest = reference_manifest()
     reference = next((item for item in manifest.images if item.id == request.referenceId), None)
     if reference is None:
         return _failure(generation_id, request.referenceId, "configuration-error", "The selected reference is unavailable.", 0, 0, [])
     style_eligible = source.list(CatalogueQuery(room_type=request.roomType, private_style_id=reference.privateStyleId))
-    eligible = _live_selection_products(style_eligible)
-    eligible_beds = tuple(product for product in eligible if product.category == "bed")
-    if not eligible_beds:
+    eligible = _live_selection_products(style_eligible, policy)
+    if any(not any(p.category == category for p in eligible) for _, category in policy.anchors):
         return _failure(
             generation_id,
             request.referenceId,
             "eligible-catalogue-error",
-            "No bed is eligible for the selected image; generation was not sent to the provider.",
+            "The selected image has no complete reviewed anchor set for this Room Type; generation was not sent to the provider.",
             0,
             0,
             [],
@@ -1364,10 +1394,10 @@ def generate_bedroom_for_room(
     except ProviderCallError as error:
         return _failure(generation_id, request.referenceId, error.code, error.detail, 0, 0, [])
 
-    zone_offer = derive_zones(room)
+    zone_offer = derive_zones(room, "living-room") if request.roomType == "living-room" else derive_zones(room)
     capabilities = _wall_capability_map(room, style_eligible)
     deadline_at = monotonic() + OVERALL_DEADLINE_SECONDS
-    bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities, use_cache=not private_room)
+    bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities, use_cache=not private_room) if policy.room_type == "bedroom" else {}
     calls = 0
     latency_ms = 0
     usages: list[ProviderUsage | None] = []
@@ -1392,6 +1422,7 @@ def generate_bedroom_for_room(
                 composition_guidance=composition_guidance,
                 correction=correction,
                 rejected_draft=rejected_draft,
+                policy=policy,
             )
         except ProviderCallError as error:
             history = session.failure_snapshot(
@@ -1464,6 +1495,7 @@ def generate_bedroom_for_room(
                 selection_id="initial" if session is None else f"repair-{len(session.selections)}",
                 initial=session.selections[0] if session else None,
                 enforce_live_scope=True,
+                policy=policy,
             )
         except SelectionRejected as error:
             correction = error.rejection
@@ -1472,7 +1504,7 @@ def generate_bedroom_for_room(
             continue
 
         if session is None:
-            policies = _policies(selection, eligible)
+            policies = _policies(selection, eligible, policy)
             arrangement_request = ArrangementRequest(
                 room=room,
                 selections=(selection,),
@@ -1485,7 +1517,8 @@ def generate_bedroom_for_room(
                 arrangement_request,
                 selection_limit=3,
                 zone_offer=zone_offer,
-                repositionable_request_ids=frozenset({ANCHOR_ID}),
+                repositionable_request_ids=policy.anchor_ids if policy.spatial_repair else frozenset(),
+                optional_category_order=("rug", "lamp", "chair") if policy.room_type == "living-room" else (),
             )
         solved = session.submit(selection)
         if solved is not None:
@@ -1503,7 +1536,7 @@ def generate_bedroom_for_room(
         previous = selection
         correction = None
         rejected_draft = None
-        if call_index < MAX_REPAIR_ATTEMPTS:
+        if call_index < MAX_REPAIR_ATTEMPTS and policy.room_type == "bedroom":
             composition_guidance = _composition_correction_guidance(
                 source,
                 room,
@@ -1556,6 +1589,20 @@ def generate_bedroom_for_room(
     )
 
 
+def generate_for_room(source: Catalogue, request: LiveGenerationRequest, **kwargs) -> LiveGenerationResultValue:
+    return _generate_for_room(source, request, **kwargs).model_copy(update={"roomType": request.roomType})
+
+
+def generate_bedroom_for_room(source: Catalogue, request: LiveGenerationRequest, **kwargs) -> LiveGenerationResultValue:
+    if request.roomType != "bedroom":
+        raise ValueError("The compatibility wrapper accepts only Bedroom")
+    return generate_for_room(source, request, **kwargs)
+
+
+def shared_config(room_type: RoomType) -> LiveDesignConfig:
+    return LiveDesignConfig.model_validate({**public_config().model_dump(), "roomType": room_type})
+
+
 def generate_live_bedroom(source: Catalogue, request: LiveGenerationRequest, *,
                           provider: GenerationProvider | None = None,
                           generation_id_factory: Callable[[], str] = lambda: str(uuid4())) -> LiveGenerationResultValue:
@@ -1564,16 +1611,17 @@ def generate_live_bedroom(source: Catalogue, request: LiveGenerationRequest, *,
                                     generation_id_factory=generation_id_factory)
 
 
-def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
+def frozen_generation_configuration(source: Catalogue, room_type: RoomType = "bedroom") -> dict[str, Any]:
     """Versioned provider/solver policy inputs used by external gate tooling."""
+    policy = room_policy(room_type)
     manifest = reference_manifest()
-    room = intent_fixture_room()
-    zone_offer = derive_zones(room)
-    products = tuple(sorted(source.list(), key=lambda product: product.id))
+    room = object_intent_fixture_room().model_copy(update={"id": "room-living-seating-v1"}) if room_type == "living-room" else intent_fixture_room()
+    zone_offer = derive_zones(room, "living-room") if room_type == "living-room" else derive_zones(room)
+    products = tuple(sorted(source.list(CatalogueQuery(room_type=room_type)) if room_type == "living-room" else source.list(), key=lambda product: product.id))
     capabilities_by_product = _wall_capability_map(room, products)
     style_eligible_by_reference = {
         reference.id: sorted(product.id for product in source.list(CatalogueQuery(
-            room_type="bedroom",
+            room_type=room_type,
             private_style_id=reference.privateStyleId,
         )))
         for reference in manifest.images
@@ -1582,30 +1630,31 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
         reference.id: sorted(
             product.id
             for product in _live_selection_products(source.list(CatalogueQuery(
-                room_type="bedroom",
+                room_type=room_type,
                 private_style_id=reference.privateStyleId,
-            )))
+            )), policy)
         )
         for reference in manifest.images
     }
     prompts_by_reference: dict[str, str] = {}
     for reference in manifest.images:
         eligible = _live_selection_products(source.list(CatalogueQuery(
-            room_type="bedroom",
+            room_type=room_type,
             private_style_id=reference.privateStyleId,
-        )))
+        )), policy)
         capabilities = _wall_capability_map(room, eligible)
         prompts_by_reference[reference.id] = _prompt(
             eligible=eligible,
             room=room,
             zone_offer=zone_offer,
             capabilities=capabilities,
-            bed_guidance=_bed_placement_guidance(source, room, zone_offer, eligible, capabilities),
+            bed_guidance=_bed_placement_guidance(source, room, zone_offer, eligible, capabilities) if room_type == "bedroom" else {},
+            policy=policy,
             provider_call_index=0,
             previous=None,
             session=None,
         )
-    return {
+    result = {
         "version": "ticket-6-generation-config-v9",
         "room": room.model_dump(mode="json"),
         "zones": [zone.model_dump(mode="json") for zone in zone_offer.zones],
@@ -1698,3 +1747,25 @@ def frozen_generation_configuration(source: Catalogue) -> dict[str, Any]:
             json.dumps(_output_schema(), separators=(",", ":"), sort_keys=True).encode("utf-8")
         ),
     }
+
+    if room_type == "living-room":
+        result.update(version="ticket-12-generation-config-v1", roomType=room_type,
+                      policyVersion=policy.version, protectedAnchorIds=sorted(policy.anchor_ids))
+        result["catalogue"]["privateStyleIdsByProduct"] = {
+            p.id: sorted({r.privateStyleId for r in manifest.images if p.id in style_eligible_by_reference[r.id]})
+            for p in products
+        }
+        result["provider"].update(
+            selectionGrammar="strict-anyOf-living-seating-v1",
+            selectionScope={"version":policy.version,"required":[{"requestId":i,"category":c} for i,c in policy.anchors],
+                            "optional":[{"category":c,"maximumCount":n} for c,n in policy.optional],
+                            "maximumRequests":policy.request_limit,"allowedCategories":sorted(policy.categories),
+                            "enforcedOn":["initial","repair"],"silentFiltering":False},
+            compositionGuidance={"enabled":False,"maxAuthorityProbesPerFailedSelection":0},
+            overallDeadlineSeconds=OVERALL_DEADLINE_SECONDS,
+        )
+        result["solver"] = {"clearanceWidthM":CLEARANCE_WIDTH_M,"maxCandidatesPerSolve":MAX_CANDIDATES,
+                            "maxRequests":policy.request_limit,"maxRepairs":MAX_REPAIR_ATTEMPTS,
+                            "maxSolves":3+sum(n for _,n in policy.optional),"protectedAnchorIds":sorted(policy.anchor_ids),
+                            "spatialRepair":policy.spatial_repair,"optionalPolicy":{"decoration":["rug","lamp"],"secondary-furniture":["chair"]}}
+    return result

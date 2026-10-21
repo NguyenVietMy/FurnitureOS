@@ -1,0 +1,232 @@
+{
+  "catalogueVersion": "abo-living-candidates-v1-2026-10-19",
+  "curatedOn": "2026-10-19",
+  "styleVocabulary": {
+    "status": "provisional-pending-owner-approval",
+    "styles": [
+      {
+        "id": "style-01",
+        "privateName": "Warm Minimal",
+        "referenceImageIds": [],
+        "referenceImageStatus": "pending-owner-approval"
+      },
+      {
+        "id": "style-02",
+        "privateName": "Scandinavian",
+        "referenceImageIds": [],
+        "referenceImageStatus": "pending-owner-approval"
+      },
+      {
+        "id": "style-03",
+        "privateName": "Mid-century",
+        "referenceImageIds": [],
+        "referenceImageStatus": "pending-owner-approval"
+      },
+      {
+        "id": "style-04",
+        "privateName": "Industrial",
+        "referenceImageIds": [],
+        "referenceImageStatus": "pending-owner-approval"
+      },
+      {
+        "id": "style-05",
+        "privateName": "Traditional",
+        "referenceImageIds": [],
+        "referenceImageStatus": "pending-owner-approval"
+      }
+    ]
+  },
+  "products": [
+    {
+      "productId": "sofa-stone-beam-westport-linen",
+      "itemId": "B075X4QMX3",
+      "displayName": "Westport Nailhead Upholstered Sofa",
+      "brand": "Stone & Beam",
+      "colour": "Linen",
+      "category": "sofa",
+      "sourcePath": "3/B075X4QMX3.glb",
+      "sourceSha256": "1fc83dfd0dd034e53bf39ba80b428c675237960a52a6497521945ef1e77a515b",
+      "sourceBytes": 45717944,
+      "privateStyleIds": [
+        "style-01",
+        "style-05"
+      ],
+      "wallContactFaces": [
+        "back"
+      ],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "seating approach"
+        }
+      ]
+    },
+    {
+      "productId": "sofa-stone-beam-hillman-ivory",
+      "itemId": "B07QHYD995",
+      "displayName": "Hillman Sofa with Wood Base",
+      "brand": "Stone & Beam",
+      "colour": "Ivory",
+      "category": "sofa",
+      "sourcePath": "5/B07QHYD995.glb",
+      "sourceSha256": "97521aa38b6f6e2bc98fed3566b9e4d6f6e473aa8435a40833e3071f147491e6",
+      "sourceBytes": 65727976,
+      "privateStyleIds": [
+        "style-01",
+        "style-03"
+      ],
+      "wallContactFaces": [
+        "back"
+      ],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "seating approach"
+        }
+      ]
+    },
+    {
+      "productId": "table-rivet-industrial-walnut",
+      "itemId": "B072ZK2FZ6",
+      "displayName": "Industrial Wood and Metal Coffee Table",
+      "brand": "Rivet",
+      "colour": "Walnut",
+      "category": "table",
+      "sourcePath": "6/B072ZK2FZ6.glb",
+      "sourceSha256": "67059f9d7c865ae7865f5d7ba360e4bc8d9eea8fa0df82186d8a90e52c54a32f",
+      "sourceBytes": 2969808,
+      "privateStyleIds": [
+        "style-03",
+        "style-04"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "coffee table approach"
+        }
+      ]
+    },
+    {
+      "productId": "table-rivet-modern-pine",
+      "itemId": "B07QC876Z6",
+      "displayName": "Modern Coffee Table",
+      "brand": "Rivet",
+      "colour": "Pine Veneer and Natural Wood",
+      "category": "table",
+      "sourcePath": "6/B07QC876Z6.glb",
+      "sourceSha256": "9a8473f9a1b31226b8d9224fddcbff24eabde1aa64b8469382f34794f73e2e5d",
+      "sourceBytes": 32001820,
+      "privateStyleIds": [
+        "style-01",
+        "style-03"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "coffee table approach"
+        }
+      ]
+    },
+    {
+      "productId": "chair-rivet-slade-swivel-graphite",
+      "itemId": "B0854SQFCY",
+      "displayName": "Slade Accent Swivel Chair",
+      "brand": "Rivet",
+      "colour": "Sunday Graphite",
+      "category": "chair",
+      "sourcePath": "Y/B0854SQFCY.glb",
+      "sourceSha256": "6998191c3fe8da6bac4c38fac7080cd24eeaf2b8e06e65dd16ee558ed849e6da",
+      "sourceBytes": 56629636,
+      "privateStyleIds": [
+        "style-01",
+        "style-03"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "approaching and using the seat"
+        }
+      ]
+    },
+    {
+      "productId": "chair-stone-beam-deco-wingback-walnut",
+      "itemId": "B0746H7RL8",
+      "displayName": "Deco Leather Wingback Chair",
+      "brand": "Stone & Beam",
+      "colour": "Walnut",
+      "category": "chair",
+      "sourcePath": "8/B0746H7RL8.glb",
+      "sourceSha256": "71545290d439163e1521a140d7fbd754f8b17c05b0c185fd5fa5b2ae0b21aadf",
+      "sourceBytes": 57846120,
+      "privateStyleIds": [
+        "style-03",
+        "style-05"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.6,
+          "required": true,
+          "purpose": "approaching and using the seat"
+        }
+      ]
+    },
+    {
+      "productId": "rug-ravenna-prospect-moroccan",
+      "itemId": "B07MJL5QVL",
+      "displayName": "Prospect Moroccan Lattice Rug",
+      "brand": "Ravenna Home",
+      "colour": "Not specified",
+      "category": "rug",
+      "placementClass": "floor-covering",
+      "sourcePath": "L/B07MJL5QVL.glb",
+      "sourceSha256": "356d319fe6c0afefcfeee50f4c0a22a8149186baecdae697916cccc3de108797",
+      "sourceBytes": 99157308,
+      "privateStyleIds": [
+        "style-01",
+        "style-05"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": []
+    },
+    {
+      "productId": "lamp-rivet-harper-brass",
+      "itemId": "B073P3NL8C",
+      "displayName": "Harper Marble and Brass Floor Lamp",
+      "brand": "Rivet",
+      "colour": "Gold",
+      "category": "lamp",
+      "placementClass": "floor-standing",
+      "sourcePath": "C/B073P3NL8C.glb",
+      "sourceSha256": "8b9cd838413ac66d31989b033fd0a81e7ce0117035aa0bc34f4262d73d598026",
+      "sourceBytes": 1122260,
+      "privateStyleIds": [
+        "style-01",
+        "style-03"
+      ],
+      "wallContactFaces": [],
+      "accessRegions": [
+        {
+          "face": "front",
+          "depthM": 0.3,
+          "required": false,
+          "purpose": "accessing the switch"
+        }
+      ]
+    }
+  ]
+}

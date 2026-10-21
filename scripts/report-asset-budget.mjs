@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { ASSET_BUDGET_BYTES, MAX_TEXTURE_PX, PRODUCT_ASSET_SOURCES } from './asset-pipeline.config.mjs';
+import { ASSET_BUDGET_BYTES, MAX_TEXTURE_PX, PUBLISHED_PRODUCT_ASSET_SOURCES } from './asset-pipeline.config.mjs';
 import { ktx2Info } from './lib/ktx2-info.mjs';
 import { measureGltf } from './lib/gltf-measure.mjs';
 import { repoPath } from './lib/paths.mjs';
@@ -27,7 +27,7 @@ const fail = (message) => {
 const publishedIds = readdirSync(productsDir)
   .filter((productId) => statSync(join(productsDir, productId)).isDirectory())
   .sort();
-const expectedIds = PRODUCT_ASSET_SOURCES.map((source) => source.productId).sort();
+const expectedIds = PUBLISHED_PRODUCT_ASSET_SOURCES.map((source) => source.productId).sort();
 if (JSON.stringify(publishedIds) !== JSON.stringify(expectedIds)) {
   fail(`published Product directories do not exactly match the ${expectedIds.length} curated Products`);
 }
@@ -35,7 +35,7 @@ if (JSON.stringify(publishedIds) !== JSON.stringify(expectedIds)) {
 for (const productId of publishedIds) {
   const dir = join(productsDir, productId);
   if (!statSync(dir).isDirectory()) continue;
-  await verifyProductAssets(dir, PRODUCT_ASSET_SOURCES.find((source) => source.productId === productId));
+  await verifyProductAssets(dir, PUBLISHED_PRODUCT_ASSET_SOURCES.find((source) => source.productId === productId));
   const manifest = JSON.parse(await readFile(join(dir, 'asset-manifest.json'), 'utf8'));
   console.log(`\n${productId}`);
 

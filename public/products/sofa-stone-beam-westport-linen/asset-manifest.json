@@ -1,0 +1,300 @@
+{
+  "productId": "sofa-stone-beam-westport-linen",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/3/B075X4QMX3.glb",
+    "sha256": "1fc83dfd0dd034e53bf39ba80b428c675237960a52a6497521945ef1e77a515b",
+    "bytes": 45717944,
+    "bounds": {
+      "min": [
+        -1.099985,
+        0,
+        -0.445467
+      ],
+      "max": [
+        1.098441,
+        0.911453,
+        0.456098
+      ],
+      "size": [
+        2.198426,
+        0.911453,
+        0.901566
+      ]
+    },
+    "triangles": 49850
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -1.099213,
+        0,
+        -0.450783
+      ],
+      "max": [
+        1.099213,
+        0.911453,
+        0.450783
+      ],
+      "size": [
+        2.198426,
+        0.911453,
+        0.901566
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0.0007719999999999949,
+        0,
+        -0.005315500000000001
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 2260111,
+    "sharedBytes": 1786277
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-b270eb16d1b9.ktx2",
+      "bytes": 146173,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-cf0908c34020.ktx2",
+      "bytes": 43975,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-f49e5fcd811f.ktx2",
+      "bytes": 644608,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-83684cf4695e.ktx2",
+      "bytes": 131210,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-c221ace873c3.ktx2",
+      "bytes": 475796,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-f131a31992fb.ktx2",
+      "bytes": 42783,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-09bf3b7c93bf.ktx2",
+      "bytes": 35320,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-1d0a9762508b.ktx2",
+      "bytes": 256708,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-6ae935e703ce.ktx2",
+      "bytes": 9704,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/sofa-stone-beam-westport-linen/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 49850,
+      "vertices": 27469,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 284633,
+      "bounds": {
+        "min": [
+          -1.099213,
+          0,
+          -0.450783
+        ],
+        "max": [
+          1.099213,
+          0.91144,
+          0.450795
+        ],
+        "size": [
+          2.198426,
+          0.91144,
+          0.901578
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/sofa-stone-beam-westport-linen/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 19938,
+      "vertices": 12423,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 132509,
+      "bounds": {
+        "min": [
+          -1.099213,
+          0,
+          -0.450783
+        ],
+        "max": [
+          1.099213,
+          0.91144,
+          0.450795
+        ],
+        "size": [
+          2.198426,
+          0.91144,
+          0.901578
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/sofa-stone-beam-westport-linen/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 5980,
+      "vertices": 5213,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 56692,
+      "bounds": {
+        "min": [
+          -1.096823,
+          0,
+          -0.450783
+        ],
+        "max": [
+          1.098089,
+          0.911457,
+          0.450794
+        ],
+        "size": [
+          2.194912,
+          0.911457,
+          0.901577
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.002389999999999892
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

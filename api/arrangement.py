@@ -136,7 +136,9 @@ class ArrangementSession:
         selection_limit: int | None = None,
         zone_offer: ZoneOffer | None = None,
         repositionable_request_ids: frozenset[str] = frozenset(),
+        optional_category_order: tuple[str, ...] = (),
     ):
+        self.optional_category_order = optional_category_order
         self.source = source
         self.request = request
         self.policies = {policy.requestId: policy for policy in request.policies}
@@ -329,6 +331,7 @@ class ArrangementSession:
             (policy for policy in self.request.policies if not policy.required),
             key=lambda policy: (
                 0 if policy.optionalKind == "decoration" else 1,
+                self.optional_category_order.index(self.source.get(next(i.productId for i in current if i.id == policy.requestId)).category) if self.optional_category_order else 0,
                 policy.requestId,
             ),
         )

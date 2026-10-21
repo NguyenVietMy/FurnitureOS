@@ -1,7 +1,9 @@
+import { PUBLISHED_PRODUCT_ASSET_SOURCES } from '../scripts/asset-pipeline.config.mjs';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { expectedPublication } from './catalogue-expectations';
 import { assertManifestMeasurement, assertNormalizedBounds } from '../scripts/lib/asset-validation.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -52,15 +54,17 @@ function ktx2Header(file: string) {
 }
 
 describe('the published Catalogue assets', () => {
-  it('contains exactly the 20 curated Product directories', () => {
+  it('preserves exactly bedroom20 and the explicitly reviewed living union', () => {
     const published = readdirSync(productsDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
-    expect(published).toEqual(seed.products.map((product) => product.productId).sort());
+    expect(seed.products).toHaveLength(20);
+    expect(published).toEqual(expectedPublication().ids);
+    expect(PUBLISHED_PRODUCT_ASSET_SOURCES.map((product) => product.productId).sort()).toEqual(expectedPublication().ids);
   });
 
-  for (const record of seed.products) {
+  for (const record of PUBLISHED_PRODUCT_ASSET_SOURCES) {
     describe(record.productId, () => {
       const productDir = join(productsDir, record.productId);
       const manifest = JSON.parse(readFileSync(join(productDir, 'asset-manifest.json'), 'utf8')) as AssetManifest;

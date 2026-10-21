@@ -1,6 +1,6 @@
 # Product assets: provenance, pipeline and runtime
 
-The seed Catalogue contains 20 distinct real bedroom Products from Amazon
+The original bedroom seed contains 20 distinct real Products from Amazon
 Berkeley Objects (ABO): 4 beds, 4 nightstands, 4 wardrobes/dressers, 3 chairs,
 3 rugs and 2 floor-standing lamps. Provider records live in
 `api/catalogue/providers/abo-seed.json`; the public `Product` contract contains
@@ -9,6 +9,11 @@ attribution facts. Product IDs, exact upstream paths, source byte counts and
 SHA-256 hashes are pinned in that seed. The featured bed also retains the
 independent 66 × 56 × 92-inch listing record as sanity-check evidence; measured
 Mesh bounds remain authoritative.
+
+The current reviewed published union contains 23 Products: the unchanged
+bedroom20 plus two sofas and one coffee table. Seven reviewed entries are
+eligible for Living room, with existing chair, rug and lamp IDs reused rather
+than duplicated. The candidate proposal alone never expands publication.
 
 Placement class is explicit provider-neutral adapter metadata: the three rugs publish `floor-covering`, the two lamp records explicitly publish `floor-standing`, and the remaining seed Products default to `floor-standing`. Only `floor-covering` metadata enables the solver's walkable overlap exception; names, category and Mesh thinness do not.
 
@@ -50,19 +55,20 @@ reference it.
 
 The orchestrator conservatively interprets the owner's “below 5 MB” requirement
 as a strict `< 5,000,000` byte per-Product threshold. Current published totals
-range from 122,440 to 2,319,925 bytes. `npm run assets:report` independently
+range from 122,440 to 3,137,094 bytes across the 23 published Products. `npm run assets:report` independently
 re-reads glTF bounds, KTX2 headers and on-disk sizes rather than trusting totals
 written in manifests.
 
 ## Pipeline and delivery
 
-`npm run assets:build` verifies all source hashes and byte counts, converts the
-20 source GLBs, and publishes only normalized runtime assets and manifests.
+`npm run assets:build` verifies source hashes and byte counts and converts the
+selected sources from the published union (currently 23). It publishes only
+normalized runtime assets and manifests.
 Raw downloads, conversion work and native tools default to an external temp
 directory; environment variables may point them to another external evidence
 directory. They do not belong in the checkout.
 
-Prebuild copies all 20 manifests beside the Python provider adapter for
+Prebuild copies all 23 published Product manifests beside the Python provider adapter for
 function packaging and copies the Three.js BasisU decoder for same-origin
 delivery. The generated provider-manifest directory and decoder copies are
 ignored. Vercel's function configuration includes the provider directory so
@@ -72,7 +78,8 @@ runtime manifest validation does not depend on public static-file tracing.
 
 `npm run build:measurement` is the only build that compiles
 `/catalogue-gallery`. It hashes source inputs into a build ID, emits
-`dist/measurement-build.json`, and exposes all 20 Products in one WebGL canvas.
+`dist/measurement-build.json`, and exposes the full published union (currently
+23 Products) in one WebGL canvas.
 LOD2 loads first; LOD1 and LOD0 begin only after the prior real Mesh produces
 an `onAfterRender` event. `window.__catalogueMeasurement` records per-Product
 request, first-visible, refinement, rendered-frame and error evidence. The page
@@ -97,3 +104,15 @@ npm run assets:report
 npm run build
 npm run test:e2e
 ```
+
+
+## Bounded living publication
+
+Ticket 12 adds a separate eight-candidate living proposal. Preparation stays
+external and does not change the published bedroom20. After completed real
+owner or genuine agent review, the explicit promotion command installs only independently
+validated new runtime files and the separate reviewed Living metadata. Reused
+Product IDs retain their exact published bytes. Build, manifest bundling,
+budget reporting, asset assertions and controlled measurement use the exact
+legacy20 plus the explicitly reviewed union. Candidate files and automated
+fixtures never expand that union. See [living-room seed promotion](living-rooms.md).

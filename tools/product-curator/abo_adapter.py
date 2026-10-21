@@ -8,27 +8,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from api.catalogue.contract import CatalogueEntry, CatalogueQuery
-from api.catalogue.providers.abo import AssetManifest, SeedCatalogue, entry_from_manifest
+from api.catalogue.providers.abo import AssetManifest, SeedCatalogue, LivingCandidateCatalogue, entry_from_manifest
 from api.catalogue.static import StaticCatalogue
 from api.models import Product
 
 
 def main(data: dict) -> object:
     mode = data["mode"]
+    seed_type = LivingCandidateCatalogue if data.get("profile") == "living-seed-v1" else SeedCatalogue
     if mode == "seed":
-        return SeedCatalogue.model_validate(data["seed"]).model_dump(mode="json")
+        return seed_type.model_validate(data["seed"]).model_dump(mode="json")
     if mode == "project":
-        seed = SeedCatalogue.model_validate(data["seed"])
+        seed = seed_type.model_validate(data["seed"])
         record = next(p for p in seed.products if p.productId == data["productId"])
         styles = tuple(data["styles"])
         rooms = tuple(data["rooms"])
         if not styles or len(styles) != len(set(styles)) or not set(styles) <= {s.id for s in seed.styleVocabulary.styles}:
             raise ValueError("Choose unique known private Styles")
+        if data.get("profile") == "living-seed-v1" and rooms != ("living-room",):
+            raise ValueError("The living seed promotion scope requires an explicit Living room tag only")
         if not rooms or len(rooms) != len(set(rooms)) or not set(rooms) <= {"bedroom", "living-room"}:
             raise ValueError("Choose unique known Room Types")
         entry = entry_from_manifest(
             record, AssetManifest.model_validate(data["manifest"]),
-            room_types=rooms, private_style_ids=styles, mesh_base_url=data["meshBase"],
+            room_types=rooms, private_style_ids=styles, mesh_base_url=data["meshBase"], curated_on=seed.curatedOn,
         )
         StaticCatalogue("local-curation-v1", [entry])
         return {"product": entry.product.model_dump(mode="json"), "privateStyleIds": list(entry.private_style_ids)}

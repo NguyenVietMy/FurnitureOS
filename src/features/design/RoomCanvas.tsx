@@ -1,9 +1,9 @@
-import { OrbitControls } from '@react-three/drei';
+import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
-import type { Placement, Product, RoomShell, Vec3 } from '@/shared/api/types';
+import type { Placement, Product, RoomShell, Vec3, Zone } from '@/shared/api/types';
 import { AccessRegions, ProductPlacement } from './ProductPlacement';
 import { RoomShellMesh } from './RoomShellMesh';
 import { clearSceneDebug, currentSceneDebug, resetSceneDebug } from './scene-debug';
@@ -112,6 +112,7 @@ export default function RoomCanvas({
   room,
   products,
   placements,
+  zones = [],
   overview = false,
   frameRoom = false,
   receivedAtMs,
@@ -121,6 +122,7 @@ export default function RoomCanvas({
   room: RoomShell;
   products: ReadonlyArray<Product>;
   placements: ReadonlyArray<Placement>;
+  zones?: ReadonlyArray<Zone>;
   overview?: boolean;
   frameRoom?: boolean;
   receivedAtMs?: number;
@@ -182,6 +184,7 @@ export default function RoomCanvas({
         shadow-camera-far={frameRoom?Math.max(16,span*4):16}
       />
 
+      {zones.filter(zone => zone.id.startsWith('seating-v1-')).map(zone => <Line key={zone.id} color="#446bce" lineWidth={1.5} points={[[zone.bounds.minX,.012,zone.bounds.minZ],[zone.bounds.maxX,.012,zone.bounds.minZ],[zone.bounds.maxX,.012,zone.bounds.maxZ],[zone.bounds.minX,.012,zone.bounds.maxZ],[zone.bounds.minX,.012,zone.bounds.minZ]]} />)}
       <RoomShellMesh room={room} contactWallId={primaryPlacement?.wallContact?.wallId ?? null} />
       {products.map((product, index) => {
         const placement = placements[index];

@@ -15,6 +15,7 @@ export function App() {
   const { pathname } = useLocation();
   const feature = matchPath({ path: '/capture', caseSensitive: true, end: true }, pathname) ? 'capture' : pathname === '/' ? 'landing'
     : matchPath({ path: '/design', caseSensitive: true, end: true }, pathname)
+      || matchPath({ path: '/design/live', caseSensitive: true, end: true }, pathname)
       || matchPath({ path: '/design/live-bedroom', caseSensitive: true, end: true }, pathname) ? 'design'
       : CatalogueGalleryPage
         && matchPath({ path: '/catalogue-gallery', caseSensitive: true, end: true }, pathname)
@@ -52,7 +53,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/design" caseSensitive element={<DesignPage />} />
-          <Route path="/design/live-bedroom" caseSensitive element={<LiveBedroomPage />} />
+          <Route path="/design/live-bedroom" caseSensitive element={<LiveBedroomPage bedroomOnly />} />
+          <Route path="/design/live" caseSensitive element={<LiveBedroomPage />} />
           <Route path="/capture" caseSensitive element={<CapturePage />} />
           {CatalogueGalleryPage ? (
             <Route path="/catalogue-gallery" caseSensitive element={<CatalogueGalleryPage />} />

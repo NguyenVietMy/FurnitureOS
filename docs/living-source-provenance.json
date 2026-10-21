@@ -1,0 +1,47 @@
+{
+  "status": "genuine-agent-reviewed-locally-promoted-pending-independent-source-inspection",
+  "review": {
+    "actor": "agent",
+    "evidenceStatus": "COMPLETED_VALID_AGENT_REVIEW",
+    "ownerEvidenceStatus": "UNRUN",
+    "acceptedCount": 7,
+    "rejectedCount": 1,
+    "reviewEvidenceSha256": "bfa8f7c81281b8ec46e23b76a3dbdff17478a0ac411b256ccdd380ba02511cb8",
+    "reviewedMetadataSha256": "b0591132ea26162248381ff2e588d5135905d8ae02753963b82867849c1b6868",
+    "newPublishedProductIds": ["sofa-stone-beam-westport-linen", "sofa-stone-beam-hillman-ivory", "table-rivet-modern-pine"],
+    "reusedProductIds": ["chair-rivet-slade-swivel-graphite", "chair-stone-beam-deco-wingback-walnut", "rug-ravenna-prospect-moroccan", "lamp-rivet-harper-brass"],
+    "rejectedProductIds": ["table-rivet-industrial-walnut"],
+    "limitations": ["Sofa and chair upholstery is rigid with simplified seams and material transitions.", "The accepted pine table has sparse planar topology and visible texture or edge seams; close-up joinery is approximate.", "The narrow taller industrial C-shaped stand was rejected for the required coffee-table role.", "Chair swivel, seating comfort, rug fibers and drape, and lamp emission or photometry are not simulated.", "Licensing conflicts and unverified purchase availability remain disclosed."]
+  },
+  "metadata": {
+    "metadataUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/static_html/assets/listings.json",
+    "metadataBytes": 71956181,
+    "metadataSha256": "660f4d01bf817802c4fc664e848af12b72246efdb15324ad1d0d2bce33f54fe9"
+  },
+  "products": [
+    {
+      "productId": "sofa-stone-beam-westport-linen",
+      "listingTitle": "Stone & Beam Westport Modern Nailhead Upholstered Sofa, 87\"W, Linen",
+      "listingImageId": "814aS-KaUBL",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/3/B075X4QMX3.glb"
+    },
+    {
+      "productId": "sofa-stone-beam-hillman-ivory",
+      "listingTitle": "Amazon Brand \u2013 Stone & Beam Hillman Mid-Century Sofa Couch with Wood Base and Legs, 78\"W, Ivory",
+      "listingImageId": "81TXnI63eQL",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B07QHYD995.glb"
+    },
+    {
+      "productId": "table-rivet-industrial-walnut",
+      "listingTitle": "Amazon Brand \u2013 Rivet Industrial Modern Wood and Metal Coffee Table, 31.5\"W, Walnut",
+      "listingImageId": "81SzvTdu6mL",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/6/B072ZK2FZ6.glb"
+    },
+    {
+      "productId": "table-rivet-modern-pine",
+      "listingTitle": "Amazon Brand \u2013 Rivet Modern Coffee Table, 39.37\"W, Pine Veneer and Natural Wood",
+      "listingImageId": "71huzL6Dr1L",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/6/B07QC876Z6.glb"
+    }
+  ]
+}

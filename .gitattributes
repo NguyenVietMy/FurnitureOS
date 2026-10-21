@@ -2,3 +2,6 @@
 # repository bytes on every platform instead of applying text EOL conversion.
 public/products/**/*.gltf -text
 public/products/**/asset-manifest.json -text
+# Living review/promotion binds exact metadata bytes as well as runtime files.
+api/catalogue/providers/abo-living-candidates.json -text
+api/catalogue/providers/abo-living-reviewed.json -text

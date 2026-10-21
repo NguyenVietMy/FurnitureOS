@@ -1,3 +1,4 @@
+import { PUBLISHED_PRODUCT_ASSET_SOURCES, PUBLISHED_CATALOGUE_VERSION } from './asset-pipeline.config.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
@@ -54,9 +55,9 @@ const seed = JSON.parse(readFileSync(seedPath, 'utf8'));
 const record = {
   schemaVersion: 1,
   buildId,
-  catalogueVersion: seed.catalogueVersion,
-  productCount: seed.products.length,
-  productIds: seed.products.map((product) => product.productId),
+  catalogueVersion: PUBLISHED_CATALOGUE_VERSION,
+  productCount: PUBLISHED_PRODUCT_ASSET_SOURCES.length,
+  productIds: PUBLISHED_PRODUCT_ASSET_SOURCES.map((product) => product.productId),
   sourceInputDigest,
   distDigest,
   digestScope: 'All dist files except this record; paths and bytes are hashed in ordinal path order.',

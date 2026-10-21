@@ -17,7 +17,7 @@ from .capture_transitions import normalize_draft
 from .capture_reference import ReferenceRequest,ReferenceResult,calibrate
 from .capture_room import validate_capture_rectangle,room_hash,computational_support
 from .capture_vision import analyze_photo
-from .live_generation import LiveGenerationRequest,generate_bedroom_for_room
+from .live_generation import LiveGenerationRequest,generate_for_room
 from .provider import provider_configuration_available
 from .swaps import CapturedSessionBinding,CAPTURE_SESSION_ACCESS
 
@@ -260,12 +260,12 @@ class CaptureService:
             unsupported=computational_support(room)
             if unsupported: return CaptureGenerationResult(root=CaptureBlocked(code="room-computation-unsupported",detail=unsupported))
             with repository.lease(principal,capture.id,capture.revision,"generation",seconds=300) as lease:
-                generated=generate_bedroom_for_room(self.source,LiveGenerationRequest(roomType="bedroom",referenceId=body.referenceId),
+                generated=generate_for_room(self.source,LiveGenerationRequest(roomType=capture.draft.roomType,referenceId=body.referenceId),
                                                    room=room,private_room=True,provider=self.generation_provider)
                 repository.assert_lease(principal,capture.id,capture.revision,lease,capture.roomHash)
                 if generated.status=="solved":
                     binding=CapturedSessionBinding(principal.owner_id,capture.id,capture.revision,capture.roomHash,capture.expiresAt.timestamp())
-                    generated=generated.model_copy(update={"design":self.sessions.register(generated.design,"bedroom",binding=binding)},deep=True)
+                    generated=generated.model_copy(update={"design":self.sessions.register(generated.design,capture.draft.roomType,binding=binding)},deep=True)
                 try: repository.assert_lease(principal,capture.id,capture.revision,lease,capture.roomHash)
                 except CaptureError:
                     self.sessions.revoke_capture(capture.id)

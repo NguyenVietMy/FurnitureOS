@@ -94,7 +94,7 @@ export function DesignPanel({
           <>
             <p data-testid="fit-status" data-fit="fits">
               {intentKind === 'in_zone' ? (
-                <>Placed inside a Placement Zone</>
+                <>Placed inside a server-offered Zone</>
               ) : objectRelativeKinds.has(intentKind ?? '') ? (
                 <>{placementVerb(intentKind)} the furniture it relates to</>
               ) : (

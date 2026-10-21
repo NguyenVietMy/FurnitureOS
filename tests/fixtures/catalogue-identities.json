@@ -1,0 +1,13 @@
+{
+  "legacySeedLfSha256": "c168ee429dd5b29aa732051164d51f61c74866b72bb577207d4aa0fefb296cea",
+  "legacyVersion": "abo-bedroom-v1-2026-09-09",
+  "legacyIds": [
+    "bed-prudence-tufted-queen-natural", "bed-rivet-york-queen-grey", "bed-rivet-jonathan-queen-walnut", "bed-alkove-hayes-double-wild-oak",
+    "nightstand-alkove-hayes-wild-oak", "nightstand-hallowood-waverly-light-oak", "nightstand-ravenna-naomi", "nightstand-movian-havel-grey-white",
+    "wardrobe-movian-cinca-five-door", "wardrobe-movian-fils-two-door", "dresser-stone-beam-brecken-brown", "dresser-stylistics-campaign-white",
+    "chair-stone-beam-deco-wingback-walnut", "chair-rivet-slade-swivel-graphite", "chair-stone-beam-westport-stone-brown",
+    "rug-rivet-arrow-black-ivory", "rug-ravenna-prospect-moroccan", "rug-stone-beam-jute-natural", "lamp-rivet-harper-brass", "lamp-stone-beam-tripod-ivory"
+  ],
+  "authorizedNewIds": ["sofa-stone-beam-westport-linen", "sofa-stone-beam-hillman-ivory", "table-rivet-industrial-walnut", "table-rivet-modern-pine"],
+  "authorizedReusedIds": ["chair-rivet-slade-swivel-graphite", "chair-stone-beam-deco-wingback-walnut", "rug-ravenna-prospect-moroccan", "lamp-rivet-harper-brass"]
+}

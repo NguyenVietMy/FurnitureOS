@@ -177,8 +177,10 @@ def _canonical(value: float) -> str:
     return "0" if abs(rounded) < 0.0000005 else f"{rounded:.6f}".rstrip("0").rstrip(".")
 
 
-def derive_zones(room: RoomShell) -> ZoneOffer:
+def derive_zones(room: RoomShell, room_type: str | None = None) -> ZoneOffer:
     """Return only bounded, contained rectangles derived from server Room facts."""
+    if room_type not in (None, "bedroom", "living-room"):
+        raise ValueError("Unsupported declared Room Type")
     geometry = prepare_polygon(room.floorPolygon)
     xs = tuple(point[0] for point in room.floorPolygon)
     zs = tuple(point[1] for point in room.floorPolygon)
@@ -228,10 +230,13 @@ def derive_zones(room: RoomShell) -> ZoneOffer:
             rectangle.max_x,
             rectangle.max_z,
         ))
-        digest = sha256(f"{room.id}|{canonical}".encode("utf-8")).hexdigest()[:12]
+        identity = f"{room.id}|{canonical}"
+        if room_type == "living-room":
+            identity = f"seating-v1|{identity}"
+        digest = sha256(identity.encode("utf-8")).hexdigest()[:12]
         zones.append(Zone(
-            id=f"zone-{digest}",
-            label=f"Placement Zone {index}",
+            id=f"seating-v1-{digest}" if room_type == "living-room" else f"zone-{digest}",
+            label=f"Seating Zone {index}" if room_type == "living-room" else f"Placement Zone {index}",
             bounds=ZoneBounds(
                 minX=rectangle.min_x,
                 minZ=rectangle.min_z,
