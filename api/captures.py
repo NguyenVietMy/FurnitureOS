@@ -2,11 +2,13 @@
 from __future__ import annotations
 import asyncio
 from contextlib import contextmanager
+from time import monotonic
+from uuid import uuid4
 from datetime import datetime, timezone
 from hashlib import sha256
 from uuid import UUID
 from fastapi import APIRouter, Header, Request, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from .capture_auth import CaptureError, SupabaseAuth
 from .capture_repository import configured_repository
 from .capture_models import (CaptureConfig,CaptureView,CreateCapture,DraftUpdate,PhotoReservation,
@@ -19,6 +21,7 @@ from .capture_room import validate_capture_rectangle,room_hash,computational_sup
 from .capture_vision import analyze_photo
 from .live_generation import LiveGenerationRequest,generate_for_room
 from .provider import provider_configuration_available
+from .variants import BatchControl, VariantStreamEvent, variant_events, stream_response, WORK_SECONDS, STREAM_RESPONSES
 from .swaps import CapturedSessionBinding,CAPTURE_SESSION_ACCESS
 
 class CaptureService:
@@ -271,6 +274,42 @@ class CaptureService:
                     self.sessions.revoke_capture(capture.id)
                     raise
                 return CaptureGenerationResult(root=CaptureGenerated(captureId=capture.id,confirmedRevision=capture.revision,roomHash=capture.roomHash,result=generated))
+        @router.post("/api/captures/{capture_id}/variants", response_model=VariantStreamEvent,
+                     response_class=StreamingResponse, responses=STREAM_RESPONSES)
+        def variants(capture_id: UUID, body: CaptureGenerationRequest, request: Request,
+                     authorization: str | None = Header(default=None)):
+            repository, principal = self.dependencies(authorization)
+            capture = self.read(repository, principal, str(capture_id), body.expectedRevision)
+            room, issues = validate_capture_rectangle(capture)
+            if issues:
+                raise CaptureError("invalid-room", "Review required Room details.", 409)
+            if (capture.state != "confirmed" or capture.confirmedRevision != capture.revision
+                    or capture.roomHash != room_hash(room) or capture.room != room):
+                raise CaptureError("confirmation-required", "Confirm the current Room before generation.", 409)
+            unsupported = computational_support(room)
+            if unsupported:
+                raise CaptureError("room-computation-unsupported", unsupported, 409)
+            control = BatchControl()
+            control.generation_id = str(uuid4())
+            binding = CapturedSessionBinding(principal.owner_id, capture.id, capture.revision,
+                                             capture.roomHash, capture.expiresAt.timestamp())
+
+            @contextmanager
+            def authority():
+                started = monotonic()
+                remaining = max(0, (capture.expiresAt - datetime.now(timezone.utc)).total_seconds())
+                control.deadline_at = min(control.deadline_at, started + WORK_SECONDS, started + remaining)
+                control.request_deadline_at = min(control.request_deadline_at, started + remaining)
+                with repository.lease(principal, capture.id, capture.revision, "generation", seconds=300) as lease:
+                    control.authority = lambda: repository.assert_lease(principal, capture.id, capture.revision, lease, capture.roomHash)
+                    control.authority()
+                    yield
+
+            return stream_response(request, lambda: variant_events(self.source,
+                LiveGenerationRequest(roomType=capture.draft.roomType, referenceId=body.referenceId),
+                room, self.sessions, provider=self.generation_provider, control=control,
+                binding=binding, generation_id=control.generation_id), control,
+                lease_context=authority, invalidate=lambda: self.sessions.revoke_capture(capture.id))
         return router
 
 

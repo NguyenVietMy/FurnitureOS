@@ -53,6 +53,7 @@ from .provider import (
     ProviderUsage,
     provider_configuration_available,
 )
+from .generation_context import Conversation, check_work
 from .zones import derive_zones
 from .room_policy import RoomPolicy, BEDROOM_POLICY, room_policy
 
@@ -286,6 +287,8 @@ class UsageSummary(StrictModel):
     inputTokens: int | None = Field(default=None, ge=0)
     outputTokens: int | None = Field(default=None, ge=0)
     costUsd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    cacheCreationInputTokens: int | None = Field(default=None, ge=0)
+    cacheReadInputTokens: int | None = Field(default=None, ge=0)
 
 
 class LiveGenerationSuccess(StrictModel):
@@ -332,6 +335,7 @@ class GenerationProvider(Protocol):
         image_base64: str,
         output_schema: dict[str, Any],
         deadline_at: float,
+        conversation: list[dict[str, Any]] | None = None,
     ) -> ProviderReply: ...
 
 
@@ -360,10 +364,12 @@ def _usage_summary(usages: list[ProviderUsage | None]) -> UsageSummary:
         return UsageSummary(known=False)
     known = [usage for usage in usages if usage is not None]
     return UsageSummary(
-        known=True,
+        known=all(u.costKnown for u in known),
         inputTokens=sum(usage.inputTokens for usage in known),
         outputTokens=sum(usage.outputTokens for usage in known),
-        costUsd=sum(usage.costUsd for usage in known),
+        costUsd=sum(usage.costUsd for usage in known) if all(u.costKnown for u in known) else None,
+        cacheCreationInputTokens=sum(u.cacheCreationInputTokens for u in known) if all(u.cacheCreationInputTokens is not None for u in known) else None,
+        cacheReadInputTokens=sum(u.cacheReadInputTokens for u in known) if all(u.cacheReadInputTokens is not None for u in known) else None,
     )
 
 
@@ -1367,9 +1373,13 @@ def _generate_for_room(
     *,
     room: RoomShell,
     private_room: bool = False,
+    conversation: Conversation | None = None,
+    clock: Callable[[], float] = monotonic,
+    deadline_at: float | None = None,
     provider: GenerationProvider | None = None,
     generation_id_factory: Callable[[], str] = lambda: str(uuid4()),
 ) -> LiveGenerationResultValue:
+    check_work()
     policy = room_policy(request.roomType)
     generation_id = generation_id_factory()
     manifest = reference_manifest()
@@ -1396,7 +1406,7 @@ def _generate_for_room(
 
     zone_offer = derive_zones(room, "living-room") if request.roomType == "living-room" else derive_zones(room)
     capabilities = _wall_capability_map(room, style_eligible)
-    deadline_at = monotonic() + OVERALL_DEADLINE_SECONDS
+    deadline_at = deadline_at if deadline_at is not None else clock() + OVERALL_DEADLINE_SECONDS
     bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities, use_cache=not private_room) if policy.room_type == "bedroom" else {}
     calls = 0
     latency_ms = 0
@@ -1409,6 +1419,7 @@ def _generate_for_room(
     composition_guidance: dict[str, Any] | None = None
 
     for call_index in range(MAX_REPAIR_ATTEMPTS + 1):
+        check_work()
         try:
             prompt = _prompt(
                 eligible=eligible,
@@ -1435,7 +1446,9 @@ def _generate_for_room(
         calls += 1  # The bounded attempt is consumed before provider I/O.
         attempt_started = monotonic()
         try:
-            reply = active_provider.generate(
+            call = active_provider.generate if conversation is None else lambda **kw: conversation.generate(active_provider, **kw)
+            check_work()
+            reply = call(
                 prompt_text=prompt,
                 image_media_type="image/jpeg",
                 image_base64=base64.b64encode(image).decode("ascii"),
@@ -1460,9 +1473,10 @@ def _generate_for_room(
                 history,
                 tuple(rejections),
             )
+        check_work()
         latency_ms += round((monotonic() - attempt_started) * 1000)
         usages.append(reply.usage)
-        if monotonic() > deadline_at:
+        if clock() >= deadline_at:
             history = session.failure_snapshot(
                 "Generation stopped after the overall deadline; no optional drops were attempted."
             ) if session is not None and session.latest_attempt is not None else None
@@ -1503,6 +1517,8 @@ def _generate_for_room(
             rejections.append(error.rejection)
             continue
 
+        if conversation is not None:
+            conversation.accepted_selection(selection)
         if session is None:
             policies = _policies(selection, eligible, policy)
             arrangement_request = ArrangementRequest(
@@ -1520,7 +1536,9 @@ def _generate_for_room(
                 repositionable_request_ids=policy.anchor_ids if policy.spatial_repair else frozenset(),
                 optional_category_order=("rug", "lamp", "chair") if policy.room_type == "living-room" else (),
             )
+        check_work()
         solved = session.submit(selection)
+        check_work()
         if solved is not None:
             return LiveGenerationSuccess(
                 status="solved",
@@ -1563,7 +1581,9 @@ def _generate_for_room(
             tuple(rejections),
         )
 
+    check_work()
     final = session.finish()
+    check_work()
     if final.status == "solved":
         return LiveGenerationSuccess(
             status="solved",

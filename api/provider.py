@@ -25,6 +25,8 @@ MAX_COUNTED_INPUT_TOKENS = 80_000
 MAX_RESPONSE_BYTES = 1_048_576
 MAX_PROMPT_TEXT_BYTES = 32_768
 MAX_PROVIDER_SCHEMA_BYTES = 32_768
+MAX_CONVERSATION_TEXT_BYTES = 98_304
+CONSERVATIVE_CONVERSATION_INPUT_TOKENS = 160_000
 MAX_IMAGE_BYTES = 400_000
 MAX_IMAGE_EDGE_PX = 1_800
 MAX_IMAGE_SHORT_EDGE_PX = 1_200
@@ -36,6 +38,8 @@ CALL_DEADLINE_SECONDS = 90.0
 OVERALL_DEADLINE_SECONDS = 300.0
 INPUT_USD_PER_MILLION = 5.0
 OUTPUT_USD_PER_MILLION = 25.0
+CACHE_WRITE_MULTIPLIER = 1.25  # default five-minute ephemeral TTL
+CACHE_READ_MULTIPLIER = 0.10
 AUTHORIZED_TOTAL_CAP_USD = 5.0
 AccountingMode = Literal["capped", "uncapped"]
 
@@ -101,6 +105,9 @@ class ProviderCallError(RuntimeError):
 
 class ProviderUsage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+    cacheCreationInputTokens: int | None = Field(default=None, ge=0)
+    cacheReadInputTokens: int | None = Field(default=None, ge=0)
+    costKnown: bool = True
     inputTokens: int = Field(ge=0)
     outputTokens: int = Field(ge=0)
     costUsd: float = Field(ge=0, allow_inf_nan=False)
@@ -361,16 +368,16 @@ class BudgetLedger:
                 temporary.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
                 os.replace(temporary, self.path)
 
-    def reserve(self, counted_input_tokens: int) -> tuple[str, float]:
-        if not 0 <= counted_input_tokens <= MAX_COUNTED_INPUT_TOKENS:
+    def reserve(self, counted_input_tokens: int, *, cache_enabled: bool = False) -> tuple[str, float]:
+        if not 0 <= counted_input_tokens <= (CONSERVATIVE_CONVERSATION_INPUT_TOKENS if cache_enabled else MAX_COUNTED_INPUT_TOKENS):
             raise ProviderCallError("budget-error", "Counted prompt tokens exceed the configured production bound.")
         # count_tokens is useful validation, not a billing guarantee. The fixed
         # 80k ceiling is independently derived from 32 KiB prompt + 32 KiB
         # schema (a tokenizer cannot emit more tokens than UTF-8 bytes), 2,795
         # verified visual patches, and over 11k tokens of framing/headroom.
-        input_tokens = CONSERVATIVE_INPUT_TOKEN_RESERVATION
+        input_tokens = CONSERVATIVE_CONVERSATION_INPUT_TOKENS if cache_enabled else CONSERVATIVE_INPUT_TOKEN_RESERVATION
         amount = (
-            input_tokens * INPUT_USD_PER_MILLION / 1_000_000
+            input_tokens * INPUT_USD_PER_MILLION * (CACHE_WRITE_MULTIPLIER if cache_enabled else 1) / 1_000_000
             + MAX_OUTPUT_TOKENS * OUTPUT_USD_PER_MILLION / 1_000_000
         )
         reservation_id = str(uuid4())
@@ -395,6 +402,8 @@ class BudgetLedger:
         return reservation_id, amount
 
     def settle(self, reservation_id: str, usage: ProviderUsage) -> None:
+        if not usage.costKnown:
+            return  # Incomplete cache counters cannot release a conservative reservation.
         with self._locked() as state:
             reservation = next((item for item in state["reservations"] if item["id"] == reservation_id), None)
             if reservation is None or reservation["status"] != "reserved-unknown":
@@ -406,6 +415,8 @@ class BudgetLedger:
                 "actualUsd": usage.costUsd,
                 "inputTokens": usage.inputTokens,
                 "outputTokens": usage.outputTokens,
+                "cacheCreationInputTokens": usage.cacheCreationInputTokens,
+                "cacheReadInputTokens": usage.cacheReadInputTokens,
             })
             if usage.costUsd > maximum + 1e-12:
                 # Actual usage is persisted first. The now-overdrawn ledger
@@ -511,7 +522,7 @@ class AnthropicProvider:
         return value
 
     @staticmethod
-    def _usage_from_payload(payload: dict[str, Any] | None) -> ProviderUsage | None:
+    def _usage_from_payload(payload: dict[str, Any] | None, *, cache_enabled: bool = False) -> ProviderUsage | None:
         if payload is None:
             return None
         raw_usage = payload.get("usage")
@@ -521,11 +532,16 @@ class AnthropicProvider:
         output_used = raw_usage.get("output_tokens")
         if type(input_used) is not int or type(output_used) is not int:
             return None
+        created, read = raw_usage.get("cache_creation_input_tokens"), raw_usage.get("cache_read_input_tokens")
+        if any(value is not None and (type(value) is not int or value < 0) for value in (created, read)):
+            return None
         try:
             return ProviderUsage(
+                cacheCreationInputTokens=created, cacheReadInputTokens=read,
+                costKnown=not cache_enabled or (created is not None and read is not None),
                 inputTokens=input_used,
                 outputTokens=output_used,
-                costUsd=(input_used * INPUT_USD_PER_MILLION + output_used * OUTPUT_USD_PER_MILLION) / 1_000_000,
+                costUsd=((input_used + (created or 0) * CACHE_WRITE_MULTIPLIER + (read or 0) * CACHE_READ_MULTIPLIER) * INPUT_USD_PER_MILLION + output_used * OUTPUT_USD_PER_MILLION) / 1_000_000,
             )
         except ValidationError:
             return None
@@ -564,7 +580,10 @@ class AnthropicProvider:
         image_base64: str,
         output_schema: dict[str, Any],
         deadline_at: float,
+        conversation: list[dict[str, Any]] | None = None,
     ) -> ProviderReply:
+        from .generation_context import check_work
+        check_work()
         prompt_bytes = len(prompt_text.encode("utf-8"))
         try:
             image = base64.b64decode(image_base64, validate=True)
@@ -590,6 +609,11 @@ class AnthropicProvider:
                 {"type": "text", "text": prompt_text},
             ],
         }]
+        if conversation is not None:
+            messages = conversation
+            text_size = sum(len(b.get("text", "").encode("utf-8")) for m in messages for b in m["content"])
+            if text_size > MAX_CONVERSATION_TEXT_BYTES or len(messages) > 32:
+                raise ProviderCallError("schema-error", "Conversation exceeds its production context bound.")
         body = {
             "model": MODEL_ID,
             "max_tokens": MAX_OUTPUT_TOKENS,
@@ -621,12 +645,14 @@ class AnthropicProvider:
         input_tokens = count_payload.get("input_tokens")
         if not isinstance(input_tokens, int):
             raise ProviderCallError("schema-error", "Provider token count was missing or invalid.")
-        reservation_id, _maximum = self.ledger.reserve(input_tokens)
+        check_work()
+        reservation_id, _maximum = self.ledger.reserve(input_tokens, cache_enabled=conversation is not None)
 
         started = monotonic()
         remaining = deadline_at - started
         if remaining <= 0:
             raise ProviderCallError("timeout", "The overall generation deadline elapsed before the reserved call.")
+        check_work()
         status, content = self._bounded_request(
             "POST",
             f"{ANTHROPIC_API}/v1/messages",
@@ -643,7 +669,7 @@ class AnthropicProvider:
             # HTTP status failure or release its conservative reservation.
             if 200 <= status < 300:
                 raise
-        usage = self._usage_from_payload(payload)
+        usage = self._usage_from_payload(payload, cache_enabled=conversation is not None)
         if usage is not None:
             try:
                 self.ledger.settle(reservation_id, usage)

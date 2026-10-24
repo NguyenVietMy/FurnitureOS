@@ -726,6 +726,13 @@ class DesignSessionStore:
             record = self._records.get(session_id)
             return record.binding if record and record.access_policy == "captured-owner" else None
 
+    def revoke(self, session_id: str) -> None:
+        """Discard an unpublished batch session without affecting earlier Variants."""
+        with self._lock:
+            self._records.pop(session_id, None)
+            self._certificates.pop(session_id, None)
+            self._certificate_tokens.pop(session_id, None)
+
     def revoke_capture(self, capture_id: str) -> None:
         with self._lock:
             for session_id, record in tuple(self._records.items()):

@@ -203,6 +203,16 @@ export interface CirculationRegion {
   readonly corners: readonly [readonly [number, number], readonly [number, number], readonly [number, number], readonly [number, number]];
 }
 
+export interface CompleteEvent {
+  readonly type?: "complete";
+  readonly generationId: string;
+  readonly status: "complete" | "partial" | "failed";
+  readonly available: ReadonlyArray<"A" | "B" | "C">;
+  readonly reason: "complete" | "duplicate-exhausted" | "generation-failed" | "timeout" | "cancelled";
+  readonly providerCalls: number;
+  readonly usage: UsageSummary;
+}
+
 export interface CreateCapture {
   readonly consent: true;
 }
@@ -260,6 +270,15 @@ export interface DoorSwing {
 export interface DraftUpdate {
   readonly expectedRevision: number;
   readonly draft: CaptureDraft;
+}
+
+export interface ErrorEvent {
+  readonly type?: "error";
+  readonly generationId: string;
+  readonly code: string;
+  readonly detail: string;
+  readonly invalidated?: boolean;
+  readonly failure?: LiveGenerationFailure | null;
 }
 
 export interface FitMeasurements {
@@ -582,6 +601,13 @@ export interface Product {
   readonly attribution: Attribution;
 }
 
+export interface ProgressEvent {
+  readonly type?: "progress";
+  readonly generationId: string;
+  readonly variant: "A" | "B" | "C";
+  readonly stage: "selecting" | "duplicate-retry";
+}
+
 export interface PublicReference {
   readonly id: string;
   readonly label: string;
@@ -669,6 +695,12 @@ export interface SemanticOpening {
   readonly hingeSide: "unknown" | "start" | "end";
   readonly visibility: "clear" | "partial" | "unknown";
   readonly description: string;
+}
+
+export interface ShellEvent {
+  readonly type?: "shell";
+  readonly generationId: string;
+  readonly room: RoomShell;
 }
 
 export interface SolvedDesign {
@@ -805,7 +837,19 @@ export interface UsageSummary {
   readonly inputTokens?: number | null;
   readonly outputTokens?: number | null;
   readonly costUsd?: number | null;
+  readonly cacheCreationInputTokens?: number | null;
+  readonly cacheReadInputTokens?: number | null;
 }
+
+export interface VariantEvent {
+  readonly type?: "variant";
+  readonly generationId: string;
+  readonly variant: "A" | "B" | "C";
+  readonly signature: string;
+  readonly result: LiveGenerationSuccess;
+}
+
+export type VariantStreamEvent = ShellEvent | ProgressEvent | VariantEvent | CompleteEvent | ErrorEvent;
 
 export interface WallContact {
   readonly wallId: string;
