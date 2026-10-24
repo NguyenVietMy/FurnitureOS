@@ -57,3 +57,16 @@ html[data-feature="capture"] {
   @media(max-width:520px){.capture-page{padding:14px;}.opening-fields,.dimension-grid,.wall-upload-grid{grid-template-columns:1fr;}.capture-reference-grid{grid-template-columns:1fr;}.capture-preview{padding:10px;}h2{font-size:20px;}.stage{height:390px;}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important;}}
 }
+
+html[data-feature="capture"] {
+  .variant-controls [role="group"] { display:flex;flex-wrap:wrap;gap:8px; }
+  .variant-controls { padding:12px;border:1px solid var(--line);background:var(--raised); }
+  .variant-controls p { margin:8px 0; }
+  .variant-controls button { min-height:44px; }
+  .variant-workspace { min-width:0;overflow-anchor:none; }
+  .capture-preview--variants { position:static; }
+  .variant-workspace > .stage { height:min(48vh,460px); }
+  .variant-controls [aria-pressed="true"] { outline:2px solid #446bce;outline-offset:1px; }
+  .variant-shell { height:360px;position:relative; }
+  .variant-mutations { overflow-wrap:anywhere; }
+}

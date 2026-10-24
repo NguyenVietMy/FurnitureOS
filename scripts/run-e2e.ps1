@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 if ($env:E2E_BASE_URL) {
-  & npx.cmd playwright test
+  & npx.cmd playwright test @args
   exit $LASTEXITCODE
 }
 

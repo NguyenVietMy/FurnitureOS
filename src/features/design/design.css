@@ -73,3 +73,16 @@ html[data-feature="design"] {
   .swap-field select,.swap-button,.swap-check-button { min-height:46px; }
 }
 }
+
+html[data-feature="design"] {
+  .live-layout { height:auto; min-height:100vh; align-items:start; }
+  .variant-workspace { min-width:0; overflow-anchor:none; }
+  .variant-workspace > .stage,.variant-workspace > .stage-placeholder { height:min(52vh,560px); min-height:280px; }
+  .variant-mutations { padding:18px; border:1px solid var(--line); background:var(--paper-raised); overflow-wrap:anywhere; }
+  .variant-controls [role="group"] { display:flex; flex-wrap:wrap; gap:8px; }
+  .variant-controls button { min-height:44px; }
+  .variant-controls { padding:12px; border:1px solid var(--line); background:var(--paper-raised); }
+  .variant-controls p { margin:8px 0; }
+  .variant-controls [aria-pressed="true"] { outline:2px solid #446bce; outline-offset:1px; }
+  @media (max-width:900px) { .live-layout { grid-template-rows:auto auto; } }
+}

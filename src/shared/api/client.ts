@@ -1,3 +1,5 @@
+import { readVariantStream } from './variant-stream';
+import type { VariantStreamEvent } from './types';
 import type {
   CatalogueGallery,
   DesignFixtures,
@@ -178,4 +180,12 @@ export async function submitNudge(request: NudgeRequest): Promise<NudgeMutationR
   });
   if (!response.ok) throw new Error(`Nudge API returned ${response.status}`);
   return response.json() as Promise<NudgeMutationResult>;
+}
+
+export async function streamVariants(path: string, body: unknown, receive: (event: VariantStreamEvent) => void, signal: AbortSignal, privateRoom = false): Promise<void> {
+  const headers = privateRoom ? await privateHeaders() : {};
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  const response = await fetch(`${API_BASE}${path}`, { method: 'POST', signal,
+    headers: { ...headers, accept: 'application/x-ndjson', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return readVariantStream(response, receive, signal);
 }

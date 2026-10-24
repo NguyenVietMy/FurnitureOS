@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import type { DesignResult } from '@/shared/api/types';
+import type { DesignResult, RoomShell } from '@/shared/api/types';
 import type { NudgeController } from './useNudge';
 
 const RoomCanvas = lazy(() => import('./RoomCanvas'));
@@ -73,4 +73,12 @@ export function RoomStage({
       ) : null}
     </div>
   );
+}
+
+export function ShellStage({ room }: { room: RoomShell }) {
+  return <div className="stage variant-shell" data-testid="variant-shell" aria-label="Confirmed empty Room Shell">
+    <Suspense fallback={<div className="stage-placeholder">Preparing the Room Shell…</div>}>
+      <RoomCanvas room={room} products={[]} placements={[]} frameRoom overview />
+    </Suspense>
+  </div>;
 }

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page, type CDPSession } from '@playwright/test';
+import { resultStream } from './variant-events.fixture';
 
 const shots = process.env.FURNITUREOS_EVIDENCE_DIR ?? 'test-results/screenshots';
 mkdirSync(shots, { recursive: true });
@@ -444,11 +445,11 @@ test('controlled live generation uses the same real Nudge authority and clears o
   const config = { ...(await (await request.get('/api/live-bedroom/config')).json()), realCallsEnabled: true };
   const design = await (await request.post('/api/design-resolution', { data: { fixtureId: 'against-wall', maxCandidates: 128 } })).json();
   await page.route('**/api/live-bedroom/config', (route) => route.fulfill({ json: config }));
-  await page.route('**/api/live-bedroom/generate', (route) => route.fulfill({ json: {
+  await page.route('**/api/live-bedroom/variants', (route) => route.fulfill({ contentType: 'application/x-ndjson', body: resultStream({
     status: 'solved', generationId: 'controlled-nudge-live', referenceId: 'ref-01',
     providerModel: 'controlled-no-provider-call', providerCalls: 0, modelLatencyMs: 0,
     usage: { known: true, inputTokens: 0, outputTokens: 0, costUsd: 0 }, design,
-  } }));
+  }) }));
   await page.goto('/design/live-bedroom');
   await page.getByRole('radio', { name: 'Bedroom' }).check();
   await page.getByRole('radio', { name: /Soft neutrals and warm wood/ }).check();

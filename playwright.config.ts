@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT ?? 3101);
@@ -14,8 +16,9 @@ const trustedOidcToken = process.env.VERCEL_OIDC_TOKEN;
  */
 export default defineConfig({
   testDir: './e2e',
+  outputDir: join(process.env.FURNITUREOS_EVIDENCE_DIR ?? join(tmpdir(), 'furnitureos-e2e'), 'playwright-results'),
   fullyParallel: true,
-  workers: 2,
+  workers: Number(process.env.E2E_WORKERS ?? 2),
   retries: 0,
   timeout: 120_000,
   expect: { timeout: 30_000 },

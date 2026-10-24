@@ -159,7 +159,7 @@ test('controlled Capture corrections, real homography and confirmed nonfixture s
   await page.getByTestId('room-canvas').scrollIntoViewIfNeeded();
   await page.waitForFunction(()=>window.__furnitureos?.usefulView.status==='complete',undefined,{timeout:60000});
   const facts=await page.evaluate(()=>JSON.parse(JSON.stringify(window.__furnitureos)));
-  expect(facts.generationId).toBe('controlled-capture-1');
+  expect(facts.generationId).toBe('controlled-capture-1:A');
   expect(Object.values(facts.instances).every((p:any)=>p.screenVisible&&p.actualFrameRendered&&p.activeMeshCount>0)).toBe(true);
   expect(flow.capture.room.floorPolygon).toEqual([[-3,-2],[-3,2],[3,2],[3,-2]]);
   writeFileSync(join(evidence,'ticket-9-controlled-scene.json'),JSON.stringify({room:flow.capture.room,facts},null,2)+'\n');

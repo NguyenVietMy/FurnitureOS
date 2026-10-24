@@ -1,3 +1,4 @@
+import { useVariants } from '@/features/design/useVariants';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CaptureConfig, CaptureDeletionStatus, CaptureDraft, CaptureGenerationResult, CaptureIssue, CaptureView } from '@/shared/api/types';
 import { CaptureApiError, captureRequest, setCaptureAuthorization } from '@/shared/api/client';
@@ -6,6 +7,7 @@ import { captureAuth, ensureAnonymous, isAnonymousSession, requireAnonymousSessi
 const blank: CaptureDraft = { roomType: '', topology: '', widthM: null, depthM: null, heightM: null,
   dimensionsConfirmed: false, wallReviews: [], openings: [], furnitureAcknowledged: false, dimensionEvidence: [] };
 export function useCapture() {
+  const variants = useVariants();
   const [config,setConfig] = useState<CaptureConfig | null>(null);
   const [capture,setCapture] = useState<CaptureView | null>(null);
   const [draft,setDraftState] = useState<CaptureDraft>(blank);
@@ -35,7 +37,7 @@ export function useCapture() {
       const next = isAnonymousSession(session)?session.user.id:null;
       if (owner.current !== next) {
         owner.current = next; sequence.current++; active.current?.abort();
-        setCapture(null); setDraftState(blank); setGeneration(null); setIssues([]); setPending(false);
+        setCapture(null); setDraftState(blank); setGeneration(null); variants.clear(); setIssues([]); setPending(false);
         if (!next) setMessage('Anonymous account access was lost. Your private preview was cleared.');
         else {
           const saved=localStorage.getItem(`furnitureos.capture.${next}`);
@@ -51,7 +53,7 @@ export function useCapture() {
   },[config]);
   useEffect(()=>{
     if(!capture||capture.state==='deleting')return;
-    const timer=setTimeout(()=>{sequence.current++;active.current?.abort();setCapture(null);setDraftState(blank);setGeneration(null);setIssues([]);setMessage('Capture expired. Private access and previews were cleared.');if(owner.current)localStorage.removeItem(`furnitureos.capture.${owner.current}`);},Math.max(0,Date.parse(capture.expiresAt)-Date.now()));
+    const timer=setTimeout(()=>{sequence.current++;active.current?.abort();setCapture(null);setDraftState(blank);setGeneration(null); variants.clear();setIssues([]);setMessage('Capture expired. Private access and previews were cleared.');if(owner.current)localStorage.removeItem(`furnitureos.capture.${owner.current}`);},Math.max(0,Date.parse(capture.expiresAt)-Date.now()));
     return()=>clearTimeout(timer);
   },[capture?.id,capture?.expiresAt]);
   const install = (next: CaptureView) => { setCapture(next); setDraftState(next.draft); setDirty(false); if(owner.current) localStorage.setItem(`furnitureos.capture.${owner.current}`,next.id); };
@@ -66,13 +68,13 @@ export function useCapture() {
       next = {...cleared, dimensionsConfirmed:false, wallReviews:[], dimensionEvidence:[],
         openings:(next.openings ?? []).map(opening=>({...opening,wallId:null,reviewed:false}))};
     }
-    sequence.current++; active.current?.abort(); setPending(false); setGeneration(null); setIssues([]);
+    sequence.current++; active.current?.abort(); setPending(false); setGeneration(null); variants.clear(); setIssues([]);
     setDraftState(next); setDirty(true);
   };
   const execute = async <T,>(work:(signal:AbortSignal)=>Promise<T>, accept:(result:T)=>void) => {
     active.current?.abort(); const abort = new AbortController(); active.current=abort;
     const ticket=++sequence.current, account=owner.current;
-    setPending(true); setMessage(''); setIssues([]); setGeneration(null);
+    setPending(true); setMessage(''); setIssues([]); setGeneration(null); variants.clear();
     try {
       const result = await work(abort.signal);
       if (!abort.signal.aborted && ticket===sequence.current && account===owner.current) accept(result);
@@ -141,8 +143,8 @@ export function useCapture() {
   const generate = async (referenceId:string) => {
     if (!capture || dirty) { setMessage('Confirm your edited Room before generation.'); return; }
     const current=capture;
-    await execute(signal=>captureRequest<CaptureGenerationResult>(`/api/captures/${current.id}/generate`,'POST',
-      {expectedRevision:current.revision,referenceId},signal),result=>{setReceivedAtMs(performance.now());setGeneration(result);});
+    setGeneration(null);
+    await variants.start(`/api/captures/${current.id}/variants`, { expectedRevision: current.revision, referenceId }, true);
   };
   const remove = async () => {
     if (!capture) return;
@@ -166,5 +168,5 @@ export function useCapture() {
       && current.result.design.swap.sessionId===design.swap.sessionId && design.swap.version>=current.result.design.swap.version
       ? {...current,result:{...current.result,design}} : current);
   },[]);
-  return {config,capture,draft,edit,save,roomDetailsUnsaved,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
+  return {variants,config,capture,draft,edit,save,roomDetailsUnsaved,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
 }
