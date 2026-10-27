@@ -1,3 +1,6 @@
+import { VariantControls } from '@/features/design/VariantControls';
+import { VariantDesign } from '@/features/design/VariantDesign';
+import { ShellStage } from '@/features/design/RoomStage';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCapture } from './useCapture';
@@ -8,21 +11,15 @@ import { RoomDimensions } from './RoomDimensions';
 import { ReferenceCalibration } from './ReferenceCalibration';
 import { RoomReviewPreview } from './RoomReviewPreview';
 import { CaptureGeneration } from './CaptureGeneration';
-import { RoomStage } from '@/features/design/RoomStage';
-import { ProductDisclosures } from '@/features/design/ProductDisclosures';
-import { SwapControls } from '@/features/design/SwapControls';
-import { NudgeControls } from '@/features/design/NudgeControls';
-import { useMutationLock } from '@/features/design/useMutationLock';
-import { useNudge } from '@/features/design/useNudge';
 import './capture.css';
 export default function CapturePage() {
   const flow=useCapture(),[consent,setConsent]=useState(false);
   const reviewRef=useRef<HTMLElement>(null);
+  const roomRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(flow.variants.state.status!=='idle')roomRef.current?.scrollIntoView({block:'start',behavior:'auto'});},[flow.variants.state.key,flow.variants.state.selected,Boolean(flow.variants.state.shell),Boolean(flow.variants.selected)]);
   const errorsRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(flow.issues.length)errorsRef.current?.focus();},[flow.issues]);
-  const success=flow.generation?.status==='generated'&&flow.generation.result.status==='solved'?flow.generation.result:null;
-  const lock=useMutationLock(success?.design.swap?.status==='available'?success.design.swap.sessionId:null);
-  const nudge=useNudge(success?.design??null,flow.installDesign,lock);
+  const success=flow.variants.selected;
   const capture=flow.capture;
   const confirmed=Boolean(capture?.state==='confirmed'&&!flow.dirty);
   const proposals=capture?.photos?.flatMap(p=>p.semantics?.openings??[])??[];
@@ -55,10 +52,14 @@ export default function CapturePage() {
           {flow.issues.length?<div ref={errorsRef} className="capture-errors" role="alert" tabIndex={-1}><h3>Required details to resolve</h3><ul>{flow.issues.map((issue,i)=><li key={i}>{issue.detail}</li>)}</ul></div>:null}
           <button disabled={flow.pending||flow.roomDetailsUnsaved} onClick={flow.confirm}>Review and confirm Room</button>
         </section>
-        <CaptureGeneration roomType={capture.draft.roomType ?? ''} result={flow.generation} available={flow.config?.generationAvailable??false} confirmed={confirmed} pending={flow.pending} generate={flow.generate} review={review}/>
-      </div><aside className="capture-preview"><RoomReviewPreview draft={flow.draft} confirmed={confirmed}/>
-        {success?<><h2>Validated furnished Room</h2><RoomStage result={success.design} receivedAtMs={flow.receivedAtMs} generationId={success.generationId} nudge={nudge}/>
-          <NudgeControls design={success.design} nudge={nudge} lock={lock}/><SwapControls design={success.design} onDesignChange={flow.installDesign} mutationLock={lock}/><ProductDisclosures products={success.design.products}/></>:null}
+        <CaptureGeneration roomType={capture.draft.roomType ?? ''} result={flow.variants.state.failure || success ? {status:'generated', captureId:capture.id, confirmedRevision:capture.revision, roomHash:capture.roomHash ?? '', result:flow.variants.state.failure ?? success!.result} : flow.generation} available={flow.config?.generationAvailable??false} confirmed={confirmed} pending={flow.variants.running || flow.pending} generate={flow.generate} review={review} invalidate={flow.variants.clear}/>
+      </div><aside className={`capture-preview${flow.variants.state.status!=='idle'?' capture-preview--variants':''}`}><RoomReviewPreview draft={flow.draft} confirmed={confirmed}/>
+        <div className="variant-workspace" ref={roomRef}>
+        {success ? <><h2>Validated furnished Room</h2><VariantDesign key={`${flow.variants.state.key}:${flow.variants.state.selected}:${flow.variants.state.visit}`}
+          design={success.result.design} receivedAtMs={success.receivedAtMs} generationId={`${flow.variants.state.generationId}:${flow.variants.state.selected}`} installDesign={flow.variants.installDesign} controls={<VariantControls flow={flow.variants} />} /></>
+          : flow.variants.running && flow.variants.state.shell ? <ShellStage room={flow.variants.state.shell} /> : null}
+        {!success && <VariantControls flow={flow.variants} />}
+        </div>
       </aside></div>
     </>:null}
   </main>;

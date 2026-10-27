@@ -1,3 +1,4 @@
+import { resultStream } from './variant-events.fixture';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -93,14 +94,14 @@ export async function controlled(page:Page,request:APIRequestContext,options:Ide
       const checked=authority('confirm',capture);
       if(!checked.issues.length)Object.assign(capture,{state:'confirmed',confirmedRevision:capture.revision,roomHash:checked.hash,room:checked.room});
       return route.fulfill({json:{status:checked.issues.length?'review':'confirmed',capture,room:checked.room,issues:checked.issues}});
-    } else if(path.endsWith('/generate')) {
+    } else if(path.endsWith('/variants')) {
       generations++;expect(capture.state).toBe('confirmed');
       const solved=await request.post('/api/arrangement-solve',{data:{room:capture.room,selections:[{id:'controlled-capture-selection',intents:[{id:'anchor-bed',kind:'centred_on',productId:'bed-prudence-tufted-queen-natural',wallId:capture.draft.topology==='L-shaped'?'wall-south':'wall-north',face:'back'}]}],policies:[{requestId:'anchor-bed',required:true,anchor:true}],clearanceWidthM:.6,maxCandidates:128}});
       expect(solved.status()).toBe(200);const design=await solved.json();
       const common={generationId:`controlled-capture-${generations}`,referenceId:'ref-01',providerModel:'controlled-offline',providerCalls:0,modelLatencyMs:0,usage:{known:false}};
       const result=design.status==='solved'?{...common,status:'solved',design}:{...common,status:'failed',code:'no-valid-design',detail:'The authoritative solver found no valid Design in its reported search.',designFailure:design};
       if(holdGeneration)await holdGeneration;
-      try {await route.fulfill({json:{status:'generated',captureId:id,confirmedRevision:capture.revision,roomHash:capture.roomHash,result}});}finally{finished++;}
+      try {await route.fulfill({contentType:'application/x-ndjson',body:resultStream(result,capture.room)});}finally{finished++;}
       return;
     } else if(method==='DELETE') {
       Object.assign(capture,{state:'deleting',revision:capture.revision+1,room:null,roomHash:null,confirmedRevision:null,photos:[],draft:blank,cleanupStatus:'pending'});

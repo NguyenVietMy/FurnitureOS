@@ -1,3 +1,4 @@
+import { resultStream } from './variant-events.fixture';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,26 +27,26 @@ test('controlled live choice renders every real Mesh and clears stale success on
   const holdFailure = new Promise<void>((resolve) => { releaseFailure = resolve; });
 
   await page.route('**/api/live-bedroom/config', (route) => route.fulfill({ json: config }));
-  await page.route('**/api/live-bedroom/generate', async (route) => {
+  await page.route('**/api/live-bedroom/variants', async (route) => {
     generationRequests += 1;
     if (generationRequests === 1) {
       markFirstStarted();
       await holdFirst;
-      await route.fulfill({ json: {
+      await route.fulfill({ contentType: 'application/x-ndjson', body: resultStream({
         status: 'solved', generationId: 'controlled-generation-1', referenceId: 'ref-01',
         providerModel: 'claude-opus-5', providerCalls: 2, modelLatencyMs: 1234,
         usage: { known: true, inputTokens: 100, outputTokens: 20, costUsd: 0.001 }, design,
-      } });
+      }) });
       return;
     }
     markFailureStarted();
     await holdFailure;
-    await route.fulfill({ json: {
+    await route.fulfill({ contentType: 'application/x-ndjson', body: resultStream({
       status: 'failed', generationId: 'controlled-generation-2', referenceId: 'ref-01',
       code: 'no-valid-design', detail: 'No valid Design after the bounded repairs.',
       providerModel: 'claude-opus-5', providerCalls: 3, modelLatencyMs: 1500,
       usage: { known: false }, designFailure: null,
-    } });
+    }) });
   });
 
   await page.goto('/design');
@@ -62,7 +63,7 @@ test('controlled live choice renders every real Mesh and clears stale success on
   releaseFirst();
   await page.waitForFunction(() => window.__furnitureos?.usefulView.status === 'complete', undefined, { timeout: 60_000 });
   const proof = await page.evaluate(() => JSON.parse(JSON.stringify(window.__furnitureos)));
-  expect(proof.generationId).toBe('controlled-generation-1');
+  expect(proof.generationId).toBe('controlled-generation-1:A');
   expect(proof.usefulView.expectedPlacements).toBe(design.placements.length);
   expect(proof.usefulView.renderedPlacements).toBe(design.placements.length);
   expect(proof.usefulView.materialsReady).toBe(true);
@@ -137,15 +138,15 @@ test('replaced live request cannot publish a late Design', async ({ page, reques
   const pending = new Promise<void>((resolve) => { release = resolve; });
 
   await page.route('**/api/live-bedroom/config', (route) => route.fulfill({ json: config }));
-  await page.route('**/api/live-bedroom/generate', async (route) => {
+  await page.route('**/api/live-bedroom/variants', async (route) => {
     requestStarted();
     await pending;
     try {
-      await route.fulfill({ json: {
+      await route.fulfill({ contentType: 'application/x-ndjson', body: resultStream({
         status: 'solved', generationId: 'late-generation', referenceId: 'ref-01',
         providerModel: 'claude-opus-5', providerCalls: 1, modelLatencyMs: 50,
         usage: { known: false }, design,
-      } });
+      }) });
     } catch {
       // The browser is allowed to cancel the superseded transport.
     }

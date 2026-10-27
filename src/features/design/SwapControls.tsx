@@ -124,14 +124,15 @@ export function SwapControls({
     || mutation.status === 'stale' || mutation.status === 'blocked' || mutationLock.owner === 'nudge';
 
   const reconcile = async (ownedSessionId: string) => {
-    if (sessionIdRef.current !== ownedSessionId) return;
-    if (!mutationLock.heldBy('swap') && !mutationLock.acquire('swap')) return;
-    setMutation({ status: 'reconciling' });
+    if (sessionIdRef.current === ownedSessionId) {
+      if (!mutationLock.heldBy('swap') && !mutationLock.acquire('swap')) return;
+      setMutation({ status: 'reconciling' });
+    }
     try {
       const current = await fetchCurrentSwapSession(ownedSessionId);
+      if (current.status === 'current') onDesignChange(current.design);
       if (sessionIdRef.current !== ownedSessionId) return;
       if (current.status === 'current') {
-        onDesignChange(current.design);
         setMutation({ status: 'idle', message: `Current Design version ${current.version} restored.` });
         mutationLock.release('swap');
       } else {
@@ -158,9 +159,11 @@ export function SwapControls({
         instanceId,
         replacementProductId: candidateId,
       });
+      // Parent batch/session/version guards also protect commits whose visit
+      // unmounted. Only transient UI updates depend on the active visit below.
+      if (result.status === 'accepted') onDesignChange(result.design);
       if (sessionIdRef.current !== ownedSessionId) return;
       if (result.status === 'accepted') {
-        onDesignChange(result.design);
         setMutation({ status: 'idle', message: result.detail });
         mutationLock.release('swap');
       } else if (result.status === 'stale-version') {
@@ -172,7 +175,6 @@ export function SwapControls({
         mutationLock.release('swap');
       }
     } catch {
-      if (sessionIdRef.current !== ownedSessionId) return;
       // The server may have committed before the response was lost. A current
       // read is mandatory before another mutation is enabled.
       await reconcile(ownedSessionId);

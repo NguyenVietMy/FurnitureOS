@@ -891,6 +891,8 @@ def resolve_design(
     *,
     zone_offer: ZoneOffer | None = None,
 ) -> DesignResultValue:
+    from .generation_context import check_work
+    check_work()
     """Resolve coordinate-free Placement Intents with bounded deterministic backtracking."""
     if request.maxCandidates > MAX_SEARCH_CANDIDATES:
         raise ValueError(f"Search cannot exceed {MAX_SEARCH_CANDIDATES} candidates")

@@ -82,6 +82,18 @@ def test_generated_contract_has_frontend_entry_types() -> None:
     assert '"duplicate-product-reference"' not in text
 
 
+def test_variant_streams_publish_the_ndjson_discriminator_and_accept_no_solved_client_history() -> None:
+    schema = app.openapi()
+    for path in ("/api/live-design/variants", "/api/live-bedroom/variants", "/api/captures/{capture_id}/variants"):
+        content = schema["paths"][path]["post"]["responses"]["200"]["content"]
+        assert set(content) == {"application/x-ndjson"}
+        assert content["application/x-ndjson"]["schema"] == {"$ref": "#/components/schemas/VariantStreamEvent"}
+    event = schema["components"]["schemas"]["VariantStreamEvent"]
+    assert event["discriminator"]["propertyName"] == "type" and len(event["oneOf"]) == 5
+    assert set(schema["components"]["schemas"]["LiveGenerationRequest"]["properties"]) == {"roomType", "referenceId"}
+    assert set(schema["components"]["schemas"]["CaptureGenerationRequest"]["properties"]) == {"expectedRevision", "referenceId"}
+
+
 def test_nudge_routes_are_named_discriminated_contracts_without_client_geometry() -> None:
     assert response_schema("/api/nudges/{session_id}/region") == {"$ref": "#/components/schemas/NudgeRegionResult"}
     assert response_schema("/api/nudges", "post") == {"$ref": "#/components/schemas/NudgeMutationResult"}

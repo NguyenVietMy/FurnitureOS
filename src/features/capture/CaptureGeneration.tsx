@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { fetchLiveBedroomConfig } from '@/shared/api/client';
 import type { CaptureGenerationResult, LiveBedroomConfig } from '@/shared/api/types';
-export function CaptureGeneration({result,available,confirmed,pending,generate,review,roomType}:{roomType:string;result:CaptureGenerationResult|null;available:boolean;confirmed:boolean;pending:boolean;generate:(id:string)=>void;review:()=>void}) {
+export function CaptureGeneration({result,available,confirmed,pending,generate,review,roomType,invalidate}:{roomType:string;result:CaptureGenerationResult|null;available:boolean;confirmed:boolean;pending:boolean;generate:(id:string)=>void;review:()=>void;invalidate:()=>void}) {
   const [config,setConfig]=useState<LiveBedroomConfig|null>(null),[reference,setReference]=useState('');
   useEffect(()=>{const abort=new AbortController();fetchLiveBedroomConfig(abort.signal).then(setConfig).catch(()=>{});return()=>abort.abort();},[]);
   useEffect(()=>setReference(''),[roomType]);
   const failed=result?.status==='generated'&&result.result.status==='failed'?result.result:null;
   return <section><h2>Generate the confirmed Room</h2><p>{roomType === 'living-room' ? 'The generator requires one sofa, one coffee table and one chair, with an optional second chair, rug and floor lamp. Front access requires 0.60 m.' : 'The generator selects one real bed and optionally one rug.'} FurnitureOS checks fit and connected walking space.</p>
     <fieldset disabled={pending}><legend>Style inspiration</legend><div className="capture-reference-grid">{config?.references.map(item=><label key={item.id}>
-      <input type="radio" name="capture-reference" checked={reference===item.id} onChange={()=>setReference(item.id)}/>
+      <input type="radio" name="capture-reference" checked={reference===item.id} onChange={()=>{setReference(item.id);invalidate();}}/>
       <img src={item.imageUrl} alt={item.label}/><span>{item.label}</span></label>)}</div></fieldset>
     {result?.status==='generated' && result.result.status==='solved' && roomType==='living-room' ? <section aria-label="Seating Zones"><h3>Seating Zones</h3><p>The blue outlines show server-offered areas, not a guarantee that a whole seating group fits.</p><ul>{result.result.design.zones?.map(zone=><li key={zone.id}>{zone.label}: {(zone.bounds.maxX-zone.bounds.minX).toFixed(2)} m wide × {(zone.bounds.maxZ-zone.bounds.minZ).toFixed(2)} m deep</li>)}</ul></section> : null}
     <button disabled={!available||!confirmed||!reference||pending} onClick={()=>generate(reference)}>{pending?'Checking the Design…':'Generate confirmed Room'}</button>

@@ -428,6 +428,8 @@ def validate_circulation(
     *,
     anchor_ids: frozenset[str] = frozenset(),
 ) -> CirculationResultValue:
+    from .generation_context import check_work
+    check_work()
     result = _validate_circulation(
         design,
         clearance_width_m,

@@ -1,22 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { fetchLiveBedroomConfig, generateLiveBedroom, fetchLiveDesignConfig, generateLiveDesign } from '@/shared/api/client';
-import type { LiveDesignConfig, LiveGenerationFailure, LiveGenerationSuccess, SolvedDesign } from '@/shared/api/types';
-import { RoomStage } from './RoomStage';
-import { ProductDisclosures } from './ProductDisclosures';
-import { clearSceneDebug } from './scene-debug';
-import { SwapControls } from './SwapControls';
-import { NudgeControls } from './NudgeControls';
-import { ownsNewerDesign, useMutationLock } from './useMutationLock';
-import { useNudge } from './useNudge';
+import { fetchLiveBedroomConfig, fetchLiveDesignConfig } from '@/shared/api/client';
+import type { LiveDesignConfig } from '@/shared/api/types';
+import { useVariants } from './useVariants';
+import { VariantControls } from './VariantControls';
+import { VariantDesign } from './VariantDesign';
+import { ShellStage } from './RoomStage';
 import './design.css';
-
-type RequestState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'client-error'; message: string }
-  | { status: 'failed'; failure: LiveGenerationFailure }
-  | { status: 'solved'; success: LiveGenerationSuccess; receivedAtMs: number };
 
 export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?: boolean }) {
   const [config, setConfig] = useState<LiveDesignConfig | null>(null);
@@ -25,17 +15,14 @@ export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?:
   const [roomType, setRoomType] = useState<'' | 'bedroom' | 'living-room'>('');
   const roomLabel = roomType === 'living-room' ? 'living room' : 'bedroom';
   const configRoomType = bedroomOnly ? 'bedroom' : roomType || 'bedroom';
-  const [requestState, setRequestState] = useState<RequestState>({ status: 'idle' });
-  const controllerRef = useRef<AbortController | null>(null);
-  const sequenceRef = useRef(0);
-  const solved = requestState.status === 'solved' ? requestState.success.design : null;
-  const mutationLock = useMutationLock(solved?.swap?.status === 'available' ? solved.swap.sessionId : null);
-  const installDesign = useCallback((design: SolvedDesign) => {
-    setRequestState((current) => current.status === 'solved' && ownsNewerDesign(current.success.design, design)
-      ? { ...current, success: { ...current.success, design } } : current);
-  }, []);
-  const nudge = useNudge(solved, installDesign, mutationLock);
-
+  const flow = useVariants();
+  const roomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (flow.state.status !== 'idle') roomRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [flow.state.key, flow.state.selected, Boolean(flow.state.shell), Boolean(flow.selected)]);
+  const clearGeneration = flow.clear;
+  const current = flow.selected;
+  const generate = () => { if (roomType && referenceId) void flow.start(bedroomOnly ? '/api/live-bedroom/variants' : '/api/live-design/variants', { roomType, referenceId }); };
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
@@ -50,45 +37,6 @@ export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?:
     return () => { current = false; controller.abort(); };
   }, [bedroomOnly, configRoomType]);
 
-  useEffect(() => () => {
-    controllerRef.current?.abort();
-    clearSceneDebug();
-  }, []);
-
-  const clearGeneration = () => {
-    sequenceRef.current += 1;
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    clearSceneDebug();
-    setRequestState({ status: 'idle' });
-  };
-
-  const generate = async () => {
-    if (!referenceId || !roomType) return;
-    const sequence = sequenceRef.current + 1;
-    sequenceRef.current = sequence;
-    controllerRef.current?.abort();
-    clearSceneDebug();
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setRequestState({ status: 'loading' });
-    try {
-      const { result, receivedAtMs } = await (bedroomOnly ? generateLiveBedroom(referenceId, controller.signal) : generateLiveDesign(roomType, referenceId, controller.signal));
-      if (controller.signal.aborted || sequenceRef.current !== sequence) return;
-      if (result.status !== 'solved') clearSceneDebug();
-      setRequestState(result.status === 'solved'
-        ? { status: 'solved', success: result, receivedAtMs }
-        : { status: 'failed', failure: result });
-    } catch (cause: unknown) {
-      if (controller.signal.aborted || sequenceRef.current !== sequence) return;
-      clearSceneDebug();
-      setRequestState({
-        status: 'client-error',
-        message: cause instanceof Error ? cause.message : 'The generation response could not be received.',
-      });
-    }
-  };
-
   if (configError) return (
     <main className="stage-placeholder" data-testid="live-config-error">
       <h1>Live Design choices are unavailable.</h1>
@@ -100,34 +48,21 @@ export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?:
   if (!config) return <main className="stage-placeholder" role="status">Loading image choices…</main>;
 
   const selected = config.references.find((reference) => reference.id === referenceId);
-  const failure = requestState.status === 'failed' ? requestState.failure : null;
-  const clientError = requestState.status === 'client-error' ? requestState.message : null;
+  const failure = flow.state.failure;
+  const clientError = !flow.running && !current && flow.state.status !== 'idle' ? flow.state.message : null;
   return (
     <main className="layout live-layout" data-testid="live-bedroom">
-      {requestState.status === 'solved' ? (
-        <RoomStage
-          result={requestState.success.design}
-          receivedAtMs={requestState.receivedAtMs}
-          generationId={requestState.success.generationId}
-          nudge={nudge}
-        />
-      ) : requestState.status === 'loading' ? (
-        <section className="stage-placeholder" role="status" data-testid="live-loading">
-          <strong>Creating your {roomLabel} Design…</strong>
-          <span>Checking furniture fit and walking space.</span>
-        </section>
-      ) : failure || clientError ? (
-        <section className="stage-placeholder live-failure" data-testid="live-failure">
+      <div className="variant-workspace" ref={roomRef}>
+        {current ? <VariantDesign key={`${flow.state.key}:${flow.state.selected}:${flow.state.visit}`} design={current.result.design}
+          generationId={`${flow.state.generationId}:${flow.state.selected}`} receivedAtMs={current.receivedAtMs} installDesign={flow.installDesign} controls={<VariantControls flow={flow} />} />
+        : failure || clientError ? <section className="stage-placeholder live-failure" data-testid="live-failure">
           <strong>{failure?.code === 'no-valid-design' ? `No ${roomLabel} Design fit this Room.` : 'This Design could not be created.'}</strong>
-          <span role="alert">{failure?.detail ?? clientError}</span>
-          <button type="button" onClick={generate}>Retry this generation</button>
-        </section>
-      ) : (
-        <section className="stage-placeholder live-empty" data-testid="live-idle">
-          <strong>Choose an image and Room Type to begin.</strong>
-          <span>Your furnished Design will appear here.</span>
-        </section>
-      )}
+          <span role="alert">{failure?.detail ?? clientError}</span><button type="button" onClick={generate}>Retry this generation</button></section>
+        : flow.state.shell ? <ShellStage room={flow.state.shell} />
+        : flow.running ? <section className="stage-placeholder" role="status" data-testid="live-loading"><strong>Creating your {roomLabel} Design…</strong><span>Preparing the Room Shell.</span></section>
+        : <section className="stage-placeholder live-empty" data-testid="live-idle"><strong>Choose an image and Room Type to begin.</strong><span>Your furnished Design will appear here.</span></section>}
+        {!current && <VariantControls flow={flow} />}
+      </div>
 
       <aside className="panel live-panel">
         <Link className="home-link" to="/design">← Fixture preview</Link>
@@ -179,33 +114,18 @@ export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?:
         <button
           className="generate-button"
           type="button"
-          disabled={!config.realCallsEnabled || (!bedroomOnly && config.roomType !== roomType) || !referenceId || !roomType || requestState.status === 'loading'}
+          disabled={!config.realCallsEnabled || (!bedroomOnly && config.roomType !== roomType) || !referenceId || !roomType || flow.running}
           onClick={generate}
         >
-          {requestState.status === 'loading' ? 'Generating…' : !bedroomOnly && !roomType ? 'Generate Design' : `Generate ${roomLabel}`}
+          {flow.running ? 'Generating…' : !bedroomOnly && !roomType ? 'Generate Design' : `Generate ${roomLabel}`}
         </button>
         {!config.realCallsEnabled ? <p className="warning" role="status">Generation is not available right now.</p> : null}
 
-        {requestState.status === 'solved' && roomType === 'living-room' && <section aria-label="Seating Zones"><h2>Seating Zones</h2><p>Server-offered areas; these offers do not guarantee that a seating group fits.</p><ul>{requestState.success.design.zones?.map(zone => <li key={zone.id}>{zone.label}: {(zone.bounds.maxX-zone.bounds.minX).toFixed(2)} m wide × {(zone.bounds.maxZ-zone.bounds.minZ).toFixed(2)} m deep</li>)}</ul></section>}
-        {requestState.status === 'solved' ? (
-          <>
-            <NudgeControls design={requestState.success.design} nudge={nudge} lock={mutationLock} />
-            <SwapControls design={requestState.success.design} onDesignChange={installDesign} mutationLock={mutationLock} />
-          </>
-        ) : null}
-
-        {requestState.status === 'solved' ? <ProductDisclosures products={requestState.success.design.products} /> : null}
-
-        {requestState.status === 'solved' || failure ? (
-          <details className="technical-details generation-details">
-            <summary>Generation details</summary>
-            <dl className="rows">
-              <div><dt>Generation ID</dt><dd className="break">{requestState.status === 'solved' ? requestState.success.generationId : failure?.generationId}</dd></div>
-              <div><dt>Model time</dt><dd>{requestState.status === 'solved' ? requestState.success.modelLatencyMs : failure?.modelLatencyMs} ms</dd></div>
-              <div><dt>Provider calls</dt><dd>{requestState.status === 'solved' ? requestState.success.providerCalls : failure?.providerCalls}</dd></div>
-            </dl>
-          </details>
-        ) : null}
+        {current && roomType === 'living-room' ? <section aria-label="Seating Zones"><h2>Seating Zones</h2><p>Server-offered areas; these offers do not guarantee that a seating group fits.</p><ul>{current.result.design.zones?.map(zone => <li key={zone.id}>{zone.label}: {(zone.bounds.maxX-zone.bounds.minX).toFixed(2)} m wide × {(zone.bounds.maxZ-zone.bounds.minZ).toFixed(2)} m deep</li>)}</ul></section> : null}
+        {current || failure ? <details className="technical-details generation-details"><summary>Generation details</summary><dl className="rows">
+          <div><dt>Generation ID</dt><dd className="break">{flow.state.generationId}</dd></div>
+          <div><dt>Provider calls for this Variant</dt><dd>{current?.result.providerCalls ?? failure?.providerCalls}</dd></div>
+        </dl></details> : null}
       </aside>
     </main>
   );

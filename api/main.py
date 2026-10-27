@@ -7,11 +7,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 from urllib.parse import unquote
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .catalogue import Catalogue, catalogue
@@ -37,6 +37,7 @@ from .swaps import DesignSessionStore
 from .zones import ZoneDerivationError, derive_zones
 from .captures import CaptureService, CaptureBodyLimit
 from .capture_auth import CaptureError
+from .variants import BatchControl, VariantStreamEvent, variant_events, stream_response, STREAM_RESPONSES
 from .models import SwapUnknownSession
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -155,6 +156,22 @@ def create_app(
         if generated.status == "solved":
             generated = generated.model_copy(update={"design": sessions.register(generated.design, request.roomType)}, deep=True)
         return LiveGenerationResult(root=generated)
+
+    @application.post("/api/live-design/variants", response_model=VariantStreamEvent,
+                      response_class=StreamingResponse, responses=STREAM_RESPONSES)
+    def live_variants(body: LiveGenerationRequest, request: Request):
+        room = (object_intent_fixture_room().model_copy(update={"id": "room-living-seating-v1"})
+                if body.roomType == "living-room" else intent_fixture_room())
+        control = BatchControl()
+        return stream_response(request, lambda: variant_events(source, body, room, sessions,
+                               provider=generation_provider, control=control), control)
+
+    @application.post("/api/live-bedroom/variants", response_model=VariantStreamEvent,
+                      response_class=StreamingResponse, responses=STREAM_RESPONSES)
+    def bedroom_variants(body: BedroomGenerationRequest, request: Request):
+        control = BatchControl()
+        return stream_response(request, lambda: variant_events(source, body, intent_fixture_room(), sessions,
+                               provider=generation_provider, control=control), control)
 
     application.add_middleware(CaptureBodyLimit)
     application.include_router(captures.router())
