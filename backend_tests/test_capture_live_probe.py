@@ -23,7 +23,7 @@ SERVICE=probe.Caller("service","fake-service","fake-service")
 DRAFT={"roomType":"bedroom","topology":"rectangle","widthM":6,"depthM":4,"heightM":2.5}
 MISSING_CAPTURE="00000000-0000-0000-0000-000000000000"
 API_NOT_FOUND={"detail":{"code":"not-found","detail":"This Capture is unavailable."}}
-API_AUTH_REQUIRED={"detail":{"code":"authentication-required","detail":"Restore your anonymous account to continue."}}
+API_AUTH_REQUIRED={"detail":{"code":"authentication-required","detail":"Refresh or restore your account to continue."}}
 
 
 def expected(kind,caller=A):
@@ -132,7 +132,7 @@ def test_actual_auth_and_actual_capture_router_establish_role_pairs_without_netw
     from fastapi.testclient import TestClient
     from api.capture_auth import SupabaseAuth,CaptureError
     from api.captures import CaptureService
-    from backend_tests.capture_transport import ControlledSupabase
+    from backend_tests.capture_transport import ControlledSupabase,owner_token
     service=ControlledSupabase()
     auth=SupabaseAuth(service.settings,service.client)
     before=len(service.calls)
@@ -143,9 +143,9 @@ def test_actual_auth_and_actual_capture_router_establish_role_pairs_without_netw
     origin="http://127.0.0.1:58123"
     try:
         with TestClient(app,base_url=origin) as client:
-            created=client.post("/api/captures",headers={"apikey":service.settings.public_key,"Authorization":"Bearer test-owner-a"},json={"consent":True})
+            created=client.post("/api/captures",headers={"apikey":service.settings.public_key,"Authorization":"Bearer "+owner_token('test-owner-a')},json={"consent":True})
             assert created.status_code==200;cid=created.json()["id"]
-            for caller,status,body in ((probe.Caller("B",service.settings.public_key,"test-owner-b"),404,API_NOT_FOUND),
+            for caller,status,body in ((probe.Caller("B",service.settings.public_key,owner_token('test-owner-b')),404,API_NOT_FOUND),
                                        (probe.Caller("publishable",service.settings.public_key,api_key_verified=True),401,API_AUTH_REQUIRED)):
                 first,second=api_pair_expected(caller,origin,cid)
                 headers={"apikey":caller.api_key}

@@ -7,6 +7,7 @@ import { SwapControls } from './SwapControls';
 import { NudgeControls } from './NudgeControls';
 import type { NudgeController } from './useNudge';
 import type { MutationLock } from './useMutationLock';
+import { SaveDesign } from '@/features/saved/SaveDesign';
 
 function ArrangementFeedback({ result, fixture }: { result: DesignResult; fixture: DesignFixture }) {
   const history = result.arrangementHistory;
@@ -100,6 +101,7 @@ export function DesignRail({
       {result.status === 'solved' ? <>
         <NudgeControls design={result} nudge={nudge} lock={mutationLock} />
         <SwapControls design={result} onDesignChange={onDesignChange} mutationLock={mutationLock} />
+        <SaveDesign design={result} lock={mutationLock} installDesign={onDesignChange} />
       </> : null}
       {result.status === 'failed' ? (
         <section

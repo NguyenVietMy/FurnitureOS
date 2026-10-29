@@ -19,6 +19,7 @@ class CaptureError(HTTPException):
 class CapturePrincipal:
     owner_id: str
     token: str
+    is_anonymous: bool = True
 
 @dataclass(frozen=True)
 class SupabaseSettings:
@@ -27,12 +28,12 @@ class SupabaseSettings:
     secret_key: str
 
     @classmethod
-    def from_environment(cls) -> "SupabaseSettings":
-        gates = ("FURNITUREOS_CAPTURE_ENABLED", "FURNITUREOS_CAPTURE_AUTH_VERIFIED",
+    def from_environment(cls, *, saved: bool = False) -> "SupabaseSettings":
+        gates = ("FURNITUREOS_SAVED_ENABLED", "FURNITUREOS_SAVED_AUTH_VERIFIED", "FURNITUREOS_SAVED_SCHEMA_VERIFIED") if saved else ("FURNITUREOS_CAPTURE_ENABLED", "FURNITUREOS_CAPTURE_AUTH_VERIFIED",
                  "FURNITUREOS_CAPTURE_SCHEMA_VERIFIED", "FURNITUREOS_CAPTURE_STORAGE_VERIFIED",
                  "FURNITUREOS_CAPTURE_CLEANUP_VERIFIED", "FURNITUREOS_CAPTURE_SERVER_PHOTOS_VERIFIED")
         if any(os.environ.get(gate) != "1" for gate in gates):
-            raise CaptureError("activation-required", "Private Capture activation is not verified.", 503)
+            raise CaptureError("activation-required", "Private storage activation is not verified.", 503)
         url = os.environ.get("SUPABASE_URL", "").rstrip("/")
         key = os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
         secret = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -52,10 +53,10 @@ class SupabaseAuth:
 
     def verify(self, authorization: str | None) -> CapturePrincipal:
         if not authorization or not authorization.startswith("Bearer ") or len(authorization) > 8192:
-            raise CaptureError("authentication-required", "Restore your anonymous account to continue.", 401)
+            raise CaptureError("authentication-required", "Refresh or restore your account to continue.", 401)
         token = authorization[7:]
         if not token or token == self.settings.secret_key or token == self.settings.public_key:
-            raise CaptureError("authentication-required", "Restore your anonymous account to continue.", 401)
+            raise CaptureError("authentication-required", "Refresh or restore your account to continue.", 401)
         try:
             started=monotonic()
             with self.client.stream("GET", self.settings.url + "/auth/v1/user",
@@ -70,9 +71,16 @@ class SupabaseAuth:
                     raise ValueError("invalid auth")
                 import json
                 user = json.loads(body)
-                if not isinstance(user,dict) or user.get("is_anonymous") is not True:
-                    raise ValueError("anonymous ownership required")
+                # Auth has validated this token. Require exact signed top-level
+                # identity claims to agree with the current Auth-owned record.
+                claims = json.loads(base64.urlsafe_b64decode(token.split('.')[1] + '==='))
+                if (not isinstance(user,dict) or type(user.get('is_anonymous')) is not bool
+                        or type(claims.get('is_anonymous')) is not bool
+                        or claims['is_anonymous'] != user['is_anonymous']):
+                    raise ValueError('refresh identity required')
                 owner = str(UUID(user["id"]))
-        except (httpx.HTTPError, ValueError, KeyError, TypeError):
-            raise CaptureError("authentication-required", "Restore your anonymous account to continue.", 401) from None
-        return CapturePrincipal(owner, token)
+                if str(UUID(claims['sub'])) != owner:
+                    raise ValueError('identity mismatch')
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
+            raise CaptureError("authentication-required", "Refresh or restore your account to continue.", 401) from None
+        return CapturePrincipal(owner, token, user['is_anonymous'])

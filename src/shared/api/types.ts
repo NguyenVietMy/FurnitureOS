@@ -672,6 +672,53 @@ export interface RoomShell {
   readonly openings?: ReadonlyArray<Opening>;
 }
 
+export interface SaveRequest {
+  readonly sessionId: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+  readonly consent: true;
+  readonly policyVersion?: "saved-until-deleted-v1";
+}
+
+export interface SavedCapture {
+  readonly id: string;
+  readonly confirmedRevision: number;
+  readonly roomHash: string;
+}
+
+export interface SavedConfig {
+  readonly ready: boolean;
+  readonly detail: string;
+  readonly authUrl?: string | null;
+  readonly publishableKey?: string | null;
+}
+
+export interface SavedList {
+  readonly items: ReadonlyArray<SavedSummary>;
+  readonly nextCursor?: string | null;
+}
+
+export interface SavedReceipt {
+  readonly status?: "saved";
+  readonly id: string;
+  readonly createdAt: string;
+}
+
+export interface SavedRestore {
+  readonly id: string;
+  readonly capture: SavedCapture | null;
+  readonly roomType: "bedroom" | "living-room";
+  readonly design: SolvedDesign;
+}
+
+export interface SavedSummary {
+  readonly id: string;
+  readonly idempotencyKey: string;
+  readonly createdAt: string;
+  readonly roomType: "bedroom" | "living-room";
+  readonly captureId?: string | null;
+}
+
 export interface SearchReport {
   readonly attemptedCandidates: number;
   readonly candidateLimit: number;

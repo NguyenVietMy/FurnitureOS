@@ -38,12 +38,15 @@ class SupabaseCaptureRepository:
                         pass
                     message = error.get("message","") if isinstance(error,dict) else ""
                     if not isinstance(message,str):message = ""
-                    known = ("not-found","stale-capture","busy","quota","lease-expired","attempt-limit")
+                    known = ("not-found","stale-capture","busy","quota","lease-expired","attempt-limit","idempotency-conflict","corrupt-snapshot","invalid-cursor")
                     code = next((item for item in known if item in message),"service-unavailable")
                     raise CaptureError(code,{"not-found":"This Capture is unavailable.","stale-capture":"The Capture changed. Reload before continuing.",
-                        "busy":"Another operation is active. Retry shortly.","quota":"Capture quota reached. Delete a Capture or retry later.",
-                        "lease-expired":"This operation expired. Reload and retry.","attempt-limit":"The analysis attempt limit was reached."}.get(code,"The Capture service is unavailable."),
-                        404 if code=="not-found" else 409 if code in known else 503)
+                        "busy":"Another operation is active. Retry shortly.","quota":"The storage or request limit was reached. Delete an unneeded record or retry later.",
+                        "lease-expired":"This operation expired. Reload and retry.","attempt-limit":"The analysis attempt limit was reached.",
+                        "idempotency-conflict":"This save key belongs to another request. Review Saved Designs before trying again.",
+                        "invalid-cursor":"The saved list cursor is invalid. Refresh the list.",
+                        "corrupt-snapshot":"This saved data could not be validated."}.get(code,"The private data service is unavailable."),
+                        404 if code=="not-found" else 422 if code in ('invalid-cursor', 'corrupt-snapshot') else 409 if code in known else 503)
                 return bytes(body)
         except CaptureError:
             raise
@@ -58,7 +61,7 @@ class SupabaseCaptureRepository:
     def authority(self, principal, action, capture_id, revision, lease, payload=None):
         value = self._request("POST","/rest/v1/rpc/capture_authority",token=self.settings.secret_key,
             payload={"p_action":action,"p_owner":principal.owner_id,"p_capture":capture_id,
-                     "p_revision":revision,"p_lease":lease,"p_payload":payload or {}})
+                     "p_revision":revision,"p_lease":lease,"p_payload":{**(payload or {}), 'principalIsAnonymous': principal.is_anonymous}})
         return json.loads(value)
 
     def read(self, principal: CapturePrincipal, capture_id: str) -> CaptureView:
@@ -91,7 +94,7 @@ class SupabaseCaptureRepository:
 
     def _photo_guard(self, principal, capture_id, photo_id, revision, lease, expected_sha256):
         current = SupabaseAuth(self.settings,self.client).verify("Bearer "+principal.token)
-        if current.owner_id != principal.owner_id:
+        if current != principal:
             raise ValueError("identity changed")
         capture = self.read(principal,capture_id)
         photo = next((p for p in capture.photos if p.id==photo_id and p.state=="accepted"),None)

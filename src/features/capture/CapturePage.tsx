@@ -31,14 +31,15 @@ export default function CapturePage() {
     {flow.config&&!flow.config.storageReady?<section role="status" className="capture-warning"><h2>Capture is unavailable right now</h2><p>Private photo uploads are not available in this environment. You can <Link to="/design">explore Room preview</Link> and try Capture again later.</p></section>:null}
     {flow.message?<p role="status" className="capture-message">{flow.message}</p>:null}
     {flow.pending?<p role="status">Working on this request…</p>:null}
-    {!capture&&flow.config?.storageReady?<section><h2>Private anonymous ownership first</h2>
+    {!capture&&flow.config?.storageReady?<section><h2>Private ownership first</h2>
       <p>Canonical photos and Room drafts expire 24 hours after creation. Delete at any time to revoke access immediately; physical removal follows scheduled cleanup and stays pending on failure. Clearing browser data can lose anonymous access.</p>
       <p>Explicit analysis sends the selected photo to Claude. Our deletion covers this service’s copies, not provider retention or copies already downloaded.</p>
       <label className="check"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I understand private photo handling, analysis submission and 24-hour retention.</label>
-      <button disabled={!consent||flow.pending} onClick={flow.create}>Create private Capture</button></section>:null}
+      <button disabled={!consent||flow.pending||!flow.authReady} onClick={flow.create}>Create private Capture</button></section>:null}
     {capture?.state==='deleting'?<section><h2>Deletion pending</h2><p>This Capture is inaccessible. Stored-byte removal retries until confirmed complete.</p><button onClick={flow.reload}>Check status</button></section>:capture?<>
       <div className="capture-lifecycle"><span>Expires: <time dateTime={capture.expiresAt}>{new Date(capture.expiresAt).toLocaleString()}</time></span>
         <button disabled={flow.pending} onClick={flow.reload}>Reload confirmed state</button><button disabled={flow.pending} onClick={flow.remove}>Delete Capture</button></div>
+      <p>Deleting this Capture removes its original photos and draft. Explicitly saved copies remain until you <Link to="/saved">manage and delete saved Designs</Link>.</p>
       <div className="capture-columns"><div className="capture-form">
         <ShapeSelection draft={flow.draft} edit={flow.edit} disabled={flow.pending}/>
         <CapturePhotos capture={capture} topology={flow.draft.topology} pending={flow.pending} analysisAvailable={flow.config?.analysisAvailable??false} upload={flow.upload} action={flow.photoAction}/>

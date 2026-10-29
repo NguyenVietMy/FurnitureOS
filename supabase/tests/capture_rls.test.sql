@@ -17,7 +17,7 @@ do $$begin
  exception when insufficient_privilege then null; end;
  begin delete from public.captures; raise exception 'direct deletion unexpectedly allowed';
  exception when insufficient_privilege then null; end;
- begin perform public.capture_authority('confirm',auth.uid(),gen_random_uuid(),1,gen_random_uuid(),'{}'); raise exception 'authority exposed';
+ begin perform public.capture_authority('confirm',auth.uid(),gen_random_uuid(),1,gen_random_uuid(),('{}') || '{"principalIsAnonymous":true}'::jsonb); raise exception 'authority exposed';
  exception when insufficient_privilege then null; end;
 end $$;
 select public.capture_user_operation('lease',:'owned_capture',1,'{"kind":"session"}') as first_lease \gset

@@ -12,7 +12,7 @@ select public.capture_user_operation('lease',:'cid',2,'{"kind":"upload"}') as op
 select (:'operation'::jsonb->>'lease') as lease \gset
 reset role;
 set local role service_role;
-select public.capture_authority('finalize-photo','11111111-1111-1111-1111-111111111111',:'cid',2,:'lease',jsonb_build_object('photoId',:'pid','inputBytes',10000,'canonicalBytes',20000,'sha256',repeat('a',64),'widthPx',1280,'heightPx',960));
+select public.capture_authority('finalize-photo','11111111-1111-1111-1111-111111111111',:'cid',2,:'lease',(jsonb_build_object('photoId',:'pid','inputBytes',10000,'canonicalBytes',20000,'sha256',repeat('a',64),'widthPx',1280,'heightPx',960)) || '{"principalIsAnonymous":true}'::jsonb);
 reset role;
 insert into storage.objects(bucket_id,name,owner_id) select 'captures',object_key,owner_id::text from public.capture_photos where id=:'pid';
 set local role authenticated;

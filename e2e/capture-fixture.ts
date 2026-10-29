@@ -126,7 +126,9 @@ export async function uploadWalls(page:Page,labels=['A','B','C','D']) {
     const bytes=Buffer.from(data,'base64'),hash=createHash('sha256').update(bytes).digest('hex');
     expect(hashes.has(hash),'Each primary wall fixture must have distinct submitted JPEG bytes').toBe(false);
     hashes.add(hash);
-    await page.getByLabel(`Wall ${wall} photo`,{exact:true}).setInputFiles({name:`synthetic-wall-${wall}.jpg`,mimeType:'image/jpeg',buffer:bytes});
+    const input=page.getByLabel(`Wall ${wall} photo`,{exact:true});
+    await expect(input).toBeEnabled();
+    await input.setInputFiles({name:`synthetic-wall-${wall}.jpg`,mimeType:'image/jpeg',buffer:bytes});
     await expect(page.locator('.photo-list li')).toHaveCount(i+1);
     await expect(page.locator('.photo-list li').nth(i)).toContainText('accepted');
     await expect(page.getByLabel(`Wall ${wall} photo`,{exact:true})).toBeEnabled();

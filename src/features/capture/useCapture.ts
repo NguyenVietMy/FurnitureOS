@@ -1,12 +1,14 @@
 import { useVariants } from '@/features/design/useVariants';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CaptureConfig, CaptureDeletionStatus, CaptureDraft, CaptureGenerationResult, CaptureIssue, CaptureView } from '@/shared/api/types';
-import { CaptureApiError, captureRequest, setCaptureAuthorization } from '@/shared/api/client';
+import { CaptureApiError, captureRequest } from '@/shared/api/client';
 import { dimensionFields } from './capture-topology';
-import { captureAuth, ensureAnonymous, isAnonymousSession, requireAnonymousSession } from '@/shared/auth/supabase';
+import { observeOwnerAuth } from '@/shared/auth/supabase';
+import { useOwnerIdentity } from '@/shared/auth/OwnerIdentity';
 const blank: CaptureDraft = { roomType: '', topology: '', widthM: null, depthM: null, heightM: null,
   dimensionsConfirmed: false, wallReviews: [], openings: [], furnitureAcknowledged: false, dimensionEvidence: [] };
 export function useCapture() {
+  const identity = useOwnerIdentity();
   const variants = useVariants();
   const [config,setConfig] = useState<CaptureConfig | null>(null);
   const [capture,setCapture] = useState<CaptureView | null>(null);
@@ -18,39 +20,42 @@ export function useCapture() {
   const [pending,setPending] = useState(false);
   const [dirty,setDirty] = useState(false);
   const sequence = useRef(0), owner = useRef<string | null>(null), active = useRef<AbortController | null>(null);
+  const authSignature = useRef('');
+  const pendingIdentity = useRef<AbortController | null>(null);
   useEffect(() => {
     const abort = new AbortController();
     fetch('/api/captures/config',{signal:abort.signal}).then(response => response.json()).then(setConfig).catch(() => {
       if (!abort.signal.aborted) setMessage('Capture configuration is unavailable.');
     });
-    return () => { abort.abort(); active.current?.abort(); sequence.current++; };
+    return () => { abort.abort(); pendingIdentity.current?.abort(); active.current?.abort(); sequence.current++; };
   },[]);
   useEffect(() => {
-    if (!config?.storageReady) return;
-    const auth = captureAuth(config);
-    setCaptureAuthorization(async () => {
-      const {data,error} = await auth.getSession();
-      if (error || !data.session) throw new Error('Anonymous account access was lost. Create a new Capture to continue.');
-      return requireAnonymousSession(data.session).access_token;
-    });
-    const {data} = auth.onAuthStateChange((_event,session) => {
-      const next = isAnonymousSession(session)?session.user.id:null;
-      if (owner.current !== next) {
+    if (!config?.storageReady || !identity.authReady) return;
+    const {data} = observeOwnerAuth(config, (_event,session) => {
+      const next = session && typeof session.user.is_anonymous === 'boolean' ? session.user.id : null;
+      const nextSignature = next ? `${next}:${session!.user.is_anonymous}:${session!.access_token}` : '';
+      if (authSignature.current !== nextSignature) {
+        authSignature.current = nextSignature;
+        if (owner.current && owner.current !== next) localStorage.removeItem(`furnitureos.capture.${owner.current}`);
         owner.current = next; sequence.current++; active.current?.abort();
         setCapture(null); setDraftState(blank); setGeneration(null); variants.clear(); setIssues([]); setPending(false);
-        if (!next) setMessage('Anonymous account access was lost. Your private preview was cleared.');
+        if (!next) setMessage('Account access was lost. Your private preview was cleared.');
         else {
           const saved=localStorage.getItem(`furnitureos.capture.${next}`);
           const restoration=sequence.current;
           if(saved) queueMicrotask(()=>captureRequest<CaptureView>(`/api/captures/${saved}`,'GET').then(restored=>{
             if(owner.current===next&&sequence.current===restoration) {setCapture(restored);setDraftState(restored.draft);setDirty(false);}
-          }).catch(()=>{if(owner.current===next&&sequence.current===restoration)localStorage.removeItem(`furnitureos.capture.${next}`);}));
+          }).catch(error=>{
+            if(owner.current!==next||sequence.current!==restoration)return;
+            if(error instanceof CaptureApiError&&error.status===404)localStorage.removeItem(`furnitureos.capture.${next}`);
+            else setMessage('Capture recovery is pending. Refresh your account and retry; your recovery pointer was kept.');
+          }));
         }
       }
-      if(session&&!isAnonymousSession(session))setMessage('Capture requires an anonymous account. Your existing account has not been changed.');
+      if(session && typeof session.user.is_anonymous !== 'boolean') setMessage('Refresh your account. Its current identity could not be verified.');
     });
-    return () => { data.subscription.unsubscribe(); setCaptureAuthorization(null); owner.current=null; };
-  },[config]);
+    return () => { data.subscription.unsubscribe(); owner.current=null; authSignature.current=''; };
+  },[config,identity.authReady]);
   useEffect(()=>{
     if(!capture||capture.state==='deleting')return;
     const timer=setTimeout(()=>{sequence.current++;active.current?.abort();setCapture(null);setDraftState(blank);setGeneration(null); variants.clear();setIssues([]);setMessage('Capture expired. Private access and previews were cleared.');if(owner.current)localStorage.removeItem(`furnitureos.capture.${owner.current}`);},Math.max(0,Date.parse(capture.expiresAt)-Date.now()));
@@ -84,7 +89,8 @@ export function useCapture() {
   };
   const create = async () => {
     if (!config) return;
-    try { const session=await ensureAnonymous(config); owner.current=session.user.id; }
+    pendingIdentity.current?.abort(); const abort = new AbortController(); pendingIdentity.current = abort;
+    try { const session=await identity.ensure(abort.signal); if(abort.signal.aborted)return; owner.current=session.user.id; }
     catch(error) { setMessage(error instanceof Error?error.message:'Anonymous sign-in failed.'); return; }
     await execute(signal=>captureRequest<CaptureView>('/api/captures','POST',{consent:true},signal),install);
   };
@@ -168,5 +174,5 @@ export function useCapture() {
       && current.result.design.swap.sessionId===design.swap.sessionId && design.swap.version>=current.result.design.swap.version
       ? {...current,result:{...current.result,design}} : current);
   },[]);
-  return {variants,config,capture,draft,edit,save,roomDetailsUnsaved,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
+  return {variants,config,authReady:identity.authReady,capture,draft,edit,save,roomDetailsUnsaved,issues,generation,receivedAtMs,message,pending,dirty,create,upload,photoAction,confirm,generate,remove,reload,installDesign};
 }

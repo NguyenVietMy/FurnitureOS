@@ -7,6 +7,7 @@ from threading import RLock
 import time
 from typing import Callable, Literal
 from contextvars import ContextVar
+from contextlib import contextmanager
 
 from .catalogue import Catalogue
 from .circulation import validate_circulation
@@ -77,14 +78,26 @@ CAPTURE_SESSION_ACCESS: ContextVar[CapturedSessionBinding | None] = ContextVar("
 
 
 @dataclass(frozen=True)
+class SavedSessionBinding:
+    owner_id: str
+    saved_id: str
+    digest: str
+    catalogue_version: str
+
+
+SAVED_SESSION_ACCESS: ContextVar[SavedSessionBinding | None] = ContextVar('saved-session-access', default=None)
+
+
+@dataclass(frozen=True)
 class _SessionRecord:
     design: SolvedDesign
     room_type: RoomType
     catalogue_version: str
     clearance_width_m: float
     expires_at: float
-    access_policy: Literal["fixture-capability", "captured-owner"] = "fixture-capability"
+    access_policy: Literal["fixture-capability", "captured-owner", "saved-owner"] = "fixture-capability"
     binding: CapturedSessionBinding | None = None
+    saved_binding: SavedSessionBinding | None = None
 
 
 FixedPoseValidator = Callable[
@@ -223,7 +236,11 @@ class DesignSessionStore:
         SwapUnknownSession | SwapExpiredSession | SwapCatalogueChanged | None,
     ]:
         record = self._records.get(session_id)
-        if record is None or not ((record.access_policy == "fixture-capability" and record.binding is None) or (record.access_policy == "captured-owner" and record.binding is not None and CAPTURE_SESSION_ACCESS.get() == record.binding)):
+        if record is None or not (
+            (record.access_policy == 'fixture-capability' and record.binding is None and record.saved_binding is None)
+            or (record.access_policy == 'captured-owner' and record.binding is not None and record.saved_binding is None and CAPTURE_SESSION_ACCESS.get() == record.binding)
+            or (record.access_policy == 'saved-owner' and record.saved_binding is not None and record.binding is None and SAVED_SESSION_ACCESS.get() == record.saved_binding)
+        ):
             return None, SwapUnknownSession(
                 status="unknown-session",
                 detail="This Swap session is unknown to this server process. Generate or select the Design again.",
@@ -273,8 +290,10 @@ class DesignSessionStore:
             ),
         }, deep=True)
 
-    def register(self, design: SolvedDesign, room_type: RoomType, *, binding: CapturedSessionBinding | None = None) -> SolvedDesign:
+    def register(self, design: SolvedDesign, room_type: RoomType, *, binding: CapturedSessionBinding | None = None, saved_binding: SavedSessionBinding | None = None) -> SolvedDesign:
         """Admit only a complete, currently valid server-produced Design."""
+        if binding is not None and saved_binding is not None:
+            raise ValueError('A session has exactly one private authority.')
         existing_clearance = (
             design.circulation.clearanceWidthM
             if isinstance(design.circulation, CirculationClear)
@@ -317,9 +336,10 @@ class DesignSessionStore:
                 room_type=room_type,
                 catalogue_version=self._source.version,
                 clearance_width_m=clearance_width_m,
-                expires_at=self._clock() + (min(self._ttl_seconds, max(0, binding.expires_at-time.time())) if binding else self._ttl_seconds),
-                access_policy="captured-owner" if binding else "fixture-capability",
+                expires_at=self._clock() + min(DEFAULT_SESSION_TTL_SECONDS, self._ttl_seconds, max(0, binding.expires_at-time.time()) if binding else DEFAULT_SESSION_TTL_SECONDS),
+                access_policy='captured-owner' if binding else 'saved-owner' if saved_binding else 'fixture-capability',
                 binding=binding,
+                saved_binding=saved_binding,
             )
             return managed
 
@@ -511,6 +531,7 @@ class DesignSessionStore:
                 expires_at=record.expires_at,
                 access_policy=record.access_policy,
                 binding=record.binding,
+                saved_binding=record.saved_binding,
             )
             self._invalidate_certificate_locked(request.sessionId)
             return SwapAccepted(
@@ -698,6 +719,7 @@ class DesignSessionStore:
                 expires_at=record.expires_at,
                 access_policy=record.access_policy,
                 binding=record.binding,
+                saved_binding=record.saved_binding,
             )
             self._invalidate_certificate_locked(request.sessionId)
             return NudgeAccepted(
@@ -725,6 +747,24 @@ class DesignSessionStore:
         with self._lock:
             record = self._records.get(session_id)
             return record.binding if record and record.access_policy == "captured-owner" else None
+
+    def saved_binding(self, session_id: str) -> SavedSessionBinding | None:
+        with self._lock:
+            record = self._records.get(session_id)
+            return record.saved_binding if record and record.access_policy == 'saved-owner' else None
+
+    @contextmanager
+    def save_source(self, session_id: str, expected_version: int):
+        """Hold the same version decision as Swap/Nudge through durable commit."""
+        from .capture_auth import CaptureError
+        with self._lock:
+            record, failure = self._lookup_locked(session_id)
+            if failure is not None:
+                raise CaptureError(failure.status, 'This source session is unavailable. Reopen a saved Design or generate again.', 409)
+            if self._version(record) != expected_version:
+                raise CaptureError('stale-version', 'The Design changed. Refresh before saving.', 409)
+            yield (record.design.model_copy(deep=True), record.room_type, record.clearance_width_m,
+                   time.time() + max(0, record.expires_at - self._clock()))
 
     def revoke(self, session_id: str) -> None:
         """Discard an unpublished batch session without affecting earlier Variants."""

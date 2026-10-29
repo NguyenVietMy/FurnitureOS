@@ -27,10 +27,14 @@ begin
   rev:=(snapshot->>'revision')::integer;
  end loop;
  if jsonb_array_length(snapshot->'photos')<>6 then raise exception 'six primary photos not reserved'; end if;
- pid:=(snapshot->'photos'->0->>'id')::uuid;
+ -- A single transaction gives every reservation the same created_at. Select
+ -- the declared north primary; UUID ordering must not pick a notch photo.
+ select (value->>'id')::uuid into strict pid from jsonb_array_elements(snapshot->'photos')
+  where value->>'primaryWallId'='wall-north';
  snapshot:=public.capture_user_operation('associate',cid,rev,jsonb_build_object('photoId',pid,'primaryWallId','wall-north','observedWallIds',walls));
  rev:=(snapshot->>'revision')::integer;
- if snapshot->'photos'->0->'observedWallIds'<>walls then raise exception 'six observed walls lost'; end if;
+ if (select value->'observedWallIds' from jsonb_array_elements(snapshot->'photos') where value->>'id'=pid::text)
+  is distinct from walls then raise exception 'six observed walls lost'; end if;
  begin perform public.capture_user_operation('associate',cid,rev,jsonb_build_object('photoId',pid,'primaryWallId','invented-wall','observedWallIds','[]'::jsonb));raise exception 'invalid primary accepted';
  exception when raise_exception then if sqlerrm<>'invalid-wall' then raise;end if;end;
  begin perform public.capture_user_operation('associate',cid,rev,jsonb_build_object('photoId',pid,'primaryWallId','wall-north','observedWallIds',walls||'["wall-north"]'::jsonb));raise exception 'seven observations accepted';
@@ -43,7 +47,7 @@ begin
   rev:=(snapshot->>'revision')::integer;
   lease_id:=(public.capture_user_operation('lease',cid,rev,'{"kind":"confirm"}')->>'lease')::uuid;
   execute 'set local role service_role';
-  perform public.capture_authority('confirm','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,'{"roomHash":"old-room-hash","room":{"confirmed":true}}');
+  perform public.capture_authority('confirm','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,('{"roomHash":"old-room-hash","room":{"confirmed":true}}') || '{"principalIsAnonymous":true}'::jsonb);
   execute 'set local role authenticated';
   perform public.capture_user_operation('release',cid,rev,jsonb_build_object('lease',lease_id));
   mutated:=jsonb_set(desired,array[field],to_jsonb((desired->>field)::numeric+0.1));
@@ -68,9 +72,9 @@ begin
  execute 'set local role authenticated';
  lease_id:=(public.capture_user_operation('lease',cid,rev,'{"kind":"vision"}')->>'lease')::uuid;
  execute 'set local role service_role';
- perform public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,jsonb_build_object('photoId',pid));
- snapshot:=public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,
-   jsonb_build_object('photoId',pid,'sha256',repeat('a',64),'semantics','{"openings":[],"detectedFurniture":"absent"}'::jsonb));
+ perform public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,(jsonb_build_object('photoId',pid)) || '{"principalIsAnonymous":true}'::jsonb);
+ snapshot:=public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,(
+   jsonb_build_object('photoId',pid,'sha256',repeat('a',64),'semantics','{"openings":[],"detectedFurniture":"absent"}'::jsonb)) || '{"principalIsAnonymous":true}'::jsonb);
  if snapshot->'draft'->'wallReviews'<>'["wall-notch-horizontal","wall-east","wall-south"]'::jsonb then raise exception 'removed notch proposal review survived';end if;
  rev:=(snapshot->>'revision')::integer;
  execute 'set local role authenticated';
@@ -81,9 +85,9 @@ begin
  execute 'set local role authenticated';
  lease_id:=(public.capture_user_operation('lease',cid,rev,'{"kind":"vision"}')->>'lease')::uuid;
  execute 'set local role service_role';
- perform public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,jsonb_build_object('photoId',pid));
- snapshot:=public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,
-   jsonb_build_object('photoId',pid,'sha256',repeat('a',64),'semantics','{"openings":[{"wallId":null}],"detectedFurniture":"unknown"}'::jsonb));
+ perform public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,(jsonb_build_object('photoId',pid)) || '{"principalIsAnonymous":true}'::jsonb);
+ snapshot:=public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',cid,rev,lease_id,(
+   jsonb_build_object('photoId',pid,'sha256',repeat('a',64),'semantics','{"openings":[{"wallId":null}],"detectedFurniture":"unknown"}'::jsonb)) || '{"principalIsAnonymous":true}'::jsonb);
  if snapshot->'draft'->'wallReviews'<>'[]'::jsonb or snapshot->'draft'->'furnitureAcknowledged'<>'false' then raise exception 'unknown semantics did not clear all six walls';end if;
  rev:=(snapshot->>'revision')::integer;
  execute 'set local role authenticated';

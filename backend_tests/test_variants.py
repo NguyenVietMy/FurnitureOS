@@ -373,7 +373,7 @@ def test_private_expiry_during_session_registration_prevents_emission(harness,mo
     # The existing mock can retain a lease after expired admission rejects release.
     # It is unusable: even the exact owner/revision/token cannot assert authority.
     from api.capture_auth import CaptureError, CapturePrincipal
-    principal=CapturePrincipal(owner_id=service.owners[c['id']],token='test-owner-a')
+    principal=CapturePrincipal(owner_id=service.owners[c['id']],token=A['Authorization'][7:])
     with pytest.raises(CaptureError):
         service.repository.assert_lease(principal,c['id'],c['revision'],leases[0][2],c['roomHash'])
 

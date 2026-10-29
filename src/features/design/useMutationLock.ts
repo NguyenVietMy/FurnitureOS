@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SolvedDesign } from '@/shared/api/types';
 
-type Owner = 'swap' | 'nudge';
+type Owner = 'swap' | 'nudge' | 'save';
 export interface MutationLock {
   owner: Owner | null;
   acquire: (owner: Owner) => boolean;

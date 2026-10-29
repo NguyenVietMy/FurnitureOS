@@ -69,7 +69,7 @@ end $$;
 reset role;
 set local role service_role;
 do $$begin
- begin perform public.capture_authority('confirm','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,null,'{}'); raise exception 'permanent authority gained access';
+ begin perform public.capture_authority('confirm','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,null,('{}') || '{"principalIsAnonymous":true}'::jsonb); raise exception 'permanent authority gained access';
  exception when raise_exception then if sqlerrm<>'not-found' then raise; end if; end;
 end $$;
 reset role;
@@ -80,9 +80,9 @@ select public.capture_user_operation('lease',current_setting('test.semantic_capt
 select set_config('test.generation_lease',:'generation_lease'::jsonb->>'lease',true),set_config('test.vision_lease',:'vision_lease'::jsonb->>'lease',true);
 reset role;
 set local role service_role;
-select public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,current_setting('test.vision_lease')::uuid,'{"photoId":"44444444-4444-4444-4444-444444444444"}');
-select public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,current_setting('test.vision_lease')::uuid,
- jsonb_build_object('photoId','44444444-4444-4444-4444-444444444444','sha256',repeat('a',64),'semantics','{"openings":[{"id":"new-evidence","wallId":"wall-north"}],"detectedFurniture":"unknown","observation":"partial"}'::jsonb));
+select public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,current_setting('test.vision_lease')::uuid,('{"photoId":"44444444-4444-4444-4444-444444444444"}') || '{"principalIsAnonymous":true}'::jsonb);
+select public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,1,current_setting('test.vision_lease')::uuid,(
+ jsonb_build_object('photoId','44444444-4444-4444-4444-444444444444','sha256',repeat('a',64),'semantics','{"openings":[{"id":"new-evidence","wallId":"wall-north"}],"detectedFurniture":"unknown","observation":"partial"}'::jsonb)) || '{"principalIsAnonymous":true}'::jsonb);
 reset role;
 do $$declare c public.captures;begin
  select * into c from public.captures where id=current_setting('test.semantic_capture')::uuid;
@@ -107,7 +107,7 @@ select public.capture_user_operation('lease',current_setting('test.semantic_capt
 select set_config('test.late_lease',:'late_lease'::jsonb->>'lease',true);
 reset role;
 set local role service_role;
-select public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,3,current_setting('test.late_lease')::uuid,'{"photoId":"44444444-4444-4444-4444-444444444444"}');
+select public.capture_authority('begin-analysis','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,3,current_setting('test.late_lease')::uuid,('{"photoId":"44444444-4444-4444-4444-444444444444"}') || '{"principalIsAnonymous":true}'::jsonb);
 reset role;
 set local role authenticated;
 select public.capture_user_operation('release',current_setting('test.semantic_capture')::uuid,3,jsonb_build_object('lease',current_setting('test.late_lease')));
@@ -115,8 +115,8 @@ select public.capture_user_operation('draft',current_setting('test.semantic_capt
 reset role;
 set local role service_role;
 do $$begin
- begin perform public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,3,current_setting('test.late_lease')::uuid,
-  jsonb_build_object('photoId','44444444-4444-4444-4444-444444444444','sha256',repeat('a',64),'semantics','{"openings":[],"detectedFurniture":"absent","observation":"complete"}'::jsonb)); raise exception 'late semantics overwrote correction';
+ begin perform public.capture_authority('semantics','11111111-1111-1111-1111-111111111111',current_setting('test.semantic_capture')::uuid,3,current_setting('test.late_lease')::uuid,(
+  jsonb_build_object('photoId','44444444-4444-4444-4444-444444444444','sha256',repeat('a',64),'semantics','{"openings":[],"detectedFurniture":"absent","observation":"complete"}'::jsonb)) || '{"principalIsAnonymous":true}'::jsonb); raise exception 'late semantics overwrote correction';
  exception when raise_exception then if sqlerrm<>'stale-capture' then raise; end if; end;
 end $$;
 reset role;
@@ -163,8 +163,8 @@ begin
   lease_id:=(public.capture_user_operation('lease',cid,1,'{"kind":"vision"}')->>'lease')::uuid;
   execute 'reset role';
   execute 'set local role service_role';
-  perform public.capture_authority('begin-analysis',owner,cid,1,lease_id,jsonb_build_object('photoId',pid));
-  snapshot:=public.capture_authority('semantics',owner,cid,1,lease_id,jsonb_build_object('photoId',pid,'sha256',repeat('c',64),'semantics',old_proposal));
+  perform public.capture_authority('begin-analysis',owner,cid,1,lease_id,(jsonb_build_object('photoId',pid)) || '{"principalIsAnonymous":true}'::jsonb);
+  snapshot:=public.capture_authority('semantics',owner,cid,1,lease_id,(jsonb_build_object('photoId',pid,'sha256',repeat('c',64),'semantics',old_proposal)) || '{"principalIsAnonymous":true}'::jsonb);
   execute 'reset role';
   if snapshot->'photos'->0->'semantics' is distinct from old_proposal then raise exception '%: old evidence not stored',scenario.label; end if;
   execute 'set local role authenticated';
@@ -182,22 +182,22 @@ begin
   execute 'reset role';
   calibration:=jsonb_build_object('request',jsonb_build_object('photoId',pid,'photoHash',repeat('c',64)),'result','{"status":"provisional","method":"coplanar-rectangle-homography-v1"}'::jsonb);
   execute 'set local role service_role';
-  perform public.capture_authority('calibration',owner,cid,revision,lease_id,calibration);
+  perform public.capture_authority('calibration',owner,cid,revision,lease_id,(calibration) || '{"principalIsAnonymous":true}'::jsonb);
   execute 'reset role';
   execute 'set local role authenticated';
   perform public.capture_user_operation('release',cid,revision,jsonb_build_object('lease',lease_id));
   lease_id:=(public.capture_user_operation('lease',cid,revision,'{"kind":"confirm"}')->>'lease')::uuid;
   execute 'reset role';
   execute 'set local role service_role';
-  perform public.capture_authority('confirm',owner,cid,revision,lease_id,'{"roomHash":"previous-confirmation","room":{"previousRoom":true}}');
+  perform public.capture_authority('confirm',owner,cid,revision,lease_id,('{"roomHash":"previous-confirmation","room":{"previousRoom":true}}') || '{"principalIsAnonymous":true}'::jsonb);
   execute 'reset role';
   execute 'set local role authenticated';
   perform public.capture_user_operation('release',cid,revision,jsonb_build_object('lease',lease_id));
   lease_id:=(public.capture_user_operation('lease',cid,revision,'{"kind":"vision"}')->>'lease')::uuid;
   execute 'reset role';
   execute 'set local role service_role';
-  perform public.capture_authority('begin-analysis',owner,cid,revision,lease_id,jsonb_build_object('photoId',pid));
-  snapshot:=public.capture_authority('semantics',owner,cid,revision,lease_id,jsonb_build_object('photoId',pid,'sha256',repeat('c',64),'semantics',new_proposal));
+  perform public.capture_authority('begin-analysis',owner,cid,revision,lease_id,(jsonb_build_object('photoId',pid)) || '{"principalIsAnonymous":true}'::jsonb);
+  snapshot:=public.capture_authority('semantics',owner,cid,revision,lease_id,(jsonb_build_object('photoId',pid,'sha256',repeat('c',64),'semantics',new_proposal)) || '{"principalIsAnonymous":true}'::jsonb);
   execute 'reset role';
   select * into actual from public.captures where id=cid;
   if actual.draft->'wallReviews' is distinct from scenario.expected_reviews then

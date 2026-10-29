@@ -172,6 +172,6 @@ export function useNudge(design: SolvedDesign | null, onDesignChange: (design: S
     }
   };
   return { ...state, enabled: ['ready', 'dragging', 'clamped'].includes(state.status),
-    choose: (instanceId) => { if (lock.heldBy('swap')) return; cancel(); publish({ ...stateRef.current, instanceId, message: '' }); },
+    choose: (instanceId) => { if (lock.owner !== null && !lock.heldBy('nudge')) return; cancel(); publish({ ...stateRef.current, instanceId, message: '' }); },
     prepare, begin, move, end, cancel, retryCurrent: reconcile };
 }
