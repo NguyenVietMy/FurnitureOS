@@ -17,26 +17,33 @@ import type {
   SwapRequest,
 } from './types';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
-let captureAuthorization: (() => Promise<string>) | null = null;
-export function setCaptureAuthorization(provider: (() => Promise<string>) | null) { captureAuthorization = provider; }
+let captureAuthorization: ((expectedOwner?: string) => Promise<string | null>) | null = null;
+export function setCaptureAuthorization(provider: ((expectedOwner?: string) => Promise<string | null>) | null) { captureAuthorization = provider; }
 export class CaptureApiError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public code?: string) { super(message); }
 }
-async function privateHeaders(): Promise<Record<string, string>> {
+async function privateHeaders(expectedOwner?: string, required = false): Promise<Record<string, string>> {
   const provider = captureAuthorization;
-  return provider ? { Authorization: `Bearer ${await provider()}` } : {};
+  let token: string | null;
+  try { token = provider ? await provider(expectedOwner) : null; }
+  catch (error) {
+    if (required || expectedOwner) throw error;
+    return {};
+  }
+  if (!token && (required || expectedOwner)) throw new Error('Restore your account before continuing.');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
-export async function captureRequest<T>(path: string, method: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function captureRequest<T>(path: string, method: string, body?: unknown, signal?: AbortSignal, expectedOwner?: string): Promise<T> {
   const binary = body instanceof Blob;
   const response = await fetch(`${API_BASE}${path}`, { method, signal, headers: {
-    ...(await privateHeaders()), accept: 'application/json', ...(body===undefined?{}:{'Content-Type':binary?body.type:'application/json'}),
+    ...(await privateHeaders(expectedOwner, true)), accept: 'application/json', ...(body===undefined?{}:{'Content-Type':binary?body.type:'application/json'}),
   }, body: body===undefined?undefined:binary?body:JSON.stringify(body) });
-  const value = await response.json();
-  if (!response.ok) throw new CaptureApiError(value?.detail?.detail ?? (typeof value?.detail==='string'?value.detail:`Capture request returned ${response.status}`),response.status);
+  const value = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new CaptureApiError(value?.detail?.detail ?? (typeof value?.detail==='string'?value.detail:`Private request returned ${response.status}`),response.status,value?.detail?.code);
   return value as T;
 }
 export async function capturePhotoUrl(captureId: string, photoId: string, signal?: AbortSignal): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/captures/${captureId}/photos/${photoId}/content`, {signal,headers:await privateHeaders()});
+  const response = await fetch(`${API_BASE}/api/captures/${captureId}/photos/${photoId}/content`, {signal,headers:await privateHeaders(undefined, true)});
   if (!response.ok) throw new Error('Private photo is unavailable.');
   return URL.createObjectURL(await response.blob());
 }
@@ -183,7 +190,7 @@ export async function submitNudge(request: NudgeRequest): Promise<NudgeMutationR
 }
 
 export async function streamVariants(path: string, body: unknown, receive: (event: VariantStreamEvent) => void, signal: AbortSignal, privateRoom = false): Promise<void> {
-  const headers = privateRoom ? await privateHeaders() : {};
+  const headers = privateRoom ? await privateHeaders(undefined, true) : {};
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
   const response = await fetch(`${API_BASE}${path}`, { method: 'POST', signal,
     headers: { ...headers, accept: 'application/x-ndjson', 'content-type': 'application/json' }, body: JSON.stringify(body) });
