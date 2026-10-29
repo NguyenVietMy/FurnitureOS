@@ -213,12 +213,36 @@ test('controlled Capture corrections, real homography and confirmed nonfixture s
   expect(flow.generations).toBe(2);
 });
 
-for(const source of ['restored','created'] as const)for(const flag of [false,null])test(`${source} ${flag===false?'permanent':'missing anonymity flag'} identity cannot restore or create private data`,async({page,request})=>{
+test('restored Capture waits for shared identity before recovery or creation',async({page,request})=>{
+  let release!:()=>void;
+  const held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/saved-designs/config',async route=>{
+    await held;await route.fulfill({json:{ready:false,detail:'Saved Designs disabled for this controlled Capture test.'}});
+  });
+  try {
+    const flow=await controlled(page,request,{create:false,restoredFlag:false});
+    await page.getByRole('checkbox',{name:/I understand private photo/}).check();
+    await expect(page.getByRole('button',{name:'Create private Capture'})).toBeDisabled();
+    expect(flow.privateRequests).toBe(0);
+    release();
+    await expect(page.getByRole('heading',{name:'Declare your Room'})).toBeVisible();
+    expect(flow.privateRequests).toBeGreaterThan(0);
+    expect(flow.authRequests.filter(req=>req.path.endsWith('/signup'))).toHaveLength(0);
+  } finally {release();}
+});
+
+for(const source of ['restored','created'] as const)for(const flag of [false,null])test(`${source} ${flag===false?'permanent':'missing anonymity flag'} identity respects current-owner admission`,async({page,request})=>{
   const flow=await controlled(page,request,{create:false,...(source==='restored'?{restoredFlag:flag}:{createdFlag:flag})});
-  if(source==='restored')await expect(page.getByText('Capture requires an anonymous account. Your existing account has not been changed.')).toBeVisible();
+  if(source==='restored'&&flag===false) {
+    await expect(page.getByRole('heading',{name:'Declare your Room'})).toBeVisible();
+    expect(flow.privateRequests).toBeGreaterThan(0);
+    expect(flow.authRequests.filter(req=>req.path.endsWith('/signup'))).toHaveLength(0);
+    return;
+  }
+  if(source==='restored')await expect(page.getByText('Refresh your account. Its current identity could not be verified.')).toBeVisible();
   await page.getByRole('checkbox',{name:/I understand private photo/}).check();
   await page.getByRole('button',{name:'Create private Capture'}).click();
-  await expect(page.getByText('Capture requires an anonymous account. Your existing account has not been changed.')).toBeVisible();
+  await expect(page.getByText(source==='created'?'Capture requires an anonymous account. Your existing account has not been changed.':'Refresh or restore your account to continue.')).toBeVisible();
   expect(flow.privateRequests).toBe(0);
   expect(flow.authRequests.filter(req=>req.path.endsWith('/signup'))).toHaveLength(source==='created'?1:0);
   expect(flow.authRequests.some(req=>req.path.endsWith('/logout')||(req.path.endsWith('/user')&&req.method!=='GET'))).toBe(false);
@@ -247,7 +271,7 @@ test('cross-tab anonymous identity loss clears private state and discards late s
   await expect.poll(()=>flow.generations).toBe(1);
   // Installed GoTrueClient uses this same-key BroadcastChannel for other-tab signout.
   await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('sb-')&&k.endsWith('-auth-token'));if(!key)throw new Error('real SDK session missing');localStorage.removeItem(key);const channel=new BroadcastChannel(key);channel.postMessage({event:'SIGNED_OUT',session:null});setTimeout(()=>channel.close(),100);});
-  await expect(page.getByText(/Anonymous account access was lost. Your private preview was cleared/)).toBeVisible();
+  await expect(page.getByText(/Account access was lost. Your private preview was cleared/)).toBeVisible();
   release();
   await expect.poll(()=>flow.finished).toBe(1);
   await expect(page.getByRole('heading',{name:'Declare your Room'})).toHaveCount(0);
@@ -274,11 +298,12 @@ for(const flag of [false,null])test(`same UUID ${flag===false?'permanent':'missi
     localStorage.setItem(key,JSON.stringify(session));
     const channel=new BroadcastChannel(key);channel.postMessage({event:'USER_UPDATED',session});setTimeout(()=>channel.close(),100);
   },flag);
-  await expect(page.getByText('Capture requires an anonymous account. Your existing account has not been changed.')).toBeVisible();
+  if(flag===null)await expect(page.getByText('Refresh your account. Its current identity could not be verified.')).toBeVisible();
+  else await expect(page.getByRole('heading',{name:'Declare your Room'})).toBeVisible();
   release();await expect.poll(()=>flow.finished).toBe(1);
-  await expect(page.getByRole('heading',{name:'Declare your Room'})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Declare your Room'})).toHaveCount(flag===null?0:1);
   await expect(page.getByRole('heading',{name:'Validated furnished Room'})).toHaveCount(0);
   await expect(page.getByTestId('room-canvas')).toHaveCount(0);
-  await expect(page.getByLabel('Wall A photo',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Wall A photo',{exact:true})).toHaveCount(flag===null?0:1);
   expect(flow.authRequests.some(req=>req.path.endsWith('/logout')||(req.path.endsWith('/user')&&req.method!=='GET'))).toBe(false);
 });

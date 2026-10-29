@@ -11,7 +11,7 @@ export function NudgeControls({ design, nudge, lock }: { design: SolvedDesign; n
     <h2>Nudge a Product</h2>
     <p className="subtle">Glide within safe movement limits. The Product keeps its rotation; other furniture stays in place.</p>
     <label className="swap-field"><span>Placement</span>
-      <select aria-label="Placement to Nudge" value={nudge.instanceId} disabled={active || lock.owner === 'swap'}
+      <select aria-label="Placement to Nudge" value={nudge.instanceId} disabled={active || (lock.owner !== null && lock.owner !== 'nudge')}
         onChange={(event) => nudge.choose(event.target.value)}>
         {design.placements.map((placement, index) => <option key={placement.instanceId} value={placement.instanceId ?? ''}>
           {design.products[index]?.displayName} — {placement.instanceId}

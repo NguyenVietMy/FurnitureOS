@@ -1,0 +1,21 @@
+.saved-controls,.identity-controls { display:grid; gap:12px; padding:16px 0; border-top:1px solid #d8d4ca; font-size:14px; }
+.saved-controls h2,.identity-controls h2 { margin:0; font-size:18px; }
+.saved-controls p,.identity-controls p { margin:0; line-height:1.5; }
+.saved-controls label,.identity-controls label { display:flex; gap:9px; align-items:flex-start; line-height:1.5; }
+.saved-controls input[type=checkbox],.identity-controls input[type=checkbox] { flex-shrink:0; margin-top:4px; }
+.saved-controls button,.saved-page button { min-height:44px; padding:9px 13px; border:1px solid #aca69c; border-radius:6px; background:#fffefb; color:#23211d; font:inherit; cursor:pointer; }
+.saved-controls button:disabled,.saved-page button:disabled { opacity:.5; cursor:default; }
+.saved-controls [role=status],.saved-page [role=alert],.identity-controls [role=status] { padding:12px; border-left:3px solid #446bce; background:#f3f4fb; overflow-wrap:anywhere; }
+.saved-page { max-width:1280px; margin:auto; padding:24px; color:#23211d; }
+.saved-page header p { max-width:800px; line-height:1.5; }
+.saved-list { display:grid; gap:12px; padding:0; list-style:none; }
+.saved-list li { display:flex; align-items:center; flex-wrap:wrap; gap:12px; padding:16px; border:1px solid #d8d4ca; }
+.saved-list span { overflow-wrap:anywhere; font-size:12px; }
+.saved-workspace { display:grid; gap:16px; }
+.saved-workspace>.stage { min-height:480px; }
+.saved-page .identity-controls { max-width:680px; margin-top:24px; }
+.identity-controls form { display:grid; gap:14px; }
+.identity-controls label:has(input[type=email]),.identity-controls label:has(input[autocomplete=one-time-code]) { display:grid; }
+.identity-controls input:not([type=checkbox]) { width:100%; min-width:0; box-sizing:border-box; min-height:44px; padding:9px; border:1px solid #aca69c; border-radius:4px; font:inherit; }
+.saved-page :focus-visible,.saved-controls :focus-visible { outline:3px solid #446bce; outline-offset:3px; }
+@media(max-width:640px) { .saved-page { padding:16px; } .saved-list li { align-items:flex-start; flex-direction:column; } .saved-workspace>.stage { min-height:360px; } }

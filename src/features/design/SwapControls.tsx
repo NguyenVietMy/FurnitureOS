@@ -121,7 +121,7 @@ export function SwapControls({
   if (!session) return null;
 
   const locked = mutation.status === 'pending' || mutation.status === 'reconciling'
-    || mutation.status === 'stale' || mutation.status === 'blocked' || mutationLock.owner === 'nudge';
+    || mutation.status === 'stale' || mutation.status === 'blocked' || (mutationLock.owner !== null && mutationLock.owner !== 'swap');
 
   const reconcile = async (ownedSessionId: string) => {
     if (sessionIdRef.current === ownedSessionId) {

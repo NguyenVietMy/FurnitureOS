@@ -8,6 +8,7 @@ import { useNudge } from './useNudge';
 import { NudgeControls } from './NudgeControls';
 import { SwapControls } from './SwapControls';
 import { ProductDisclosures } from './ProductDisclosures';
+import { SaveDesign } from '@/features/saved/SaveDesign';
 
 /** A keyed selected workspace resets transient operations on every visit. */
 export function VariantDesign({ design, receivedAtMs, generationId, installDesign, controls }: { design: SolvedDesign; receivedAtMs: number; generationId: string; installDesign: (design: SolvedDesign) => void; controls: ReactNode }) {
@@ -26,5 +27,5 @@ export function VariantDesign({ design, receivedAtMs, generationId, installDesig
   return <><RoomStage result={design} receivedAtMs={receivedAtMs} generationId={generationId} nudge={nudge} />
     {controls}
     <div className="variant-mutations"><NudgeControls design={design} nudge={nudge} lock={lock} />
-      <SwapControls design={design} onDesignChange={installDesign} mutationLock={lock} /><ProductDisclosures products={design.products} /></div></>;
+      <SwapControls design={design} onDesignChange={installDesign} mutationLock={lock} /><SaveDesign design={design} lock={lock} installDesign={installDesign} /><ProductDisclosures products={design.products} /></div></>;
 }
