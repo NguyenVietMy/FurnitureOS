@@ -158,7 +158,7 @@ def capture_get_pair_denied(foreign: httpx.Response, absent: httpx.Response,
         origins.append((target.scheme,target.host,target.port))
     if origins[0]!=origins[1]:return False
     status,body=(404,{"detail":{"code":"not-found","detail":"This Capture is unavailable."}}) if caller.kind=="B" else (
-        401,{"detail":{"code":"authentication-required","detail":"Restore your anonymous account to continue."}})
+        401,{"detail":{"code":"authentication-required","detail":"Refresh or restore your account to continue."}})
     return (foreign.status_code==absent.status_code==status and _safe_json(foreign)==body and
         _safe_json(absent)==body and foreign.content==absent.content)
 

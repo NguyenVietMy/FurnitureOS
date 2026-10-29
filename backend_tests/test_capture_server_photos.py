@@ -49,7 +49,7 @@ def test_owner_api_bytes_are_canonical_uncached_and_all_direct_caller_reads_deny
 
 @pytest.mark.parametrize("kind",["delete","expiry","revision","manifest","unaccepted","owner","identity","lease"])
 def test_failed_precheck_performs_zero_privileged_byte_reads(harness,kind):
-    s,_,client=harness;c=collect(client);p=c["photos"][0];principal=CapturePrincipal(OWNERS["test-owner-a"],"test-owner-a")
+    s,_,client=harness;c=collect(client);p=c["photos"][0];principal=CapturePrincipal(OWNERS["test-owner-a"],A['Authorization'][7:])
     with s.repository.lease(principal,c["id"],c["revision"],"photo-read") as lease:
         invalidate(s,c,kind)
         with pytest.raises(CaptureError) as failure:
@@ -86,7 +86,7 @@ def test_final_api_assertion_blocks_race_after_repository_guard(harness,monkeypa
 @pytest.mark.parametrize("url",["http://capture-test.invalid","https://evil.invalid/path","https://user@capture-test.invalid",
     "https://capture-test.invalid?x=1","https://capture-test.invalid#fragment","https://capture-test.invalid:444"])
 def test_byte_transport_rejects_non_project_https_root_without_privileged_read(harness,url):
-    s,_,client=harness;c=collect(client);p=c["photos"][0];principal=CapturePrincipal(OWNERS["test-owner-a"],"test-owner-a")
+    s,_,client=harness;c=collect(client);p=c["photos"][0];principal=CapturePrincipal(OWNERS["test-owner-a"],A['Authorization'][7:])
     with s.repository.lease(principal,c["id"],c["revision"],"photo-read") as lease:
         s.repository.settings=replace(s.settings,url=url)
         with pytest.raises(CaptureError):

@@ -11,7 +11,7 @@ from api.capture_auth import SupabaseAuth,CaptureError
 from api.capture_models import CaptureSemanticProposal,CaptureView
 from api.capture_room import validate_capture_rectangle
 from api.provider import ProviderReply
-from backend_tests.capture_transport import ControlledSupabase,OWNERS
+from backend_tests.capture_transport import ControlledSupabase,OWNERS,owner_token
 
 def png(index=0):
     out=BytesIO();Image.new("RGB",(640,480),(40+index*20,100,180)).save(out,"PNG");return out.getvalue()
@@ -35,8 +35,8 @@ def harness():
     client=TestClient(create_app(capture_repository=service.repository,capture_auth=SupabaseAuth(service.settings,service.client),capture_vision_provider=provider,generation_provider=provider))
     return service,provider,client
 
-A={"Authorization":"Bearer test-owner-a"}
-B={"Authorization":"Bearer test-owner-b"}
+A={"Authorization":"Bearer "+owner_token('test-owner-a')}
+B={"Authorization":"Bearer "+owner_token('test-owner-b')}
 def collect(client):
     response=client.post("/api/captures",json={"consent":True},headers=A);assert response.status_code==200
     c=response.json()

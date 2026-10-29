@@ -39,6 +39,7 @@ from .captures import CaptureService, CaptureBodyLimit
 from .capture_auth import CaptureError
 from .variants import BatchControl, VariantStreamEvent, variant_events, stream_response, STREAM_RESPONSES
 from .models import SwapUnknownSession
+from .saved_designs import SavedDesignService
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,6 +65,8 @@ def create_app(
     capture_repository=None,
     capture_auth=None,
     capture_vision_provider=None,
+    saved_repository=None,
+    saved_auth=None,
 ) -> FastAPI:
     """Build the API and bind static roots explicitly for tests and deployment."""
     public = root / "public"
@@ -72,7 +75,14 @@ def create_app(
     sessions = swap_store or DesignSessionStore(source)
     captures = CaptureService(source, sessions, repository=capture_repository, auth=capture_auth,
                               vision_provider=capture_vision_provider, generation_provider=generation_provider)
+    saved = SavedDesignService(source, sessions, captures, repository=saved_repository, auth=saved_auth)
     application = FastAPI(title="FurnitureOS Preview API", version="0.2.0")
+    @application.middleware('http')
+    async def private_responses(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith(('/api/saved-designs', '/api/swaps', '/api/nudges')):
+            response.headers['Cache-Control'] = 'private, no-store'
+        return response
     gallery_enabled = (
         os.environ.get("FURNITUREOS_ENABLE_CATALOGUE_GALLERY") == "1"
         if enable_catalogue_gallery is None
@@ -175,10 +185,11 @@ def create_app(
 
     application.add_middleware(CaptureBodyLimit)
     application.include_router(captures.router())
+    application.include_router(saved.router())
 
     def session_operation(session_id, authorization, operation):
         try:
-            with captures.session_access(session_id, authorization): return operation()
+            with saved.session_access(session_id, authorization), captures.session_access(session_id, authorization): return operation()
         except CaptureError:
             return SwapUnknownSession(status="unknown-session", detail="This Swap session is unknown to this server process. Generate or select the Design again.")
 

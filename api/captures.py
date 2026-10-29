@@ -72,7 +72,10 @@ class CaptureService:
             with repository.lease(principal,capture.id,capture.revision,"session") as lease:
                 access=CAPTURE_SESSION_ACCESS.set(binding)
                 try:
-                    yield
+                    yield {'kind': 'capture', 'captureId': capture.id, 'revision': capture.revision, 'roomHash': binding.room_hash, 'lease': lease}
+                    current = (self.auth or SupabaseAuth(repository.settings, repository.client)).verify(authorization)
+                    if current != principal:
+                        raise CaptureError('not-found', 'This session is unavailable.', 404)
                     repository.assert_lease(principal,capture.id,capture.revision,lease,binding.room_hash)
                 finally:
                     CAPTURE_SESSION_ACCESS.reset(access)
@@ -317,7 +320,7 @@ class CaptureBodyLimit:
     """Pure ASGI guard before JSON buffering, including chunked requests."""
     def __init__(self,app): self.app=app
     async def __call__(self,scope,receive,send):
-        if scope["type"]!="http" or not scope.get("path","").startswith("/api/captures"):
+        if scope["type"]!="http" or not scope.get("path","").startswith(("/api/captures", "/api/saved-designs")):
             return await self.app(scope,receive,send)
         headers=dict(scope.get("headers",[]))
         image=scope.get("path","").endswith("/content")

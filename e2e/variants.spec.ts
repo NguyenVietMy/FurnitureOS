@@ -6,7 +6,8 @@ import { join, resolve } from 'node:path';
 test.skip(process.env.FURNITUREOS_CONTROLLED_VARIANTS !== '1', 'Requires the explicit loopback controlled provider server.');
 test.describe.configure({ mode:'default' });
 const evidence=process.env.FURNITUREOS_EVIDENCE_DIR!;
-const A={Authorization:'Bearer test-owner-a'}, B={Authorization:'Bearer test-owner-b'};
+const ownerToken=(owner:string)=>`controlled.${Buffer.from(JSON.stringify({sub:owner,is_anonymous:true})).toString('base64url')}.signature`;
+const A={Authorization:'Bearer '+ownerToken('11111111-1111-1111-1111-111111111111')}, B={Authorization:'Bearer '+ownerToken('22222222-2222-2222-2222-222222222222')};
 const mode=async(request:APIRequestContext,value:string)=>expect((await request.post('/__variants/mode',{data:{mode:value}})).ok()).toBe(true);
 const release=async(request:APIRequestContext)=>expect((await request.post('/__variants/release')).ok()).toBe(true);
 const ready=async(page:Page,label:string)=>{
@@ -193,7 +194,7 @@ async function createCapture(request:APIRequestContext,roomType:string,topology:
 }
 async function restore(page:Page,c:any){
   const owner='11111111-1111-1111-1111-111111111111';
-  const session={access_token:'test-owner-a',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,refresh_token:'CONTROLLED',user:{id:owner,aud:'authenticated',role:'authenticated',is_anonymous:true,created_at:new Date().toISOString()}};
+  const session={access_token:A.Authorization.slice(7),token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,refresh_token:'CONTROLLED',user:{id:owner,aud:'authenticated',role:'authenticated',is_anonymous:true,created_at:new Date().toISOString()}};
   await page.addInitScript(({owner,session,id})=>{localStorage.setItem('sb-capture-test-auth-token',JSON.stringify(session));localStorage.setItem(`furnitureos.capture.${owner}`,id);},{owner,session,id:c.id});
   await page.route('https://capture-test.invalid/auth/v1/**',route=>route.fulfill({json:route.request().url().endsWith('/user')?session.user:session}));
   await page.goto('/capture');

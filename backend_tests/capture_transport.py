@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime,timedelta,timezone
 import json
+import base64
 from threading import RLock
 from uuid import UUID,uuid4
 import httpx
@@ -13,6 +14,9 @@ from api.capture_models import CaptureDraft,active_wall_ids
 from api.capture_transitions import normalize_draft
 
 OWNERS={"test-owner-a":"11111111-1111-1111-1111-111111111111","test-owner-b":"22222222-2222-2222-2222-222222222222"}
+def owner_token(alias, anonymous=True):
+    payload=base64.urlsafe_b64encode(json.dumps({'sub':OWNERS[alias],'is_anonymous':anonymous}).encode()).decode().rstrip('=')
+    return 'controlled.'+payload+'.signature'
 class ControlledSupabase:
     def __init__(self):
         self.settings=SupabaseSettings("https://capture-test.invalid","test-public","test-service")
@@ -88,7 +92,9 @@ class ControlledSupabase:
 
     def authority(self,body):
         owner,cid,revision=body["p_owner"],body["p_capture"],body["p_revision"]
-        if not any(p.get("id")==owner and p.get("is_anonymous") is True for p in self.auth_profiles.values()):raise CaptureError("not-found","Unavailable",404)
+        payload=body['p_payload']
+        if not any(p.get("id")==owner and type(p.get("is_anonymous")) is bool and p['is_anonymous']==payload.get('principalIsAnonymous') for p in self.auth_profiles.values()):raise CaptureError("not-found","Unavailable",404)
+        body={**body,'p_payload':{key:value for key,value in payload.items() if key!='principalIsAnonymous'}}
         row=self.owned(owner,cid,revision);payload=body["p_payload"];action=body["p_action"]
         lease=self.leases.get(body["p_lease"])
         if not lease or lease[:3]!=(owner,cid,revision) or lease[3]<=datetime.now(timezone.utc): raise CaptureError("lease-expired","Expired")
@@ -124,13 +130,17 @@ class ControlledSupabase:
         with self.lock:
             self.calls.append((request.method,request.url.path,request.headers.get("authorization","")))
             token=request.headers.get("authorization","").removeprefix("Bearer ")
-            owner=OWNERS.get(token)
+            claims={}
+            try: claims=json.loads(base64.urlsafe_b64decode(token.split('.')[1]+'==='))
+            except (ValueError,IndexError): pass
+            alias=next((alias for alias,owner in OWNERS.items() if owner==claims.get('sub')),None)
+            owner=OWNERS.get(alias)
             path=request.url.path
             try:
                 if path=="/auth/v1/user":
-                    return httpx.Response(200,json=self.auth_profiles[token]) if owner else httpx.Response(401,json={})
+                    return httpx.Response(200,json=self.auth_profiles[alias]) if owner else httpx.Response(401,json={})
                 if path=="/rest/v1/rpc/capture_user_operation":
-                    if not owner or self.auth_profiles[token].get("is_anonymous") is not True: return httpx.Response(403,json={"message":"not-found"})
+                    if not owner or type(claims.get('is_anonymous')) is not bool or claims['is_anonymous'] != self.auth_profiles[alias].get('is_anonymous'): return httpx.Response(403,json={"message":"not-found"})
                     b=json.loads(request.content);value=self.user(owner,b["p_action"],b["p_capture"],b["p_revision"],b["p_payload"])
                 elif path=="/rest/v1/rpc/capture_authority":
                     if token!=self.settings.secret_key: return httpx.Response(403,json={})
