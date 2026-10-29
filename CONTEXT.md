@@ -36,6 +36,10 @@ _Avoid_: Existing furniture, current furniture
 A Room Shell furnished with Placements. The thing a user comes to FurnitureOS to get.
 _Avoid_: Layout, render, mockup, plan, result
 
+**Saved Design**:
+An explicitly retained copy of a Design and its confirmed Capture association, owned by the account that saved it. It remains independent of the original Capture and its photos until the owner deletes that saved copy.
+_Avoid_: Backup, live Capture, saved session
+
 **Placement**:
 One Product positioned and rotated within a Room, constrained by the Room Shell and its Openings.
 _Avoid_: Position, arrangement, spot
