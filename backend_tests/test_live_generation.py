@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from copy import deepcopy
+from fnmatch import fnmatchcase
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
@@ -124,9 +125,12 @@ def test_reference_static_route_and_vercel_package_cover_the_verified_server_pat
     assert response.status_code == 200
     assert hashlib.sha256(response.content).hexdigest() == record.sha256
     vercel = json.loads(Path("vercel.json").read_text(encoding="utf-8"))
-    included = vercel["functions"]["api/index.py"]["includeFiles"]
-    assert "api/**" in included
-    assert "public/style-references/**" in included
+    for handler in ("api/index.py", "api/main.py"):
+        matching = [policy for pattern, policy in vercel["functions"].items() if fnmatchcase(handler, pattern)]
+        assert len(matching) == 1, handler
+        assert "api/**" in matching[0]["includeFiles"]
+        assert "public/style-references/**" in matching[0]["includeFiles"]
+        assert "dist/**" in matching[0]["excludeFiles"]
 
 
 def test_public_availability_requires_complete_current_account_configuration(monkeypatch, tmp_path: Path) -> None:

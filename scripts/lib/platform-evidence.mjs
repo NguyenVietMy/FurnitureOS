@@ -7,7 +7,7 @@ import {keys,pin,sha,canonical,noLinkedPath} from './expansion-contract.mjs';
 export const TASK_CEILINGS = {productBytes:1_500_000_000,productFiles:25_000,distBytes:1_600_000_000,manifestBytes:20_000_000,functionBytes:250_000_000};
 const NAMED = ['team-receipt.json','team-redacted.json','project-receipt.json','project-redacted.json','limits-receipt.json','limits.html','git-receipt.json','git.html'];
 const FUNCTION_NAMES = ['functions-receipt.json','functions.html'];
-const verifiedHostedReceipts = new WeakSet();
+const consistentHostedDiagnostics = new WeakSet();
 const iso = (v) => {assert(typeof v==='string' && /^\d{4}-\d\d-\d\dT/.test(v) && Number.isFinite(Date.parse(v)),'Invalid evidence time');return Date.parse(v);};
 function target(t) {
   keys(t,['projectId','teamId','plan','deliveryMethod']);
@@ -113,8 +113,8 @@ export function verifyPlatformBundle({bundlePath,bundleSha256,expectedTarget,pro
     unknown:{actualBuildMachineAllocation:true,gitConnection:'UNCONNECTED_AT_RECORDED_OBSERVATION',actualFunctionRuntime:'UNRUN',actualHostedBuild:'UNRUN',actualHostedDeployment:'UNRUN',runtimeConfigurationAcceptance:'UNRUN'}};
 }
 
-// Later coordinator-owned receipt contract. A READY string, branch, boolean or
-// URL alone cannot supply any of the source/build/runtime bindings below.
+// Local receipt consistency only. These caller-authored files cannot establish
+// provider origin, including when their labels and hashes look authentic.
 export function verifyHostedReceipt({receiptPath,receiptSha256,expectedTarget,expectedSource}) {
   target(expectedTarget);assert(expectedSource,'Exact authorized source binding required');
   keys(expectedSource,['commitSha','treeSha','projectionSha256','outputSha256','runtimeConfigurationSha256']);
@@ -137,14 +137,33 @@ export function verifyHostedReceipt({receiptPath,receiptSha256,expectedTarget,ex
   assert(iso(read.startedAt)<=iso(read.finishedAt) && iso(read.finishedAt)<=iso(r.observedAt));
   assert.deepEqual(read.observed,{projectId:expectedTarget.projectId,teamId:expectedTarget.teamId,plan:expectedTarget.plan,deliveryMethod:expectedTarget.deliveryMethod,source:r.source,deploymentId:r.deploymentId,buildId:r.buildId,readyState:'READY',build:r.build,runtimeConfiguration:r.runtimeConfiguration});
   assert.equal(read.retainedRedactedCanonicalSha256,sha(canonical(read.observed)),'Normalized hosted read changed');
-  const result={status:'VERIFIED_MATCHING_RETAINED_HOSTED_RECEIPT',receiptSha256,evidenceAuthority:'COORDINATOR_RETAINED_AUTHENTICATED_READ',deploymentId:r.deploymentId,buildId:r.buildId,source:r.source,build:r.build};
-  verifiedHostedReceipts.add(result);return result;
+  const result={status:'ASSERTED_HOSTED_RECEIPT_CONSISTENCY_ONLY',receiptSha256,
+    evidenceAuthority:'LOCAL_JSON_PROVIDER_PROVENANCE_UNESTABLISHED',
+    asserted:{deploymentId:r.deploymentId,buildId:r.buildId,target:r.target,source:r.source,build:r.build,runtimeConfiguration:r.runtimeConfiguration,rawResponseSha256:read.rawResponseSha256},
+    verified:{retainedFileHashes:true,normalizedConsistency:true,expectedBindingsMatch:true},
+    functionBytes:null,providerProvenance:'UNRUN',hostedAcceptance:'UNRUN',platformReady:false};
+  consistentHostedDiagnostics.add(result);return result;
 }
 
 export function assessDelivery({metrics,sourceUpload,staticFiles,buildDiskEstimateBytes,evidence,hostedReceipt}) {
-  assert(!hostedReceipt || verifiedHostedReceipts.has(hostedReceipt),'Hosted receipt must pass exact retained-receipt verification in this process');
+  assert(!hostedReceipt || consistentHostedDiagnostics.has(hostedReceipt),'Hosted diagnostic must pass local retained-file consistency checks; no provider authority is established');
   const checks=[],failures=[];
-  for(const [metric,limit] of Object.entries(TASK_CEILINGS)) {assert(Number.isSafeInteger(metrics[metric]) && metrics[metric]>=0);const pass=metrics[metric]<=limit;checks.push({metric,actual:metrics[metric],limit,origin:'defensive-task-ceiling',applicability:['cli','git'],status:pass?'WITHIN_TASK_CEILING':'BLOCKED'});if(!pass) failures.push({metric,actual:metrics[metric],limit,origin:'defensive-task-ceiling'});}
+  const suppliedFunctionBytes=metrics.functionBytes??null;
+  assert(suppliedFunctionBytes===null || (Number.isSafeInteger(suppliedFunctionBytes) && suppliedFunctionBytes>=0));
+  const assertedThreshold=(metric,value,limit,origin)=>{
+    const over=value>limit;
+    checks.push({metric,actual:null,assertedValue:value,limit,origin,status:over?'ASSERTED_LIMIT_EXCEEDED':'ASSERTED_VALUE_WITHIN_LIMIT_NOT_MEASUREMENT'});
+    if(over)failures.push({metric,actual:null,assertedValue:value,limit,origin});
+  };
+  for(const [metric,limit] of Object.entries(TASK_CEILINGS)) {
+    if(metric==='functionBytes') {
+      checks.push({metric,actual:null,limit,origin:'defensive-task-ceiling',applicability:['cli','git'],status:'UNRUN_PACKAGE_MEASUREMENT'});
+      failures.push({metric,actual:null,limit,origin:'required-measurement',reason:'Offline files and caller-supplied numbers do not establish complete function invocation/output provenance'});
+      if(suppliedFunctionBytes!==null)assertedThreshold('assertedFunctionBytes',suppliedFunctionBytes,limit,'unverified-function-claim');
+      continue;
+    }
+    assert(Number.isSafeInteger(metrics[metric]) && metrics[metric]>=0);const pass=metrics[metric]<=limit;checks.push({metric,actual:metrics[metric],limit,origin:'defensive-task-ceiling',applicability:['cli','git'],status:pass?'WITHIN_TASK_CEILING':'BLOCKED'});if(!pass) failures.push({metric,actual:metrics[metric],limit,origin:'defensive-task-ceiling'});
+  }
   const mode=evidence?.expectedTarget.deliveryMethod;
   for(const [metric,actual,key] of [['sourceUploadBytes',sourceUpload.uncompressedBytes,'cliSourceBytes'],['sourceFiles',sourceUpload.files,'cliSourceFiles']]) {
     const fact=evidence?.limits[key],status=!evidence?'UNRUN_EVIDENCE':mode==='git'?'NOT_APPLICABLE':actual<=fact.value?'WITHIN_DOCUMENTED_CLI_LIMIT':'BLOCKED';
@@ -153,16 +172,20 @@ export function assessDelivery({metrics,sourceUpload,staticFiles,buildDiskEstima
   if(evidence?.limits.buildDiskBytes.status==='VERIFIED_RETAINED_DOCUMENT') {const limit=evidence.limits.buildDiskBytes.value;checks.push({metric:'buildDiskEstimateBytes',actual:buildDiskEstimateBytes,limit,origin:'documented-platform-limit',applicability:['cli','git'],status:buildDiskEstimateBytes<=limit?'ESTIMATE_WITHIN_DOCUMENTED_TABLE_LIMIT_ACTUAL_UNRUN':'BLOCKED'});if(buildDiskEstimateBytes>limit)failures.push({metric:'buildDiskEstimateBytes',actual:buildDiskEstimateBytes,limit});}
   const functionCap=evidence?.limits.functionBytes;
   if(functionCap?.status==='VERIFIED_RETAINED_DOCUMENT') {
-    const applicable=evidence.proposedRuntime==='python',actual=metrics.functionBytes,limit=functionCap.value;
-    const status=!applicable?'UNRUN_RUNTIME_APPLICABILITY':actual<=limit?'ESTIMATE_WITHIN_DOCUMENTED_PYTHON_LIMIT_ACTUAL_UNRUN':'BLOCKED';
-    checks.push({metric:'standardPythonFunctionBytes',actual,limit,origin:'documented-platform-limit',applicability:['cli','git'],runtimes:['python'],proposedRuntime:evidence.proposedRuntime,actualRuntime:'UNRUN',status});
-    if(status==='BLOCKED')failures.push({metric:'standardPythonFunctionBytes',actual,limit,origin:'documented-platform-limit'});
+    const applicable=evidence.proposedRuntime==='python',limit=functionCap.value;
+    checks.push({metric:'standardPythonFunctionBytes',actual:null,limit,origin:'documented-platform-limit',applicability:['cli','git'],runtimes:['python'],proposedRuntime:evidence.proposedRuntime,actualRuntime:'UNRUN',status:'UNRUN_PACKAGE_MEASUREMENT'});
+    if(applicable && suppliedFunctionBytes!==null)assertedThreshold('assertedStandardPythonFunctionBytes',suppliedFunctionBytes,limit,'unverified-function-claim');
   }
   if(hostedReceipt) {
-    for(const [metric,actual,limit] of [['actualFunctionBytes',hostedReceipt.build.functionBytes,TASK_CEILINGS.functionBytes],['actualDistBytes',hostedReceipt.build.outputBytes,TASK_CEILINGS.distBytes],['actualBuildDurationSeconds',hostedReceipt.build.durationSeconds,evidence.limits.buildDurationSeconds.value],['actualBuildDiskBytes',hostedReceipt.build.diskBytes,evidence.limits.buildDiskBytes.value]]) if(actual>limit)failures.push({metric,actual,limit});
+    const claim=hostedReceipt.asserted.build;
+    for(const [metric,value,limit] of [['assertedHostedFunctionBytes',claim.functionBytes,TASK_CEILINGS.functionBytes],['assertedHostedDistBytes',claim.outputBytes,TASK_CEILINGS.distBytes],['assertedHostedBuildDurationSeconds',claim.durationSeconds,evidence?.limits.buildDurationSeconds.value],['assertedHostedBuildDiskBytes',claim.diskBytes,evidence?.limits.buildDiskBytes.value]]) {
+      if(limit!==undefined)assertedThreshold(metric,value,limit,'unverified-hosted-claim');
+    }
   }
-  return {checks,failures,staticFiles,deliveryMethod:mode ?? 'UNKNOWN',localPromotionValidity:failures.length?'BLOCKED_LIMIT':evidence?'ELIGIBLE_FOR_SEPARATELY_AUTHORIZED_REVIEWED_LOCAL_PROMOTION':'UNRUN_EVIDENCE',
-    platformReady:Boolean(evidence && hostedReceipt && !failures.length),hostedAcceptance:hostedReceipt?.status ?? 'UNRUN',
-    status:failures.length?'BLOCKED_LIMIT':!evidence?'UNRUN_PLATFORM_EVIDENCE':hostedReceipt?'MATCHING_HOSTED_RECEIPT_WITHIN_RECORDED_LIMITS':'LOCAL_LIMITS_CHECKED_HOSTED_ACCEPTANCE_UNRUN',
+  const blocked=failures.some(f=>f.origin!=='required-measurement')?'BLOCKED_LIMIT':'BLOCKED_UNMEASURED_FUNCTION';
+  return {checks,failures,staticFiles,deliveryMethod:mode ?? 'UNKNOWN',localPromotionValidity:blocked,
+    functionMeasurement:{actualBytes:null,status:'UNKNOWN',suppliedBytes:suppliedFunctionBytes,authority:'UNESTABLISHED'},functionGate:'BLOCKED_UNMEASURED_FUNCTION',
+    platformReady:false,hostedAcceptance:'UNRUN',hostedDiagnostic:hostedReceipt??null,
+    status:blocked,evidenceAuthority:'OFFLINE_DIAGNOSTICS_ONLY',
     unknownPlatformLimits:Object.fromEntries(Object.entries(evidence?.limits??{functionBytes:{status:'UNKNOWN'}}).filter(([,v])=>v.status==='UNKNOWN')),authorization:'NO_PUBLICATION_DEPLOYMENT_OR_PROMOTION_AUTHORITY_GRANTED'};
 }

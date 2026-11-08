@@ -14,11 +14,90 @@ none of those eight is published. There are 5,058 Product files totaling
 cells have at least two distinct eligible Products. Source-screened proposals,
 failed attempts and superseded intake batches do not count toward this union.
 
-This inventory describes local source. The recorded target still has no Git
-connection, and actual hosted build/runtime, deployment and public acceptance
-remain UNRUN. The final builder handoff supplies the complete current-source
-test, rendering, delivery and raw/Git-clean projection receipts. Independent
-implementation inspection is a separate gate.
+This inventory describes source. The coordinator's November 8 publication
+record binds commit `db23bb51fa0b1a299da4045c8c2f6a7f021c5443` to the
+existing project after the owner repaired its Git connection. Its first preview
+`dpl_HNN1GUngYDx3p7HfEd8hjfG18ZeU` failed Python packaging at 592.10 MB
+against the standard 500 MB limit. This is a failed deployment, not hosted
+acceptance. The earlier source approval covers its frozen snapshot only;
+the subsequent packaging correction requires its own review and validation.
+
+## Python packaging and static separation
+
+The [Python runtime documentation](https://vercel.com/docs/functions/runtimes/python#controlling-what-gets-bundled)
+describes a project-wide default bundle without automatic tree-shaking.
+`includeFiles` adds files; it is not an exclusive allow-list. The completed
+Vite `dist` must therefore be excluded explicitly from the Python function.
+The function also excludes Product Mesh/decoder payloads and curator/test
+source. These remain available to the normal Vite build and static output;
+function exclusions do not delete or filter `dist` itself.
+
+One shared `functions["api/**"]` policy applies the same includes, exclusions
+and `maxDuration: 300` to every matching API function. Both `api/index.py` and
+`api/main.py` export `app`; the latter also exports `application`. The
+[API-directory documentation](https://vercel.com/docs/functions/runtimes/python/api-directory)
+describes file-based discovery and supported exports. The
+[limits documentation](https://vercel.com/docs/functions/limitations)
+uses `api/**` to configure all API functions. The retained installed matcher
+checks source paths and patterns; both known handlers and extensionless output
+names match this one policy. No overlapping exact-handler entries are used.
+
+The `tool.vercel.entrypoint` setting does not establish that `api/main` will be
+suppressed. Historical coordinator metadata reported both index and main, but
+the exact corrected hosted output count remains UNRUN. Those historical CLI
+`.size` fields have not been established as uncompressed sizes and are not cap
+acceptance. Future authorized hosted inspection must enumerate every emitted
+function and verify policy, runtime inputs and actual uncompressed size for
+each. Local matching/filter checks are diagnostics, not a native build or hosted
+output proof. The build framework, rewrites, flags, caps and runtime API modules
+remain unchanged.
+
+Keep all API source/JSON, the content-addressed expansion index/batches,
+generated `api/catalogue/providers/manifests` and verified
+`public/style-references` in the function. `npm run build` prepares the
+manifests before Vite. The existing provider reads those exact pinned manifests
+when static Product directories are absent; it must still load the complete
+315-Product Catalogue with the same version. No network fallback is involved.
+
+The old selective API/reference/local-dependency estimate missed other reachable
+build files and is not valid function-size evidence. The offline report keeps
+actual `metrics.functionBytes` null and its function gate
+`BLOCKED_UNMEASURED_FUNCTION`. No supported local input can clear that gate.
+
+Optional `--function-bundle <BUNDLE.json>` and
+`--function-bundle-sha256 <sha256>` supply a diagnostic inventory in an adjacent
+`bundle/` directory. Its `config` binds the complete project configuration,
+with the single shared API policy; it is not a flattened index-only rule.
+An optional `entrypoint` is a declared API handler present in the inventory,
+not a discovery or invocation attestation. The verifier checks local file union,
+hashes, totals, configuration, API/reference/dependency-declaration
+copies and static/tool exclusions. It returns `DIAGNOSTIC_LOCAL_FILE_INVENTORY`:
+only those listed bytes and input matches are established. Manifest kind,
+builder/version/runtime/architecture and any invocation receipt are assertions.
+Even plausible actual-builder labels, a vendor marker, bootstrap, extra JSON or
+matching arbitrary hashes cannot establish a real invocation, full dependency
+closure or bytecode completeness. Inventories may be selective; their measured
+byte totals are not actual function-size measurements. No dependency presence
+or complete-output acceptance is inferred from a `_vendor` filename.
+
+Direct `assessDelivery` callers also keep actual function size unknown, even
+when they supply numeric `functionBytes` or positive authority flags. Numbers
+can exercise conservative threshold diagnostics; they never satisfy the
+required measurement. Physical Product, static and source file measurements
+remain distinct. Root-source `promote-expansion` is blocked by the delivery
+failure before publication writes. Its prospective null-plus-metadata
+arithmetic is likewise only a numeric claim, never measurement authority.
+
+Configure `FURNITUREOS_FUNCTION_VIEW` to an external materialized view and run
+`.venv/Scripts/python.exe -m pytest backend_tests/test_function_packaging.py`.
+The checks require static/tool separation, exact full Catalogue and six-reference
+startup parity from the isolated API view, and all 5,058 published Product file
+hashes unchanged in `dist`. The API subprocess uses the test interpreter's
+dependencies; on Windows this does not execute Linux native wheels. Retain the
+builder/filter provenance, target differences and explicit unrun gates. The
+250,000,000-byte uncompressed task ceiling remains stricter than the standard
+platform limit. Hosted validation must inspect the actual new commit-bound
+function package size and protected API/static routes before any readiness claim.
 
 ## Target receipt bundle
 
@@ -40,18 +119,21 @@ eight named files with exact path/bytes/SHA256. They are team-receipt.json,
 team-redacted.json, project-receipt.json, project-redacted.json,
 limits-receipt.json, limits.html, git-receipt.json, git.html. Unknown fields,
 links, changed bytes, malformed times, wrong target or method fail closed.
-Authenticated read commands, API routes, scope, status, observed fields and
-canonical normalized redacted-response hashes are checked. Document receipts
-bind URL, effective URL, HTTP status, content type, fetch times and snapshot bytes.
-Recorded commands are data; the verifier never executes them.
+Recorded read-command syntax, API routes, scope, status, observed fields and
+canonical normalized redacted-response hashes are checked for consistency.
+Document receipts bind claimed URL, HTTP metadata and times to named snapshot
+bytes. Recorded commands are data; the verifier never executes them or
+establishes provider provenance from their labels.
 
 The report separates these evidence levels:
 
-- Verified retained: the named bytes, redacted target/team metadata, normalized
-  digests and recognized statements in the primary document snapshots.
-- Asserted: authenticated raw response digests whose raw responses were not
-  retained, and the plan's historical 23 GB disk claim. This is coordinator read
-  evidence, with no independent hosted-audit claim.
+- Verified retained: named local bytes, normalized-field consistency and
+  recognized statements in retained document snapshots. Hashes bind local
+  content; they do not authenticate a provider or a live documentation fetch.
+- Asserted: provider-origin/command-execution claims, target/team metadata,
+  raw response digests whose responses were not retained, and the plan's
+  historical 23 GB disk claim. Separately observed coordinator reads remain
+  outside this offline verifier's authority.
 - Unknown/unrun: actual build allocation, function bundle platform cap, current
   hosted compatibility and exact runtime acceptance. The recorded gitLink is
   null. No Git connection is inferred or created.
@@ -91,8 +173,9 @@ acceptance/public activation still require actual evidence and authorization.
 Defensive task ceilings apply under either method: 1,500,000,000 Product bytes,
 25,000 Product files, 1,600,000,000 dist bytes, 20,000,000 manifest bytes and
 250,000,000 function bytes. Estimates describe local installed files; dependency
-symlinks are excluded from the Node disk estimate. Actual hosted outputs are a
-separate required receipt. Do not silently drop Products or alter quality to fit.
+symlinks are excluded from the Node disk estimate. Root records actual provider
+and output observations separately; these offline JSON checks cannot authenticate
+them or grant acceptance. Do not drop Products or alter quality to fit.
 
 ## Two-view pre-inspection freeze
 
@@ -150,29 +233,27 @@ and `committed-*/deployment` trees, records the actual commit/tree SHA and rerun
 expansion EOL parity bound to those exact blobs. Any mismatch blocks the handoff;
 do not reuse approval for corrected source. Hosted acceptance stays UNRUN.
 
-## Later actual hosted receipt
+## Offline hosted receipt diagnostics
 
-`platformReady` stays false without `verifyHostedReceipt` accepting an actual
-retained matching build/deployment receipt. A READY string, URL, branch name,
-empty source metadata or boolean cannot satisfy this contract. Never manufacture
-receipts to satisfy the schema; fields the platform evidence cannot establish
-remain unrun and need an explicit reviewed evidence-contract extension.
+`verifyHostedReceipt` checks a strict local JSON schema, expected target/source
+bindings, named-file hashes and mutual consistency. Historical input labels
+such as ACTUAL_VERCEL_BUILD_DEPLOYMENT, AUTHENTICATED_CLI_READ, SUCCEEDED and
+VERIFIED_ACTUAL_DEPLOYMENT are parsed as claims. A raw-response digest that is
+only syntax-checked does not authenticate a response that was not retained.
+Two mutually consistent self-authored files, including plausible hashes and
+metrics, cannot establish provider origin or actual acceptance.
 
-The future receipt is strict schemaVersion 1, kind
-ACTUAL_VERCEL_BUILD_DEPLOYMENT, observedAt, exact target, source (commitSha,
-treeSha, projectionSha256), deploymentId, buildId, build (status SUCCEEDED,
-outputSha256/outputBytes/staticFiles/functionBytes/durationSeconds/diskBytes),
-runtimeConfiguration (sha256/status VERIFIED_ACTUAL_DEPLOYMENT), and retainedRead
-(named JSON path, bytes, SHA256). The retained authenticated GET receipt requires
-kind, startedAt/finishedAt, tool version, method, exact deployment/team route,
-exitCode, rawResponseSha256, retainedRedactedCanonicalSha256, redaction limit and
-normalized observed target/source/build/runtime fields. Raw responses are not
-claimed retained; normalized observed fields are hash checked. Metrics must be
-actual, with matching retained build/output/runtime evidence, not local estimates.
+The result is `ASSERTED_HOSTED_RECEIPT_CONSISTENCY_ONLY`, with claimed build,
+runtime, target and source fields under `asserted`. `hostedAcceptance` stays
+UNRUN and `platformReady` stays false, both in the parser and in direct delivery
+assessment. No offline positive authority path, boolean override, signature
+service or live collector is supplied. Claimed over-limit values still produce
+conservative diagnostic failures; below-limit claims do not pass actual caps.
 
-Pass the future receipt with `--hosted-receipt`, `--hosted-receipt-sha256`, and
-independent `--expected-commit`, `--expected-tree`,
-`--expected-projection-sha256`, `--expected-output-sha256`,
-`--expected-runtime-config-sha256`, plus the target bundle flags above. Exact
-bindings and applicable limits are checked. Even a matching hosted receipt grants
-no public activation authority; publicReadiness remains UNRUN in this report.
+Optional `--hosted-receipt`, `--hosted-receipt-sha256`, independent
+`--expected-commit`, `--expected-tree`, `--expected-projection-sha256`,
+`--expected-output-sha256` and `--expected-runtime-config-sha256` retain their
+consistency-checking purpose. Their hashes cannot upgrade asserted provenance.
+Root's actual provider/build/runtime observations and any authorized hosted
+validation remain separate evidence. This offline report never asserts their
+acceptance or grants public activation; `publicReadiness` remains UNRUN.

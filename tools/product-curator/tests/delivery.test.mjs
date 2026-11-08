@@ -40,10 +40,18 @@ async function withFunctions() {
 }
 test('CLI source caps apply only to CLI; Git retains counts/task ceilings and remains hosted UNRUN',async()=>{
   const git=await fixture(),cli=await fixture('cli');
-  const g=assessDelivery({...measurement,evidence:git.evidence});assert.equal(g.failures.length,0);assert.equal(g.platformReady,false);assert.equal(g.hostedAcceptance,'UNRUN');assert(g.checks.filter((c)=>['sourceUploadBytes','sourceFiles'].includes(c.metric)).every((c)=>c.status==='NOT_APPLICABLE'));
-  const c=assessDelivery({...measurement,evidence:cli.evidence});assert.deepEqual(c.failures.map((f)=>f.metric),['sourceUploadBytes','sourceFiles']);assert.equal(c.localPromotionValidity,'BLOCKED_LIMIT');
+  const g=assessDelivery({...measurement,evidence:git.evidence});assert(g.failures.every(f=>f.origin==='required-measurement'));assert.equal(g.platformReady,false);assert.equal(g.hostedAcceptance,'UNRUN');assert(g.checks.filter((c)=>['sourceUploadBytes','sourceFiles'].includes(c.metric)).every((c)=>c.status==='NOT_APPLICABLE'));
+  const c=assessDelivery({...measurement,evidence:cli.evidence});assert.deepEqual(c.failures.filter(f=>f.origin!=='required-measurement').map((f)=>f.metric),['sourceUploadBytes','sourceFiles']);assert.equal(c.localPromotionValidity,'BLOCKED_LIMIT');
   assert.equal(git.evidence.limits.functionBytes.status,'UNKNOWN');assert.equal(git.evidence.limits.buildDiskBytes.value,32_000_000_000);
   const over=assessDelivery({...measurement,metrics:{...measurement.metrics,productBytes:1_500_000_001},evidence:git.evidence});assert.equal(over.failures[0].origin,'defensive-task-ceiling');
+});
+test('unmeasured function contents cannot pass task or Python caps through a selective estimate or null coercion',async()=>{
+  const f=await withFunctions(),evidence=verifyPlatformBundle({...f.options,proposedRuntime:'python'});
+  const report=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:null},evidence});
+  assert.equal(report.platformReady,false);assert.equal(report.status,'BLOCKED_UNMEASURED_FUNCTION');
+  assert.equal(report.localPromotionValidity,'BLOCKED_UNMEASURED_FUNCTION');
+  assert(report.failures.some(f=>f.metric==='functionBytes' && f.origin==='required-measurement'));
+  assert(report.checks.filter(c=>['functionBytes','standardPythonFunctionBytes'].includes(c.metric)).every(c=>c.status==='UNRUN_PACKAGE_MEASUREMENT'));
 });
 test('explicit target, exact retained bytes, receipt/time/normalized schema and applicability cannot be forged by assertions',async()=>{
   for(const mutate of [o=>o.expectedTarget.projectId='prj_Wrong',o=>o.expectedTarget.teamId='team_Wrong',o=>o.expectedTarget.plan='pro',o=>o.expectedTarget.deliveryMethod='cli',o=>o.bundleSha256='0'.repeat(64)]) {const f=await fixture();const o=structuredClone(f.options);mutate(o);assert.throws(()=>verifyPlatformBundle(o));}
@@ -54,10 +62,10 @@ test('explicit target, exact retained bytes, receipt/time/normalized schema and 
 test('optional ten-file snapshot derives standard Python cap only with explicit proposed applicability; task cap stays stricter',async()=>{
   const f=await withFunctions(),evidence=verifyPlatformBundle({...f.options,proposedRuntime:'python'});
   assert.equal(evidence.limits.functionBytes.value,500_000_000);assert.deepEqual(evidence.limits.functionBytes.runtimes,['python']);assert.equal(evidence.limits.functionBytes.configuration,'STANDARD_UNCOMPRESSED_BUNDLE');assert.equal(evidence.limits.functionBytes.largeFunctions.status,'NOT_RELIED_ON');
-  const report=assessDelivery({...measurement,evidence});assert.equal(report.platformReady,false);assert.equal(report.hostedAcceptance,'UNRUN');assert(report.checks.some(c=>c.metric==='standardPythonFunctionBytes' && c.status==='ESTIMATE_WITHIN_DOCUMENTED_PYTHON_LIMIT_ACTUAL_UNRUN'));
-  const unbound=assessDelivery({...measurement,evidence:verifyPlatformBundle(f.options)});assert(unbound.checks.some(c=>c.metric==='standardPythonFunctionBytes' && c.status==='UNRUN_RUNTIME_APPLICABILITY'));assert.equal(unbound.platformReady,false);
-  const over=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:300_000_000},evidence});assert(over.failures.some(c=>c.metric==='functionBytes' && c.limit===250_000_000));assert(!over.failures.some(c=>c.metric==='standardPythonFunctionBytes'));
-  const overBoth=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:500_000_001},evidence});assert(overBoth.failures.some(c=>c.metric==='standardPythonFunctionBytes' && c.limit===500_000_000));
+  const report=assessDelivery({...measurement,evidence});assert.equal(report.platformReady,false);assert.equal(report.hostedAcceptance,'UNRUN');assert(report.checks.some(c=>c.metric==='standardPythonFunctionBytes' && c.actual===null && c.status==='UNRUN_PACKAGE_MEASUREMENT'));
+  const unbound=assessDelivery({...measurement,evidence:verifyPlatformBundle(f.options)});assert(unbound.checks.some(c=>c.metric==='standardPythonFunctionBytes' && c.proposedRuntime==='UNKNOWN' && c.actual===null));assert.equal(unbound.platformReady,false);
+  const over=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:300_000_000},evidence});assert(over.failures.some(c=>c.metric==='assertedFunctionBytes' && c.limit===250_000_000));assert(!over.failures.some(c=>c.metric==='assertedStandardPythonFunctionBytes'));
+  const overBoth=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:500_000_001},evidence});assert(overBoth.failures.some(c=>c.metric==='assertedStandardPythonFunctionBytes' && c.limit===500_000_000));
   assert.throws(()=>verifyPlatformBundle({...f.options,proposedRuntime:'nodejs'}),/explicit proposed Python/);
   const old=await fixture();assert.equal(verifyPlatformBundle({...old.options,proposedRuntime:'python'}).limits.functionBytes.status,'UNKNOWN');
 });
@@ -70,24 +78,39 @@ test('function cap cannot come from claims, large-function text, partial names o
 test('READY, booleans, a URL or a branch never establish matching hosted acceptance',async()=>{
   const f=await fixture(),receiptPath=path.join(f.root,'ready-only.json'),bytes=JSON.stringify({status:'READY',verified:true,url:'https://fixture.invalid',branch:'main'});await writeFile(receiptPath,bytes);
   assert.throws(()=>verifyHostedReceipt({receiptPath,receiptSha256:sha(bytes),expectedTarget:expected}));
-  const report=assessDelivery({...measurement,evidence:f.evidence});assert.equal(report.platformReady,false);assert.equal(report.status,'LOCAL_LIMITS_CHECKED_HOSTED_ACCEPTANCE_UNRUN');
-  for(const hostedReceipt of [true,{status:'READY'},{status:'VERIFIED_MATCHING_RETAINED_HOSTED_RECEIPT',build:{outputBytes:1,functionBytes:1,durationSeconds:1,diskBytes:1}}]) assert.throws(()=>assessDelivery({...measurement,evidence:f.evidence,hostedReceipt}),/must pass exact retained-receipt verification/);
+  const report=assessDelivery({...measurement,evidence:f.evidence});assert.equal(report.platformReady,false);assert.equal(report.status,'BLOCKED_UNMEASURED_FUNCTION');
+  for(const hostedReceipt of [true,{status:'READY'},{status:'VERIFIED_MATCHING_RETAINED_HOSTED_RECEIPT',build:{outputBytes:1,functionBytes:1,durationSeconds:1,diskBytes:1}}]) assert.throws(()=>assessDelivery({...measurement,evidence:f.evidence,hostedReceipt}),/must pass local retained-file consistency/);
 });
-test('future hosted receipt contract requires exact commit/tree/output/runtime and hash-bound normalized read',async()=>{
+test('mutually consistent fabricated hosted files remain asserted, including plausible hashes/metrics/target/source',async()=>{
   const f=await fixture(),expectedSource={commitSha:'1'.repeat(40),treeSha:'2'.repeat(40),projectionSha256:'3'.repeat(64),outputSha256:'4'.repeat(64),runtimeConfigurationSha256:'5'.repeat(64)};
   // Deliberately synthetic contract fixture; never an actual deployment receipt.
   const receipt={schemaVersion:1,kind:'ACTUAL_VERCEL_BUILD_DEPLOYMENT',observedAt:at,target:expected,source:{commitSha:expectedSource.commitSha,treeSha:expectedSource.treeSha,projectionSha256:expectedSource.projectionSha256},deploymentId:'dpl_Fixture',buildId:'AUTOMATED-CONTRACT-FIXTURE-NOT-HOSTED',build:{status:'SUCCEEDED',outputSha256:expectedSource.outputSha256,outputBytes:810_000_000,staticFiles:6000,functionBytes:40_000_000,durationSeconds:120,diskBytes:2_000_000_000},runtimeConfiguration:{sha256:expectedSource.runtimeConfigurationSha256,status:'VERIFIED_ACTUAL_DEPLOYMENT'}};
   const observed={projectId:expected.projectId,teamId:expected.teamId,plan:'hobby',deliveryMethod:'git',source:receipt.source,deploymentId:receipt.deploymentId,buildId:receipt.buildId,readyState:'READY',build:receipt.build,runtimeConfiguration:receipt.runtimeConfiguration};
-  const read={kind:'AUTHENTICATED_CLI_READ',startedAt:start,finishedAt:end,tool:'vercel@0.0.0',method:'GET',route:`/v13/deployments/${receipt.deploymentId}?teamId=${expected.teamId}`,exitCode:0,rawResponseSha256:'0'.repeat(64),retainedRedactedCanonicalSha256:sha(canonical(observed)),redaction:'AUTOMATED FIXTURE; Raw response not retained',observed};
+  const read={kind:'AUTHENTICATED_CLI_READ',startedAt:start,finishedAt:end,tool:'vercel@65.11.0',method:'GET',route:`/v13/deployments/${receipt.deploymentId}?teamId=${expected.teamId}`,exitCode:0,rawResponseSha256:sha('fabricated raw provider response'),retainedRedactedCanonicalSha256:sha(canonical(observed)),redaction:'AUTOMATED FIXTURE; Raw response not retained',observed};
   const readBytes=JSON.stringify(read);await writeFile(path.join(f.root,'hosted-read.json'),readBytes);receipt.retainedRead={path:'hosted-read.json',bytes:Buffer.byteLength(readBytes),sha256:sha(readBytes)};
   const receiptPath=path.join(f.root,'hosted-contract-fixture.json'),bytes=JSON.stringify(receipt);await writeFile(receiptPath,bytes);
   const options={receiptPath,receiptSha256:sha(bytes),expectedTarget:expected,expectedSource};
-  const hosted=verifyHostedReceipt(options);assert.equal(hosted.status,'VERIFIED_MATCHING_RETAINED_HOSTED_RECEIPT');
-  assert.equal(assessDelivery({...measurement,evidence:f.evidence,hostedReceipt:hosted}).platformReady,true);
+  const hosted=verifyHostedReceipt(options);assert.equal(hosted.status,'ASSERTED_HOSTED_RECEIPT_CONSISTENCY_ONLY');
+  assert.equal(hosted.providerProvenance,'UNRUN');assert.equal(hosted.functionBytes,null);assert.equal(hosted.hostedAcceptance,'UNRUN');
+  const assessed=assessDelivery({...measurement,evidence:f.evidence,hostedReceipt:hosted});
+  assert.equal(assessed.platformReady,false);assert.equal(assessed.hostedAcceptance,'UNRUN');assert.equal(assessed.functionMeasurement.actualBytes,null);assert.equal(assessed.functionGate,'BLOCKED_UNMEASURED_FUNCTION');
   for(const field of Object.keys(expectedSource)) assert.throws(()=>verifyHostedReceipt({...options,expectedSource:{...expectedSource,[field]:(field.endsWith('Sha')?'a'.repeat(40):'a'.repeat(64))}}));
   assert.throws(()=>verifyHostedReceipt({...options,expectedTarget:{...expected,projectId:'prj_Wrong'}}));
+  receipt.build.functionBytes=600_000_000;read.retainedRedactedCanonicalSha256=sha(canonical(observed));
+  const overRead=JSON.stringify(read);await writeFile(path.join(f.root,'hosted-read.json'),overRead);receipt.retainedRead={...receipt.retainedRead,bytes:Buffer.byteLength(overRead),sha256:sha(overRead)};
+  const overReceipt=JSON.stringify(receipt);await writeFile(receiptPath,overReceipt);
+  const over=assessDelivery({...measurement,evidence:f.evidence,hostedReceipt:verifyHostedReceipt({...options,receiptSha256:sha(overReceipt)})});
+  assert(over.failures.some(f=>f.metric==='assertedHostedFunctionBytes' && f.actual===null && f.limit===250_000_000));assert.equal(over.platformReady,false);assert.equal(over.hostedAcceptance,'UNRUN');
   read.retainedRedactedCanonicalSha256='0'.repeat(64);const changed=JSON.stringify(read);await writeFile(path.join(f.root,'hosted-read.json'),changed);receipt.retainedRead={...receipt.retainedRead,bytes:Buffer.byteLength(changed),sha256:sha(changed)};const changedReceipt=JSON.stringify(receipt);await writeFile(receiptPath,changedReceipt);
   assert.throws(()=>verifyHostedReceipt({...options,receiptSha256:sha(changedReceipt)}),/Normalized hosted read changed/);
+});
+test('direct/prospective callers cannot turn numbers, null arithmetic or positive options into actual function authority',async()=>{
+  const f=await fixture();
+  for(const value of [null,0,1,40_000_000,null+8192,250_000_000]) {
+    const result=assessDelivery({...measurement,metrics:{...measurement.metrics,functionBytes:value},evidence:f.evidence,platformReady:true,hostedAcceptance:'PASSED',complete:true,verified:true});
+    assert.equal(result.functionMeasurement.actualBytes,null);assert.equal(result.functionMeasurement.suppliedBytes,value);assert.equal(result.functionGate,'BLOCKED_UNMEASURED_FUNCTION');
+    assert.equal(result.platformReady,false);assert.equal(result.hostedAcceptance,'UNRUN');assert.equal(result.localPromotionValidity,'BLOCKED_UNMEASURED_FUNCTION');
+  }
 });
 test('real coordinator bundle pins retained bytes against the separately supplied work-order target', {skip:!process.env.FURNITUREOS_PLATFORM_EVIDENCE_BUNDLE},async()=>{
   const bundlePath=process.env.FURNITUREOS_PLATFORM_EVIDENCE_BUNDLE,bundleSha256=sha(await readFile(bundlePath));

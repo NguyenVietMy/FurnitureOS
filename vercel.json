@@ -4,8 +4,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/index.py": {
+    "api/**": {
       "includeFiles": "{api/**,public/style-references/**}",
+      "excludeFiles": "{dist/**,public/products/**,public/decoders/**,tools/**,backend_tests/**,e2e/**,tests/**}",
       "maxDuration": 300
     }
   },
