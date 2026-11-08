@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from math import floor, hypot
+from heapq import nsmallest
+from typing import Callable
 
-from .room_geometry import RoomGeometry, prepare_polygon, contains_convex
+from .room_geometry import RoomGeometry, prepare_polygon, contains_convex, hull_depth, separation
 from .domain import (
     _polygons_overlap,
     _wall_basis,
@@ -30,6 +34,8 @@ GRID_RESOLUTION_M = 0.05
 CIRCULATION_TOLERANCE_M = 1e-9
 MAX_RAW_LATTICE_POINTS = 50_000
 MAX_LATTICE_POINTS_PER_AXIS = 1_000
+MAX_REUSED_CLEARANCE_POLYGONS = 120_000
+MAX_REUSED_NEAREST_NODES = 200_000
 
 
 @dataclass(frozen=True)
@@ -87,6 +93,14 @@ def _convex_hull(points: tuple[Vec2, ...]) -> tuple[Vec2, ...]:
 
 
 def _swept_polygon(start: Vec2, end: Vec2, width_m: float) -> tuple[Vec2, ...]:
+    # Cardinal lattice edges sweep the exact axis-aligned bounding rectangle.
+    # Preserve the original hull's vertex order and floating-point operations;
+    # arbitrary connectors still use the general convex hull below.
+    if width_m > 0 and (start[0] == end[0] or start[1] == end[1]):
+        half = width_m / 2
+        low_x, high_x = min(start[0], end[0]) - half, max(start[0], end[0]) + half
+        low_z, high_z = min(start[1], end[1]) - half, max(start[1], end[1]) + half
+        return ((low_x, low_z), (high_x, low_z), (high_x, high_z), (low_x, high_z))
     return _convex_hull((*_walker_polygon(start, width_m), *_walker_polygon(end, width_m)))
 
 
@@ -116,6 +130,44 @@ def _inside_prepared_room(geometry: _PreparedRoomGeometry, polygon: tuple[Vec2, 
     return contains_convex(geometry, polygon, CIRCULATION_TOLERANCE_M)
 
 
+def _room_query(geometry: _PreparedRoomGeometry):
+    """Prepare immutable Room planes/notch bounds for this validation only.
+
+    Cardinal planes need only their exact extremal coordinate. For an L,
+    disjoint bounds reject the notch only on an axis already in the original
+    polygon SAT. All other planes/overlaps use the established predicates.
+    """
+    cardinal = bool(geometry.planes) and all(
+        normal in ((1., 0.), (-1., 0.), (0., 1.), (0., -1.)) for _, normal in geometry.planes
+    )
+    notch = geometry.notch
+    notch_bounds = (min(p[0] for p in notch), max(p[0] for p in notch),
+                    min(p[1] for p in notch), max(p[1] for p in notch)) if notch else None
+
+    def query(polygon: tuple[Vec2, ...], projection=None) -> bool:
+        if projection is None and (cardinal or notch):
+            projection = _polygon_projection(polygon)
+        if cardinal:
+            low_x, high_x, low_z, high_z, _, _ = projection
+            for start, normal in geometry.planes:
+                x = low_x if normal[0] >= 0 else high_x
+                z = low_z if normal[1] >= 0 else high_z
+                if (x-start[0])*normal[0] + (z-start[1])*normal[1] < -CIRCULATION_TOLERANCE_M:
+                    return False
+        elif hull_depth(geometry, polygon) < -CIRCULATION_TOLERANCE_M:
+            return False
+        if notch_bounds is None:
+            return True
+        low_x, high_x, low_z, high_z, x_axis, z_axis = projection
+        x0, x1, z0, z1 = notch_bounds
+        if (x_axis and max(x0-high_x, low_x-x1) >= -CIRCULATION_TOLERANCE_M
+                or z_axis and max(z0-high_z, low_z-z1) >= -CIRCULATION_TOLERANCE_M):
+            return True
+        return separation(polygon, notch) >= -CIRCULATION_TOLERANCE_M
+
+    return query
+
+
 def _collisions(
     polygon: tuple[Vec2, ...],
     obstacles: tuple[tuple[str, tuple[Vec2, ...]], ...],
@@ -125,6 +177,207 @@ def _collisions(
         for request_id, obstacle in obstacles
         if _polygons_overlap(polygon, obstacle, CIRCULATION_TOLERANCE_M)
     }))
+
+
+_PolygonProjection = tuple[float, float, float, float, bool, bool]
+
+
+def _polygon_projection(polygon: tuple[Vec2, ...]) -> _PolygonProjection:
+    # Walker squares/cardinal sweeps already have this exact corner order.
+    # Read their existing axes directly; rotated/degenerate polygons retain
+    # the complete projection/edge inspection below.
+    if (len(polygon) == 4
+            and polygon[0][0] == polygon[3][0] < polygon[1][0] == polygon[2][0]
+            and polygon[0][1] == polygon[1][1] < polygon[2][1] == polygon[3][1]):
+        return polygon[0][0], polygon[1][0], polygon[0][1], polygon[2][1], True, True
+    low_x, high_x = min(p[0] for p in polygon), max(p[0] for p in polygon)
+    low_z, high_z = min(p[1] for p in polygon), max(p[1] for p in polygon)
+    edges = tuple(zip(polygon, (*polygon[1:], polygon[0]), strict=True))
+    x_axis = any(a[0] == b[0] and a[1] != b[1] for a,b in edges)
+    z_axis = any(a[1] == b[1] and a[0] != b[0] for a,b in edges)
+    return low_x, high_x, low_z, high_z, x_axis, z_axis
+
+
+def _collision_query(
+    obstacles: tuple[tuple[str, tuple[Vec2, ...]], ...],
+) -> Callable[..., tuple[str, ...]]:
+    """Prepare obstacle projections once for this validation, retaining exact SAT.
+
+    Walker squares and their sweeps have horizontal/vertical edges. For each
+    such edge, the corresponding x/z projection is an exact existing SAT axis.
+    Reject only on that same axis/tolerance arithmetic. Arbitrarily rotated
+    query polygons retain the original SAT when neither axis is available.
+    """
+    def cardinal_edges(points):
+        return len(points) == 4 and all(
+            (a[0] == b[0] and a[1] != b[1]) or (a[1] == b[1] and a[0] != b[0])
+            for a,b in zip(points, (*points[1:], points[0]), strict=True)
+        )
+
+    bounds = tuple((identity, points, min(p[0] for p in points), max(p[0] for p in points),
+                    min(p[1] for p in points), max(p[1] for p in points), cardinal_edges(points))
+                   for identity, points in obstacles)
+
+    def query(polygon: tuple[Vec2, ...], projection: _PolygonProjection | None = None) -> tuple[str, ...]:
+        low_x, high_x, low_z, high_z, x_axis, z_axis = projection if projection is not None else _polygon_projection(polygon)
+        possible = []
+        certain = None
+        query_cardinal = None
+        for identity, points, x0, x1, z0, z1, obstacle_cardinal in bounds:
+            # Nonpositive overlap on an existing SAT axis is already separated.
+            # Near/tiny positive overlaps retain the original tolerance math.
+            if (x_axis and (high_x <= x0 or x1 <= low_x)
+                    or z_axis and (high_z <= z0 or z1 <= low_z)):
+                continue
+            if (x_axis and min(high_x,x1) - max(low_x,x0) <= CIRCULATION_TOLERANCE_M
+                    or z_axis and min(high_z,z1) - max(low_z,z0) <= CIRCULATION_TOLERANCE_M):
+                continue
+            # For two cardinal rectangles, every original SAT axis is x or z.
+            # Both identical interval/tolerance tests already passed above;
+            # repeating those same axes cannot change the answer. Rotations,
+            # diagonal sweeps and degenerate edges keep the complete SAT.
+            if obstacle_cardinal and x_axis and z_axis:
+                if query_cardinal is None:
+                    query_cardinal = cardinal_edges(polygon)
+                if query_cardinal:
+                    if certain is None:
+                        certain = set()
+                    certain.add(identity)
+                    continue
+            possible.append((identity, points))
+        if certain is not None:
+            if possible:
+                certain.update(_collisions(polygon, tuple(possible)))
+            return tuple(sorted(certain))
+        return _collisions(polygon, tuple(possible)) if possible else ()
+
+    return query
+
+
+def _design_obstacles(design: SolvedDesign) -> tuple[tuple[str, tuple[Vec2, ...]], ...]:
+    return tuple(
+        (placement.instanceId or intent.id,
+         footprint_of(product, (placement.position[0], placement.position[2]), placement.yaw).corners)
+        for intent, product, placement in zip(design.intents, design.products, design.placements, strict=True)
+        if product.placementClass != "floor-covering"
+    )
+
+
+def _nearest_grid_nodes(target: Vec2, grid: dict[tuple[int, int], Vec2]):
+    # Same total ordering and first16 as the established full sort. Retain at
+    # most16 heap entries rather than sorting every valid node per access.
+    return nsmallest(16, grid.items(), key=lambda item: (
+        hypot(item[1][0]-target[0], item[1][1]-target[1]), item[0][1], item[0][0],
+    ))
+
+
+@dataclass
+class _StaticClearanceCache:
+    geometry: _PreparedRoomGeometry
+    variable_instance_id: str
+    clearance_width_m: float
+    obstacles: tuple[tuple[str, tuple[Vec2, ...]], ...]
+    room_signature: str = ''
+    known_targets: frozenset[Vec2] = frozenset()
+    results: dict[tuple[Vec2, ...], tuple[bool, _PolygonProjection | None]] = field(default_factory=dict, init=False)
+    lattice: dict[tuple[int, int], Vec2] = field(default_factory=dict, init=False)
+    lattice_signature: tuple[float, float, int, int, float] | None = field(default=None, init=False)
+    orders: dict[Vec2, tuple[tuple[int, int], ...]] = field(default_factory=dict, init=False)
+    ordered_nodes: int = field(default=0, init=False)
+
+    def __post_init__(self):
+        self.collisions = _collision_query(self.obstacles)
+        self.inside = _room_query(self.geometry)
+
+    def free(self, polygon: tuple[Vec2, ...]) -> bool:
+        return self.classify(polygon)[0]
+
+    def classify(self, polygon: tuple[Vec2, ...]) -> tuple[bool, _PolygonProjection | None]:
+        try:
+            return self.results[polygon]
+        except KeyError:
+            projection = _polygon_projection(polygon)
+            inside = self.inside(polygon, projection)
+            if not inside:
+                projection = None
+            result = (inside and not self.collisions(polygon, projection), projection)
+            if len(self.results) < MAX_REUSED_CLEARANCE_POLYGONS:
+                self.results[polygon] = result
+            return result
+
+    def prepare_lattice(self, low_x: float, low_z: float, x_count: int, z_count: int) -> bool:
+        if (not 0 <= x_count <= MAX_LATTICE_POINTS_PER_AXIS
+                or not 0 <= z_count <= MAX_LATTICE_POINTS_PER_AXIS
+                or x_count * z_count > MAX_RAW_LATTICE_POINTS):
+            return False
+        signature = (low_x, low_z, x_count, z_count, GRID_RESOLUTION_M)
+        if self.lattice_signature is not None:
+            return self.lattice_signature == signature
+        self.lattice = {
+            (x, z): (round(low_x + x * GRID_RESOLUTION_M, 9), round(low_z + z * GRID_RESOLUTION_M, 9))
+            for z in range(z_count) for x in range(x_count)
+        }
+        self.lattice_signature = signature
+        return True
+
+    def nearest(self, target: Vec2, valid_grid: dict[tuple[int, int], Vec2]):
+        """Exact original order, filtered to this candidate's current free nodes.
+
+        The caller has matched the lattice signature and builds valid_grid from
+        that lattice. Unknown targets or exhausted cache space use the full sort.
+        """
+        if target not in self.known_targets or self.lattice_signature is None:
+            return None
+        if target not in self.orders:
+            if self.ordered_nodes + len(self.lattice) > MAX_REUSED_NEAREST_NODES:
+                return None
+            self.orders[target] = tuple(sorted(
+                self.lattice,
+                key=lambda key: (hypot(self.lattice[key][0] - target[0], self.lattice[key][1] - target[1]), key[1], key[0]),
+            ))
+            self.ordered_nodes += len(self.lattice)
+        nearest = []
+        for key in self.orders[target]:
+            if key in valid_grid:
+                nearest.append((key, valid_grid[key]))
+                if len(nearest) == 16:
+                    break
+        return nearest
+
+    def clear(self):
+        self.results.clear()
+        self.lattice.clear()
+        self.orders.clear()
+        self.lattice_signature = None
+        self.ordered_nodes = 0
+
+
+_STATIC_CLEARANCE: ContextVar[_StaticClearanceCache | None] = ContextVar("static-clearance", default=None)
+
+
+@contextmanager
+def reuse_static_clearance(design: SolvedDesign, variable_instance_id: str, clearance_width_m: float):
+    """Reuse exact invariant checks during one sequential replacement query.
+
+    This cache is request scoped, explicitly bounded and cleared on every exit.
+    Each validation checks Room/clearance/static obstacle equality before use;
+    the replacement, access connectors, graph and all diagnostics are recomputed.
+    Fixed access targets reuse only distance ordering, bounded by a separate node
+    cap. Filtering to each candidate's current free grid precedes the16-node cut.
+    """
+    cache = _StaticClearanceCache(_prepare_room_geometry(design.room), variable_instance_id, clearance_width_m,
+                                  tuple(o for o in _design_obstacles(design) if o[0] != variable_instance_id),
+                                  room_signature=design.room.model_dump_json(),
+                                  known_targets=frozenset(target for _, target in (
+                                      *_product_regions(design, clearance_width_m),
+                                      *(_door_region(design, i, clearance_width_m) for i, o in enumerate(design.room.openings) if o.kind == 'door'),
+                                  )))
+    token = _STATIC_CLEARANCE.set(cache)
+    try:
+        yield cache
+    finally:
+        _STATIC_CLEARANCE.reset(token)
+        cache.clear()
 
 
 def _door_region(design: SolvedDesign, opening_index: int, clearance_width_m: float) -> tuple[CirculationRegion, Vec2]:
@@ -224,14 +477,22 @@ def _validate_circulation(
         return (unsupported, None) if include_witness else unsupported
 
     room_geometry = _prepare_room_geometry(design.room)
-    obstacles = tuple(
-        (
-            placement.instanceId or intent.id,
-            footprint_of(product, (placement.position[0], placement.position[2]), placement.yaw).corners,
-        )
-        for intent, product, placement in zip(design.intents, design.products, design.placements, strict=True)
-        if product.placementClass != "floor-covering"
-    )
+    inside = _room_query(room_geometry)
+    obstacles = _design_obstacles(design)
+    collisions = _collision_query(obstacles)
+    shared = _STATIC_CLEARANCE.get()
+    if (shared is not None and shared.room_signature == design.room.model_dump_json()
+            and shared.geometry == room_geometry and shared.clearance_width_m == clearance_width_m
+            and tuple(o for o in obstacles if o[0] != shared.variable_instance_id) == shared.obstacles):
+        variable_collisions = _collision_query(tuple(o for o in obstacles if o[0] == shared.variable_instance_id))
+        def free(polygon):
+            static_free, projection = shared.classify(polygon)
+            return static_free and not variable_collisions(polygon, projection)
+    else:
+        shared = None
+        def free(polygon):
+            projection = _polygon_projection(polygon)
+            return inside(polygon, projection) and not collisions(polygon, projection)
     door_values = tuple(
         _door_region(design, index, clearance_width_m)
         for index, opening in enumerate(design.room.openings)
@@ -268,18 +529,19 @@ def _validate_circulation(
         for opening in design.room.openings
         if opening.kind == "door" and opening.widthM + CIRCULATION_TOLERANCE_M < clearance_width_m
     }
+    nearest_reuse = shared is not None and shared.prepare_lattice(low_x, low_z, x_count, z_count)
     valid_grid: dict[tuple[int, int], Vec2] = {}
     for z_index in range(z_count):
         z = round(low_z + z_index * GRID_RESOLUTION_M, 9)
         for x_index in range(x_count):
             x = round(low_x + x_index * GRID_RESOLUTION_M, 9)
             polygon = _walker_polygon((x, z), clearance_width_m)
-            if _inside_prepared_room(room_geometry, polygon) and not _collisions(polygon, obstacles):
+            if free(polygon):
                 valid_grid[(x_index, z_index)] = (x, z)
 
     def swept_free(start: Vec2, end: Vec2) -> bool:
         polygon = _swept_polygon(start, end, clearance_width_m)
-        return _inside_prepared_room(room_geometry, polygon) and not _collisions(polygon, obstacles)
+        return free(polygon)
 
     connectors: dict[str, tuple[tuple[int, int], ...]] = {}
     for region, target in access_values:
@@ -287,13 +549,12 @@ def _validate_circulation(
             connectors[region.id] = ()
             continue
         target_polygon = _walker_polygon(target, clearance_width_m)
-        if not _inside_prepared_room(room_geometry, target_polygon) or _collisions(target_polygon, obstacles):
+        if not free(target_polygon):
             connectors[region.id] = ()
             continue
-        nearest = sorted(
-            valid_grid.items(),
-            key=lambda item: (hypot(item[1][0] - target[0], item[1][1] - target[1]), item[0][1], item[0][0]),
-        )[:16]
+        nearest = shared.nearest(target, valid_grid) if nearest_reuse else None
+        if nearest is None:
+            nearest = _nearest_grid_nodes(target, valid_grid)
         connectors[region.id] = tuple(
             key
             for key, point in nearest
@@ -379,7 +640,7 @@ def _validate_circulation(
                 if edge_cache.get(edge, True):
                     continue
                 polygon = _swept_polygon(valid_grid[current], neighbour_point, clearance_width_m)
-            detected.update(_collisions(polygon, obstacles))
+            detected.update(collisions(polygon))
 
     movable_nonanchors = {
         placement.instanceId or intent.id

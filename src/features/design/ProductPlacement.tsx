@@ -8,6 +8,7 @@ import { configureProductLoader } from './product-loaders';
 import { currentSceneDebug } from './scene-debug';
 import type { NudgeController } from './useNudge';
 import { useProductDrag } from './useProductDrag';
+import { useSceneFrames } from './SceneFrames';
 
 export const LOD_DISTANCES_M = [0, 5.5, 9.5];
 const toVec3 = (vector: Vector3): Vec3 => [vector.x, vector.y, vector.z];
@@ -27,6 +28,7 @@ export function ProductPlacement({
   previewPosition?: Vec3;
 }) {
   const onPointerDown = useProductDrag(placement, nudge);
+  const requestFrames = useSceneFrames();
   const renderer = useThree((state) => state.gl);
   const mainCamera = useThree((state) => state.camera);
   const urls = product.mesh.lods.map((lod) => lod.url);
@@ -112,8 +114,9 @@ export function ProductPlacement({
     debug.products[product.id] = { ready: true, activeLod: lodRef.current?.getCurrentLevel() ?? 0, worldBounds, placement: publishedPlacement };
     debug.ready = Object.values(debug.instances).every((entry) => entry.ready);
     if (primary) { debug.productId = product.id; debug.worldBounds = worldBounds; debug.placement = publishedPlacement; }
+    requestFrames();
     return () => restorers.forEach((restore) => restore());
-  }, [instanceId, mainCamera, placement, primary, product.id, renderer.info.render, sceneRevision, scenes]);
+  }, [instanceId, mainCamera, placement, primary, product.id, renderer.info.render, requestFrames, sceneRevision, scenes]);
 
   useFrame(({ camera }) => {
     const debug = currentSceneDebug(sceneRevision);

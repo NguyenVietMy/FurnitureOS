@@ -79,7 +79,7 @@ async function ensureSource({ sourceUrl, sourceFile, sourceSha256, sourceBytes }
  * the only step that reads the upstream file, which keeps the provider's
  * packaging choices out of everything downstream.
  */
-async function unpackSource(sourcePath, workDir) {
+export async function unpackSource(sourcePath, workDir) {
   const io = new NodeIO();
   const doc = await io.read(sourcePath);
   doc
@@ -109,11 +109,21 @@ async function unpackSource(sourcePath, workDir) {
   }
   const unpacked = path.join(workDir, 'source.gltf');
   await io.write(unpacked, doc);
+  // NodeIO omits translations within its 1e-5 identity epsilon. The manifest
+  // records our exact measured normalization, whose independent bounds checks
+  // are stricter. Preserve that real transform in the intermediate glTF rather
+  // than changing measured bounds or relaxing the verifier's tolerances.
+  const serialized = JSON.parse(await readFile(unpacked, 'utf8'));
+  for (const scene of serialized.scenes ?? []) for (const index of scene.nodes ?? []) {
+    const node = serialized.nodes[index];
+    if (node.name === 'FurnitureOS floor-centre normalization') node.translation = [...translation];
+  }
+  await writeFile(unpacked, `${JSON.stringify(serialized, null, 2)}\n`);
   const normalizedMeasure = await measureGltf(unpacked);
   return { unpacked, rawMeasure, normalizedMeasure, translation };
 }
 
-async function buildLod(bin, unpackedSource, workDir, lod, immutable) {
+async function buildLod(bin, unpackedSource, workDir, lod, immutable, nativeTimeoutMs) {
   const lodDir = path.join(workDir, `lod${lod.level}`);
   if (!immutable) await rm(lodDir, { recursive: true, force: true });
   await mkdir(lodDir, { recursive: true });
@@ -132,7 +142,7 @@ async function buildLod(bin, unpackedSource, workDir, lod, immutable) {
       '-slb', //                         lock border vertices so LODs keep the silhouette
       '-vp', '16', //                    16-bit position quantization (~0.03mm over 2m)
     ],
-    { stdio: ['ignore', 'pipe', 'inherit'] },
+    { stdio: ['ignore', 'pipe', 'inherit'], ...(nativeTimeoutMs ? {timeout:nativeTimeoutMs,windowsHide:true} : {}) },
   );
   return { lodDir, gltfPath: out };
 }
@@ -228,7 +238,7 @@ export async function buildProduct(product, options = {}) {
 
   for (const lod of LOD_LEVELS) {
     await progress(`lod${lod.level}`);
-    const { lodDir, gltfPath } = await buildLod(bin, unpacked, workDir, lod, immutable);
+    const { lodDir, gltfPath } = await buildLod(bin, unpacked, workDir, lod, immutable, options.nativeTimeoutMs);
     const gltf = JSON.parse(await readFile(gltfPath, 'utf8'));
     const simplifiedMeasure = await measureGltf(gltfPath);
     const postSimplificationTranslation = reanchorSimplifiedGltf(gltf, simplifiedMeasure);

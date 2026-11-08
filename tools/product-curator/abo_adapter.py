@@ -15,6 +15,9 @@ from api.models import Product
 
 def main(data: dict) -> object:
     mode = data["mode"]
+    if mode == "expansion-batch":
+        from api.catalogue.providers.expansion import ExpansionBatch
+        return ExpansionBatch.model_validate(data['batch']).model_dump(mode='json', exclude_unset=True)
     seed_type = LivingCandidateCatalogue if data.get("profile") == "living-seed-v1" else SeedCatalogue
     if mode == "seed":
         return seed_type.model_validate(data["seed"]).model_dump(mode="json")

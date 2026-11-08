@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { copyFile, mkdir, readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, lstat } from 'node:fs/promises';
 import { PRODUCT_ASSET_SOURCES } from '../../scripts/asset-pipeline.config.mjs';
 import { buildProduct } from '../../scripts/build-product-assets.mjs';
 import { verifyProductAssets } from '../../scripts/lib/verify-product-assets.mjs';
@@ -11,6 +11,23 @@ import { livingProfile, LIVING_PROFILE } from './profiles.mjs';
 import { adapter } from './catalogue.mjs';
 
 // Preparation is immutable and never starts an owner review or accepts a Product.
+async function stageBudget(root) {
+  let bytes = 0, files = 0;
+  const walk = async (dir) => {
+    await noLinks(dir);
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      assert(!entry.isSymbolicLink() && (entry.isDirectory() || entry.isFile()), 'Linked/unsupported Living workspace entry');
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) await walk(file);
+      else {
+        bytes += (await lstat(file)).size; files++;
+        assert(bytes <= 4_000_000_000 && files <= 25_000, 'Living workspace disk/file budget reached; preserve and use a fresh preparation');
+      }
+    }
+  };
+  await walk(root);
+}
+
 export async function prepareLiving({ stateDir, sourceDir }) {
   assertLocalContext();
   const root = await ownRoot(stateDir);
@@ -20,6 +37,7 @@ export async function prepareLiving({ stateDir, sourceDir }) {
   await adapter({ mode: 'seed', profile: LIVING_PROFILE, seed });
   await durableFile(await ownedPath(root, 'preparation-started.json'), { profile: LIVING_PROFILE, seedSha256: digest(raw) });
   const tool = await nativeTool(root);
+  await stageBudget(root);
   const preparations = [];
   for (const source of sources.filter((s) => !PRODUCT_ASSET_SOURCES.some((old) => old.productId === s.productId))) {
     const dir = await ownedPath(root, 'preparations', source.productId);
@@ -32,7 +50,8 @@ export async function prepareLiving({ stateDir, sourceDir }) {
     await copyFile(original, sourcePath);
     const input = { source, tool: tool.evidence, seedSha256: digest(raw) };
     await durableFile(path.join(dir, 'input.json'), input);
-    await buildProduct(source, { bin: tool.bin, sourceDir: sourcesDir, workDir: path.join(dir, 'work'), outputDir: path.join(dir, 'output') });
+    await buildProduct(source, { bin: tool.bin, sourceDir: sourcesDir, workDir: path.join(dir, 'work'), outputDir: path.join(dir, 'output'), nativeTimeoutMs: 120_000, progress: () => stageBudget(root) });
+    await stageBudget(root);
     const verified = await verifyProductAssets(path.join(dir, 'output'), source, { sourcePath });
     const result = { source, input: await hashFile(path.join(dir, 'input.json')), tool: tool.evidence, files: verified.files };
     await durableFile(path.join(dir, 'result.json'), result);
@@ -40,6 +59,7 @@ export async function prepareLiving({ stateDir, sourceDir }) {
   }
   const result = { profile: LIVING_PROFILE, seedSha256: digest(raw), preparations };
   await durableFile(await ownedPath(root, 'prepared.json'), result);
+  await stageBudget(root);
   return result;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

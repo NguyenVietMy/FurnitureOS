@@ -1,0 +1,8 @@
+.references { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; margin-block: 18px; }
+.references figure { margin: 0; padding: 12px; border: var(--line); }
+.references img { width: 100%; height: 280px; object-fit: contain; display: block; }
+.references figcaption { font: 11px 'Roboto Mono', monospace; margin-top: 8px; }
+select { max-width: 100%; font: inherit; padding: 8px; margin-block: 14px; background: #fdfef6; border: var(--line); }
+main > p { overflow-wrap: anywhere; }
+@media (max-width: 800px) { .references { grid-template-columns: repeat(2,minmax(0,1fr)); } .references img { height: 220px; } }
+@media (max-width: 480px) { .references { grid-template-columns: 1fr; } }

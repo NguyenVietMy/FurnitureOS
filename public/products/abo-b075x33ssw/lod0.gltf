@@ -1,0 +1,277 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "gltfpack 1.2"
+ },
+ "extensionsUsed": [
+  "KHR_mesh_quantization",
+  "EXT_meshopt_compression",
+  "KHR_texture_transform",
+  "KHR_texture_basisu"
+ ],
+ "extensionsRequired": [
+  "KHR_mesh_quantization",
+  "EXT_meshopt_compression",
+  "KHR_texture_basisu"
+ ],
+ "buffers": [
+  {
+   "uri": "lod0.bin",
+   "byteLength": 150224
+  },
+  {
+   "byteLength": 391688,
+   "extensions": {
+    "EXT_meshopt_compression": {
+     "fallback": true
+    }
+   }
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 1,
+   "byteOffset": 0,
+   "byteLength": 59288,
+   "byteStride": 4,
+   "target": 34962,
+   "extensions": {
+    "EXT_meshopt_compression": {
+     "buffer": 0,
+     "byteOffset": 0,
+     "byteLength": 26647,
+     "byteStride": 4,
+     "mode": "ATTRIBUTES",
+     "filter": "OCTAHEDRAL",
+     "count": 14822
+    }
+   }
+  },
+  {
+   "buffer": 1,
+   "byteOffset": 59288,
+   "byteLength": 118576,
+   "byteStride": 8,
+   "target": 34962,
+   "extensions": {
+    "EXT_meshopt_compression": {
+     "buffer": 0,
+     "byteOffset": 26648,
+     "byteLength": 65096,
+     "byteStride": 8,
+     "mode": "ATTRIBUTES",
+     "count": 14822
+    }
+   }
+  },
+  {
+   "buffer": 1,
+   "byteOffset": 177864,
+   "byteLength": 59288,
+   "byteStride": 4,
+   "target": 34962,
+   "extensions": {
+    "EXT_meshopt_compression": {
+     "buffer": 0,
+     "byteOffset": 91744,
+     "byteLength": 28814,
+     "byteStride": 4,
+     "mode": "ATTRIBUTES",
+     "count": 14822
+    }
+   }
+  },
+  {
+   "buffer": 1,
+   "byteOffset": 237152,
+   "byteLength": 154536,
+   "target": 34963,
+   "extensions": {
+    "EXT_meshopt_compression": {
+     "buffer": 0,
+     "byteOffset": 120560,
+     "byteLength": 29664,
+     "byteStride": 2,
+     "mode": "TRIANGLES",
+     "count": 77268
+    }
+   }
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "byteOffset": 0,
+   "componentType": 5120,
+   "count": 14822,
+   "type": "VEC3",
+   "normalized": true
+  },
+  {
+   "bufferView": 1,
+   "byteOffset": 0,
+   "componentType": 5123,
+   "count": 14822,
+   "type": "VEC3",
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    46546,
+    65535,
+    57728
+   ]
+  },
+  {
+   "bufferView": 2,
+   "byteOffset": 0,
+   "componentType": 5123,
+   "count": 14822,
+   "type": "VEC2",
+   "normalized": true
+  },
+  {
+   "bufferView": 3,
+   "byteOffset": 0,
+   "componentType": 5123,
+   "count": 77268,
+   "type": "SCALAR"
+  }
+ ],
+ "samplers": [
+  {}
+ ],
+ "images": [
+  {
+   "name": "Normal_6995f7da-9973-417f-93f7-7e754ce215ca.png",
+   "uri": "textures/source-tex0-d37fd4142532.ktx2"
+  },
+  {
+   "name": "ao_met_rough_Metallic_069ab4dc-5b28-4b14-8d88-f35f132ecfc7_Roughness_62d29228-300e-409c-a119-fed8d403d0e4",
+   "uri": "textures/source-tex1-060f3f75a57f.ktx2"
+  },
+  {
+   "name": "Albedo_70e9cc9f-d571-47c6-813a-b30399f5e82a.jpg",
+   "uri": "textures/source-tex2-d7677c924a7e.ktx2"
+  }
+ ],
+ "textures": [
+  {
+   "sampler": 0,
+   "extensions": {
+    "KHR_texture_basisu": {
+     "source": 2
+    }
+   }
+  },
+  {
+   "sampler": 0,
+   "extensions": {
+    "KHR_texture_basisu": {
+     "source": 0
+    }
+   }
+  },
+  {
+   "sampler": 0,
+   "extensions": {
+    "KHR_texture_basisu": {
+     "source": 1
+    }
+   }
+  }
+ ],
+ "materials": [
+  {
+   "name": "\"AFJJDAKEONCAAAAAFMBAAAAAAAAANHIBNMJI\"",
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 0,
+     "extensions": {
+      "KHR_texture_transform": {
+       "offset": [
+        0.00323599996,
+        0.002646029
+       ],
+       "scale": [
+        31.1299248,
+        15.9007435
+       ]
+      }
+     }
+    },
+    "metallicRoughnessTexture": {
+     "index": 2,
+     "extensions": {
+      "KHR_texture_transform": {
+       "offset": [
+        0.00323599996,
+        0.002646029
+       ],
+       "scale": [
+        31.1299248,
+        15.9007435
+       ]
+      }
+     }
+    }
+   },
+   "normalTexture": {
+    "index": 1,
+    "extensions": {
+     "KHR_texture_transform": {
+      "offset": [
+       0.00323599996,
+       0.002646029
+      ],
+      "scale": [
+       31.1299248,
+       15.9007435
+      ]
+     }
+    }
+   }
+  }
+ ],
+ "meshes": [
+  {
+   "primitives": [
+    {
+     "attributes": {
+      "NORMAL": 0,
+      "POSITION": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "translation": [
+    -0.314867258,
+    0,
+    -0.390504003
+   ],
+   "scale": [
+    0.0000135291393,
+    0.0000135291393,
+    0.0000135291393
+   ]
+  }
+ ],
+ "scenes": [
+  {
+   "name": "Root Scene",
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "scene": 0
+}

@@ -55,8 +55,10 @@ export async function fetchPreviewDesign(signal?: AbortSignal): Promise<PreviewD
   return response.json() as Promise<PreviewDesign>;
 }
 
-export async function fetchCatalogueGallery(signal?: AbortSignal): Promise<CatalogueGallery> {
-  const response = await fetch(`${API_BASE}/api/catalogue-gallery`, {
+export async function fetchCatalogueGallery(signal?: AbortSignal, page = 0, catalogueVersion?: string): Promise<CatalogueGallery> {
+  const params = new URLSearchParams({page:String(page)});
+  if (catalogueVersion) params.set('catalogueVersion', catalogueVersion);
+  const response = await fetch(`${API_BASE}/api/catalogue-gallery?${params}`, {
     signal,
     headers: { accept: 'application/json' },
   });

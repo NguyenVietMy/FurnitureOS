@@ -1,5 +1,10 @@
 # Local Product curator
 
+The separate resumable expansion profile is documented in
+[expansion.md](expansion.md). Legacy20 and bounded Living commands and protocol
+semantics below remain unchanged. Expansion tooling readiness does not establish
+300 accepted Products or a genuine review of any new Product.
+
 This is an internal, Windows-only local workbench for re-reviewing exactly the
 20 pinned ABO source identities. It does not grow or install the production
 Catalogue by default. The historical Ticket 11 owner20 sample completed on

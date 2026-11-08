@@ -56,7 +56,7 @@ class Conversation:
 
     def generate(self, provider, **kwargs):
         context = json.loads(kwargs["prompt_text"])
-        stable_keys = ("task", "roomType", "room", "offeredZones", "eligibleCatalogue", "rules")
+        stable_keys = ("task", "roomType", "room", "offeredZones", "eligibleCatalogue", "rules", "candidateWindowVersion")
         if not self.messages:
             stable = {key: context[key] for key in stable_keys}
             # Initial feasibility guidance is also stable. Corrections follow later.

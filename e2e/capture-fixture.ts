@@ -1,7 +1,8 @@
 import { resultStream } from './variant-events.fixture';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page, type APIRequestContext } from '@playwright/test';
@@ -14,15 +15,52 @@ export const evidence=process.env.FURNITUREOS_EVIDENCE_DIR??join(root,'test-resu
 mkdirSync(evidence,{recursive:true});
 const owner='11111111-1111-1111-1111-111111111111',id='33333333-3333-3333-3333-333333333333';
 const walls=['wall-north','wall-east','wall-south','wall-west'] as const;
-function authority(action:string,data:unknown) {
-  const code=action==='confirm'
-    ? 'import json,sys; from api.capture_models import CaptureView; from api.capture_room import validate_capture_rectangle,room_hash; c=CaptureView.model_validate(json.load(sys.stdin)); r,i=validate_capture_rectangle(c); print(json.dumps({"room":r.model_dump(mode="json") if r else None,"issues":[x.model_dump() for x in i],"hash":room_hash(r) if r else None}))'
-    : action==='normalize' ? 'import json,sys; from api.capture_transitions import normalize_draft; d=json.load(sys.stdin); print(json.dumps(normalize_draft(d["before"],d["after"])))'
-    : 'import json,sys; from api.capture_models import ReferenceRequest; from api.capture_reference import calibrate; print(calibrate(ReferenceRequest.model_validate(json.load(sys.stdin)),1280,960).model_dump_json())';
-  return JSON.parse(execFileSync(join(root,'.venv','Scripts','python.exe'),['-c',code],{cwd:root,input:JSON.stringify(data),encoding:'utf8'}));
+function createAuthority(page:Page) {
+  // One isolated worker per controlled test imports the same real authorities
+  // once. Starting Python for every draft edit hid UI work behind import cost.
+  const code=`import json,sys
+from api.capture_models import CaptureView,ReferenceRequest
+from api.capture_room import validate_capture_rectangle,room_hash
+from api.capture_transitions import normalize_draft
+from api.capture_reference import calibrate
+for line in sys.stdin:
+ try:
+  q=json.loads(line);d=q['data'];a=q['action']
+  if a=='confirm':
+   r,i=validate_capture_rectangle(CaptureView.model_validate(d));result={'room':r.model_dump(mode='json') if r else None,'issues':[x.model_dump() for x in i],'hash':room_hash(r) if r else None}
+  elif a=='normalize':result=normalize_draft(d['before'],d['after'])
+  elif a=='calibrate':result=calibrate(ReferenceRequest.model_validate(d),1280,960).model_dump(mode='json')
+  else:raise ValueError('Unknown fixture authority')
+  print(json.dumps({'id':q['id'],'result':result}),flush=True)
+ except Exception as e:print(json.dumps({'id':q['id'],'error':str(e)}),flush=True)
+`;
+  let worker:ChildProcessWithoutNullStreams|null=null,sequence=0,closed=false;
+  const pending=new Map<number,{resolve:(value:any)=>void;reject:(error:Error)=>void;timer:NodeJS.Timeout;action:string;start:number}>();
+  const fail=(error:Error)=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(error);}pending.clear();};
+  page.once('close',()=>{closed=true;fail(new Error('Controlled page closed'));if(worker){const owned=worker;appendFileSync(join(evidence,'capture-authority-lifecycle.jsonl'),JSON.stringify({event:'close',pid:owned.pid})+'\n');owned.stdin.end();const timer=setTimeout(()=>owned.kill(),2000);timer.unref();owned.once('exit',()=>clearTimeout(timer));}});
+  return (action:string,data:unknown)=>new Promise<any>((resolve,reject)=>{
+    if(closed||pending.size>=16)return reject(new Error('Controlled authority unavailable or queue bound exceeded'));
+    if(!worker){
+      worker=spawn(join(root,'.venv','Scripts','python.exe'),['-u','-c',code],{cwd:root,windowsHide:true,stdio:'pipe'});
+      const owned=worker;
+      appendFileSync(join(evidence,'capture-authority-lifecycle.jsonl'),JSON.stringify({event:'start',pid:owned.pid})+'\n');
+      owned.stderr.on('data',chunk=>appendFileSync(join(evidence,'capture-authority-stderr.log'),chunk));
+      owned.on('error',fail);owned.once('exit',code=>{appendFileSync(join(evidence,'capture-authority-lifecycle.jsonl'),JSON.stringify({event:'exit',pid:owned.pid,code})+'\n');if(worker===owned)worker=null;fail(new Error('Controlled authority worker exited'));});
+      createInterface({input:owned.stdout}).on('line',line=>{
+        try {const reply=JSON.parse(line),p=pending.get(reply.id);if(!p)return;pending.delete(reply.id);clearTimeout(p.timer);
+          appendFileSync(join(evidence,'capture-authority-timings.jsonl'),JSON.stringify({pid:owned.pid,action:p.action,elapsedMs:Date.now()-p.start,error:reply.error??null})+'\n');
+          if(reply.error)p.reject(new Error(reply.error));else p.resolve(reply.result);
+        }catch(error){fail(error instanceof Error?error:new Error(String(error)));}
+      });
+    }
+    const id=++sequence,start=Date.now(),timer=setTimeout(()=>{pending.delete(id);reject(new Error('Controlled authority exceeded30seconds'));worker?.kill();},30000);timer.unref();
+    const line=JSON.stringify({id,action,data});if(Buffer.byteLength(line)>1_048_576){clearTimeout(timer);return reject(new Error('Controlled authority input bound exceeded'));}
+    pending.set(id,{resolve,reject,timer,action,start});worker.stdin.write(line+'\n');
+  });
 }
 type IdentityOptions={createdFlag?:boolean|null;restoredFlag?:boolean|null;create?:boolean;analysisProposals?:ReadonlyArray<CaptureSemanticProposal>};
 export async function controlled(page:Page,request:APIRequestContext,options:IdentityOptions={}) {
+  const authority=createAuthority(page);
   const blank={roomType:'',topology:'',widthM:null,depthM:null,heightM:null,dimensionsConfirmed:false,wallReviews:[],openings:[],furnitureAcknowledged:false,dimensionEvidence:[]};
   let capture:any={id,revision:1,state:'draft',createdAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),draft:blank,photos:[],confirmedRevision:null,roomHash:null,room:null,cleanupStatus:'none',calibrations:[]};
   const photos=new Map<string,Buffer>();let generations=0,finished=0,holdGeneration:Promise<void>|null=null,deleted=false,privateRequests=0;
@@ -86,12 +124,12 @@ export async function controlled(page:Page,request:APIRequestContext,options:Ide
           ...(proposal.detectedFurniture!=='absent'?{furnitureAcknowledged:false}:{})}});
     } else if(path.endsWith('/draft')) {
       const b=body();expect(b.expectedRevision).toBe(capture.revision);
-      const draft=authority('normalize',{before:capture.draft,after:b.draft});
+      const draft=await authority('normalize',{before:capture.draft,after:b.draft});
       if(capture.draft.topology!==draft.topology){capture.calibrations=[];capture.photos.forEach((p:any)=>Object.assign(p,{semantics:null,observedWallIds:[],analysisStatus:'unknown'}));}
       Object.assign(capture,{revision:capture.revision+1,state:'draft',draft,confirmedRevision:null,roomHash:null,room:null});
-    } else if(path.endsWith('/calibrate'))return route.fulfill({json:authority('calibrate',body())});
+    } else if(path.endsWith('/calibrate'))return route.fulfill({json:await authority('calibrate',body())});
     else if(path.endsWith('/confirm')) {
-      const checked=authority('confirm',capture);
+      const checked=await authority('confirm',capture);
       if(!checked.issues.length)Object.assign(capture,{state:'confirmed',confirmedRevision:capture.revision,roomHash:checked.hash,room:checked.room});
       return route.fulfill({json:{status:checked.issues.length?'review':'confirmed',capture,room:checked.room,issues:checked.issues}});
     } else if(path.endsWith('/variants')) {

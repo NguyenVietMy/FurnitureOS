@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { commonAnchorStyles } from './lib/reviewed-anchor-styles.mjs';
+import { loadExpansion, sourceRecord } from './lib/expansion-contract.mjs';
 
 /**
  * Declarative input to the Product asset pipeline.
@@ -99,6 +100,8 @@ export function validateReviewedLiving(LIVING_REVIEWED) {
   return extra;
 }
 const extra = LIVING_REVIEWED ? validateReviewedLiving(LIVING_REVIEWED) : [];
-export const PUBLISHED_PRODUCT_ASSET_SOURCES = [...PRODUCT_ASSET_SOURCES, ...extra];
-
-export const PUBLISHED_CATALOGUE_VERSION = LIVING_REVIEWED ? `${ABO_SEED.catalogueVersion}+living-${createHash("sha256").update(readFileSync(reviewedPath)).digest("hex").slice(0,16)}` : ABO_SEED.catalogueVersion;
+export const BASE_CATALOGUE_VERSION = LIVING_REVIEWED ? `${ABO_SEED.catalogueVersion}+living-${createHash("sha256").update(readFileSync(reviewedPath)).digest("hex").slice(0,16)}` : ABO_SEED.catalogueVersion;
+export const BASE_RECORDS = [...ABO_SEED.products, ...extra.map((s) => proposed.products.find((p) => p.productId === s.productId))];
+export const EXPANSION = loadExpansion(fileURLToPath(new URL('../',import.meta.url)), BASE_CATALOGUE_VERSION, BASE_RECORDS);
+export const PUBLISHED_PRODUCT_ASSET_SOURCES = [...PRODUCT_ASSET_SOURCES, ...extra, ...EXPANSION.entries.map((e) => sourceRecord(e.record))];
+export const PUBLISHED_CATALOGUE_VERSION = EXPANSION.version;

@@ -85,6 +85,7 @@ export default function LiveBedroomPage({ bedroomOnly = false }: { bedroomOnly?:
           {!bedroomOnly && <label><input type="radio" name="room-type" value="living-room" checked={roomType === 'living-room'} onChange={() => { setRoomType('living-room'); clearGeneration(); }} />Living room</label>}
         </fieldset>
         {roomType === 'living-room' && <p className="subtle">One sofa, one coffee table and one chair are required, with an optional second chair, rug and floor lamp. Seating Zones offer places to try; fit and connected walking space are checked for the whole Design. The initial policy requires 0.60 m front access, so tighter familiar arrangements may be unavailable.</p>}
+        {roomType === 'bedroom' && <p className="subtle">A bed is required. Up to two nightstands and one wardrobe, dresser, chair, floor lamp and rug may be included where they fit, up to eight Products total. Optional furnishings may be left out after fit and walking-space checks.</p>}
 
         <fieldset className="reference-fieldset">
           <legend>Style inspiration</legend>

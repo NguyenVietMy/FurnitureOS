@@ -1,6 +1,6 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useState } from 'react';
-import { Mesh, Object3D, OrthographicCamera } from 'three';
+import { Mesh, Object3D, OrthographicCamera, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Product } from '@/shared/api/types';
 import { configureProductLoader } from '../design/product-loaders';
@@ -24,12 +24,27 @@ function CameraFit({ productCount }: { productCount: number }) {
 
 function prepareScene(scene: Object3D, productId: string, lod: number, drawn: () => void) {
   let reported = false;
+  const meshes: Mesh[] = [], textures = new Set<Texture>(), materials = new Set();
+  const rendered = new Set<number>();
+  scene.traverse((object) => {
+    if (!(object instanceof Mesh)) return;
+    meshes.push(object);
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      materials.add(material);
+      for (const value of Object.values(material)) if (value instanceof Texture) textures.add(value);
+    }
+  });
   scene.traverse((object) => {
     if (!(object instanceof Mesh)) return;
     object.castShadow = true;
     object.receiveShadow = true;
     object.onAfterRender = () => {
-      markRendered(productId, lod);
+      rendered.add(object.id);
+      const loadedTextures = [...textures].filter((t) => {
+        const image = t.image as {width?:number;height?:number} | undefined;
+        return (image?.width ?? 0) > 0 && (image?.height ?? 0) > 0;
+      }).length;
+      markRendered(productId, lod, {meshes:meshes.length,materials:materials.size,textures:textures.size,loadedTextures,drawnMeshes:rendered.size});
       if (!reported) {
         reported = true;
         drawn();

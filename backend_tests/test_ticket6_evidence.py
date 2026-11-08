@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 
 from api.catalogue import catalogue, StaticCatalogue
+from backend_tests.catalogue_fixtures import original_published_catalogue
+from api.room_policy import LEGACY_BEDROOM_POLICY
+
+legacy_catalogue = original_published_catalogue()
 from api.catalogue.providers.abo import abo_entries, catalogue_version
 from backend_tests.catalogue_expectations import expected_publication
 from api.live_generation import LiveGenerationRequest, frozen_generation_configuration, generate_live_bedroom
@@ -21,7 +25,7 @@ def _snapshot() -> dict:
     value = {
         "version": evidence.QUALITY_FREEZE_VERSION,
         "createdAt": "controlled",
-        "configuration": frozen_generation_configuration(catalogue),
+        "configuration": frozen_generation_configuration(legacy_catalogue, policy_override=LEGACY_BEDROOM_POLICY),
         "source": {"sha256": "source", "files": []},
         "build": {"sha256": "build", "files": []},
         "productAssets": {"sha256": "products", "files": []},
@@ -230,7 +234,7 @@ def valid_designs() -> dict[str, dict]:
     designs: dict[str, dict] = {}
     for reference_id, product_id in beds.items():
         result = generate_live_bedroom(
-            catalogue,
+            legacy_catalogue,
             LiveGenerationRequest(roomType="bedroom", referenceId=reference_id),
             provider=_SolvedProvider(product_id),
             generation_id_factory=lambda: "controlled",
@@ -245,7 +249,7 @@ def valid_bed_rug_design() -> dict:
     bed = "bed-prudence-tufted-queen-natural"
     rug = "rug-ravenna-prospect-moroccan"
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=_SequenceProvider([
             {"intents": [
@@ -296,8 +300,8 @@ def _production_binding(snapshot: dict) -> dict:
         "schemaBytes": snapshot["configuration"]["providerOutputSchemaBytes"],
         "model": "claude-opus-5",
         "settings": {"thinking": "adaptive", "effort": "high", "format": "json_schema", "maxTokens": 8192},
-        "validation": "ProviderSelection plus bed-plus-optional-rug-v1 scope and shared Product/Room capabilities and graph policy",
-        "placementGuidance": "authoritative-bed-only-v1 plus bounded bed/rug complete-Design repair feedback",
+        "validation": "ProviderSelection plus furnished-bedroom-v1 scope and shared Product/Room capabilities and graph policy",
+        "placementGuidance": "authoritative-bed-only-v1 plus bounded furnished-bedroom complete-Design repair feedback",
     }
 
 
@@ -880,8 +884,13 @@ def test_frozen_configuration_binds_complete_catalogue_for_every_reference() -> 
     frozen_products = configuration["catalogue"]["products"]
     legacy_ids, living_ids, version = expected_publication()
     assert len(legacy_ids) == 20
-    assert len(frozen_products) == len(catalogue.list()) == len(legacy_ids | living_ids)
-    assert {item["id"] for item in frozen_products} == legacy_ids | living_ids
+    from backend_tests.catalogue_expectations import expected_expansion
+    from api.catalogue import CatalogueQuery
+    from api.live_generation import candidate_window
+    from api.room_policy import BEDROOM_POLICY
+    expanded_ids={e['record']['productId'] for e in expected_expansion()[0]}
+    assert len(frozen_products) == len(catalogue.list()) == len(legacy_ids | living_ids | expanded_ids)
+    assert {item["id"] for item in frozen_products} == legacy_ids | living_ids | expanded_ids
     assert configuration['catalogueVersion'] == version
     bedroom_source = StaticCatalogue(catalogue_version(), abo_entries())
     assert set(configuration["catalogue"]["eligibleProductIdsByReference"]) == {
@@ -891,16 +900,15 @@ def test_frozen_configuration_binds_complete_catalogue_for_every_reference() -> 
         reference["id"] for reference in configuration["references"]
     }
     for reference in configuration["references"]:
-        style_expected = sorted(
+        legacy_style_expected = sorted(
             product.id for product in bedroom_source.list()
             if reference["privateStyleId"] in bedroom_source.private_style_ids(product.id)
             and "bedroom" in product.roomTypes
         )
-        live_expected = sorted(
-            product_id
-            for product_id in style_expected
-            if catalogue.get(product_id).category in {"bed", "rug"}
-        )
+        style_products=catalogue.list(CatalogueQuery(room_type='bedroom',private_style_id=reference['privateStyleId']))
+        style_expected=sorted(p.id for p in style_products)
+        assert set(legacy_style_expected) <= set(style_expected)
+        live_expected=sorted(p.id for p in candidate_window(style_products,BEDROOM_POLICY))
         assert configuration["catalogue"]["styleEligibleProductIdsByReference"][reference["id"]] == style_expected
         assert configuration["catalogue"]["eligibleProductIdsByReference"][reference["id"]] == live_expected
 

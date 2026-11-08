@@ -136,7 +136,8 @@ def test_http_swap_changes_one_repeated_instance_and_preserves_every_pose() -> N
 
 
 def test_real_candidates_use_the_acceptance_validator_and_reads_do_not_mutate() -> None:
-    client = TestClient(create_app())
+    from backend_tests.catalogue_fixtures import original_published_catalogue
+    client = TestClient(create_app(catalogue_source=original_published_catalogue()))
     original = _managed_fixture(client)
     session = original["swap"]
     instance_id = original["placements"][0]["instanceId"]

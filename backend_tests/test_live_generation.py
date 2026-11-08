@@ -18,6 +18,9 @@ import api.domain as domain_module
 import api.live_generation as live_generation
 from api.arrangement import ArrangementSession, resolve_arrangement
 from api.catalogue import catalogue
+from backend_tests.catalogue_fixtures import original_published_catalogue
+
+legacy_catalogue = original_published_catalogue()
 from api.catalogue.contract import CatalogueQuery
 from api.design import intent_fixture_room
 from api.domain import rectangular_room_shell, resolve_design, wall_placement_capabilities
@@ -157,7 +160,7 @@ def test_public_availability_accepts_workspace_from_controlled_external_file(mon
 def test_live_generation_sends_real_reference_pixels_and_solves_once() -> None:
     provider = TranscriptProvider([selection(bed_intent())])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
         generation_id_factory=lambda: "generation-controlled-1",
@@ -202,7 +205,7 @@ def test_live_generation_rejects_fuller_selection_outside_bed_optional_rug_stage
     provider = TranscriptProvider([fuller, fuller, fuller])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -243,7 +246,7 @@ def test_live_generation_accepts_exact_bed_optional_rug_scope_for_approved_photo
     provider = TranscriptProvider([selection(*intents)])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId=reference_id),
         provider=provider,
     )
@@ -277,7 +280,7 @@ def test_live_selection_scope_rejects_second_rug_without_silent_filtering() -> N
     provider = TranscriptProvider([too_many, too_many, too_many])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -298,7 +301,7 @@ def test_repair_cannot_expand_bed_only_identity_with_optional_rug() -> None:
     provider = TranscriptProvider([invalid_initial, expanded_repair, selection(bed_intent())])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -326,7 +329,7 @@ def test_authoritative_bed_guidance_precedes_provider_and_labels_bed_only_scope(
 ) -> None:
     provider = TranscriptProvider([selection(bed_intent())])
     generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId=reference_id),
         provider=provider,
     )
@@ -380,7 +383,7 @@ def test_captured_fuller_draft_is_now_rejected_by_the_live_stage_scope() -> None
     )
     provider = TranscriptProvider([initial, repaired, repaired])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -443,7 +446,7 @@ def test_captured_fuller_smoke_never_crosses_the_live_arrangement_boundary() -> 
     provider = TranscriptProvider([malformed, first_graph_valid, witnessed_correction])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
         generation_id_factory=lambda: "generation-fix-8-regression",
@@ -491,7 +494,7 @@ def test_actual_h10_fuller_draft_is_rejected_before_transport_failure() -> None:
     ])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
         generation_id_factory=lambda: "generation-h10-exact-red-green",
@@ -540,7 +543,7 @@ def test_actual_h10_five_item_drafts_do_not_unlock_existing_drop_policy() -> Non
     provider = TranscriptProvider([initial, guided_repair, deepcopy(guided_repair)])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
         generation_id_factory=lambda: "generation-h10-five-item-drop-boundary",
@@ -860,7 +863,7 @@ def test_failed_repair_retains_history_and_unknown_usage_without_drops() -> None
     ])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
         generation_id_factory=lambda: "generation-controlled-2",
@@ -888,7 +891,7 @@ def test_valid_repair_uses_actual_feedback_and_does_not_replay_initial() -> None
     repaired = solved_bed_rug_selection()
     provider = TranscriptProvider([initial, repaired])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -909,7 +912,7 @@ def test_required_bed_spatial_repair_keeps_identity_and_recovers(reference_id: s
     provider = TranscriptProvider([initial, repaired])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId=reference_id),
         provider=provider,
     )
@@ -935,7 +938,7 @@ def test_two_product_repair_solves_without_optional_drop() -> None:
     repaired = solved_bed_rug_selection()
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([initial, repaired]),
     )
@@ -966,7 +969,7 @@ def test_live_generation_derives_zone_offer_once_across_initial_and_repair(monke
 
     monkeypatch.setattr(live_generation, "derive_zones", counted)
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider(outcomes),
     )
@@ -998,7 +1001,7 @@ def test_zoned_initial_and_repair_reuse_one_offer_across_all_solver_aliases(monk
     initial = blocked_bed_rug_selection()
     repair = solved_bed_rug_selection()
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([initial, repair]),
     )
@@ -1010,7 +1013,7 @@ def test_zoned_initial_and_repair_reuse_one_offer_across_all_solver_aliases(monk
 def test_optional_drop_waits_until_two_valid_repairs_are_exhausted() -> None:
     blocked = blocked_bed_rug_selection()
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([blocked, blocked, blocked]),
     )
@@ -1030,7 +1033,7 @@ def test_invalid_repair_category_terminates_without_optional_drop() -> None:
         {"id": "rug-main", "kind": "against", "productId": "nightstand-alkove-hayes-wild-oak", "wallId": "wall-east", "face": "back"},
     )
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([initial, changed_category, changed_category]),
     )
@@ -1053,7 +1056,7 @@ def test_invalid_repair_category_terminates_without_optional_drop() -> None:
 ])
 def test_three_invalid_provider_selections_fail_closed_without_solver_success(bad_payload: dict) -> None:
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([bad_payload, bad_payload, bad_payload]),
     )
@@ -1074,7 +1077,7 @@ def test_three_invalid_drafts_account_unknown_usage_without_claiming_complete_to
         latency_ms=1,
     )
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([invalid, unknown, invalid]),
     )
@@ -1087,7 +1090,7 @@ def test_three_invalid_drafts_account_unknown_usage_without_claiming_complete_to
 def test_no_style_eligible_bed_fails_before_provider_call() -> None:
     provider = TranscriptProvider([])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-05"),
         provider=provider,
     )
@@ -1174,7 +1177,7 @@ def test_invalid_initial_is_corrected_without_establishing_identity_or_solve() -
     )
     provider = TranscriptProvider([invalid, selection(bed_intent())])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -1198,7 +1201,7 @@ def test_invalid_repair_consumes_call_but_preserves_history_then_valid_last_call
     valid_repair = solved_bed_rug_selection()
     provider = TranscriptProvider([initial, invalid_repair, valid_repair])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -1216,7 +1219,7 @@ def test_invalid_drafts_cannot_unlock_optional_drops() -> None:
     blocked = blocked_bed_rug_selection()
     invalid = selection({**bed_intent(), "unknownProviderField": "sentinel"})
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([blocked, invalid, invalid]),
     )
@@ -1239,7 +1242,7 @@ def test_rejection_path_and_intent_id_omit_arbitrary_provider_sentinels() -> Non
     })
     provider = TranscriptProvider([malformed, selection(bed_intent())])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -1274,7 +1277,7 @@ def test_rejection_path_and_intent_id_omit_arbitrary_provider_sentinels() -> Non
 def test_invalid_repairs_report_typed_immutable_contract_errors(invalid_repair: dict, expected_code: str) -> None:
     initial = blocked_bed_rug_selection()
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([initial, invalid_repair, invalid_repair]),
     )
@@ -1327,7 +1330,7 @@ def test_all_initial_and_worst_bounded_correction_prompts_fit_32k() -> None:
     repaired = solved_bed_rug_selection()
     provider = TranscriptProvider([blocked, maximal_invalid, repaired])
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -1339,7 +1342,7 @@ def test_all_initial_and_worst_bounded_correction_prompts_fit_32k() -> None:
 
     two_history_provider = TranscriptProvider([blocked, blocked, blocked])
     drop_result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=two_history_provider,
     )
@@ -1351,17 +1354,16 @@ def test_all_initial_and_worst_bounded_correction_prompts_fit_32k() -> None:
 def test_frozen_generation_configuration_binds_composition_and_flanking_contract() -> None:
     configuration = live_generation.frozen_generation_configuration(catalogue)
 
-    assert configuration["version"] == "ticket-6-generation-config-v9"
+    assert configuration["version"] == "furnished-bedroom-generation-config-v1"
     assert configuration["provider"]["selectionGrammar"] == (
-        "strict-anyOf-v6-bed-plus-optional-rug"
+        "strict-anyOf-furnished-bedroom-v1"
     )
     assert configuration["provider"]["selectionScope"] == {
-        "version": "bed-plus-optional-rug-v1",
+        "version": "furnished-bedroom-v1",
         "requiredBedCount": 1,
-        "optionalRugMinimumCount": 0,
-        "optionalRugMaximumCount": 1,
-        "maximumRequests": 2,
-        "allowedCategories": ["bed", "rug"],
+        "optional": [{'category':c,'maximumCount':n} for c,n in [('nightstand',2),('wardrobe',1),('dresser',1),('chair',1),('lamp',1),('rug',1)]],
+        "maximumRequests": 8,
+        "allowedCategories": ["bed", "chair", "dresser", "lamp", "nightstand", "rug", "wardrobe"],
         "enforcedOn": ["initial", "repair"],
         "silentFiltering": False,
     }
@@ -1522,7 +1524,7 @@ def test_live_grid_feedback_retains_observed_scoped_placement_rejection() -> Non
     provider = TranscriptProvider([blocked_bed_rug_selection(), solved_bed_rug_selection()])
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=provider,
     )
@@ -1555,7 +1557,7 @@ def test_fuller_required_dependency_is_rejected_before_arrangement_drop_policy()
     blocked = selection(dependent_bed, nightstand)
 
     result = generate_live_bedroom(
-        catalogue,
+        legacy_catalogue,
         LiveGenerationRequest(roomType="bedroom", referenceId="ref-01"),
         provider=TranscriptProvider([blocked, blocked, blocked]),
     )

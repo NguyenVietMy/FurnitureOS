@@ -19,6 +19,7 @@ from api.catalogue import catalogue  # noqa: E402
 from api.circulation import validate_circulation  # noqa: E402
 from api.domain import resolve_design  # noqa: E402
 from api.live_generation import ANCHOR_ID, frozen_generation_configuration  # noqa: E402
+from api.room_policy import LEGACY_BEDROOM_POLICY  # noqa: E402
 from api.models import DesignRequest, SolvedDesign  # noqa: E402
 
 REFERENCE_SET_VERSION = "ticket-6-reference-candidates-v1"
@@ -66,7 +67,7 @@ def source_files() -> list[Path]:
 
 
 def prepared_snapshot() -> dict[str, Any]:
-    configuration = frozen_generation_configuration(catalogue)
+    configuration = frozen_generation_configuration(catalogue, policy_override=LEGACY_BEDROOM_POLICY)
     product_assets = files_digest(list((ROOT / "public" / "products").rglob("*")))
     source = files_digest(source_files())
     build = files_digest(list((ROOT / "dist").rglob("*")) if (ROOT / "dist").is_dir() else [])
@@ -376,6 +377,20 @@ def _validate_frozen_selection_scope(design: SolvedDesign, configuration: dict[s
     scope = configuration.get("provider", {}).get("selectionScope")
     if scope is None:
         return
+    if scope.get('version') == 'furnished-bedroom-v1':
+        from api.room_policy import BEDROOM_POLICY
+        expected_optional=[{'category':c,'maximumCount':n} for c,n in BEDROOM_POLICY.optional]
+        if (scope.get('allowedCategories') != sorted(BEDROOM_POLICY.categories)
+                or scope.get('requiredBedCount') != 1
+                or scope.get('maximumRequests') != BEDROOM_POLICY.request_limit
+                or scope.get('optional') != expected_optional):
+            raise SystemExit('The frozen selection scope is invalid.')
+        categories=[p.category for p in design.products]
+        if (len(design.intents) > BEDROOM_POLICY.request_limit or categories.count('bed') != 1
+                or set(categories)-BEDROOM_POLICY.categories
+                or any(categories.count(c)>BEDROOM_POLICY.category_limit(c) for c in BEDROOM_POLICY.categories)):
+            raise SystemExit('A claimed-valid Design exceeds the frozen selection scope.')
+        return
     allowed_categories = scope.get("allowedCategories")
     required_beds = scope.get("requiredBedCount")
     minimum_rugs = scope.get("optionalRugMinimumCount")
@@ -533,8 +548,8 @@ def freeze(args) -> None:
         "schemaBytes": snapshot["configuration"]["providerOutputSchemaBytes"],
         "model": "claude-opus-5",
         "settings": {"thinking": "adaptive", "effort": "high", "format": "json_schema", "maxTokens": 8192},
-        "validation": "ProviderSelection plus bed-plus-optional-rug-v1 scope and shared Product/Room capabilities and graph policy",
-        "placementGuidance": "authoritative-bed-only-v1 plus bounded bed/rug complete-Design repair feedback",
+        "validation": "ProviderSelection plus furnished-bedroom-v1 scope and shared Product/Room capabilities and graph policy",
+        "placementGuidance": "authoritative-bed-only-v1 plus bounded furnished-bedroom complete-Design repair feedback",
     }
     if not (
         capability.get("status") == "passed"

@@ -6,7 +6,7 @@ provider-neutral Catalogue, and offers only eligible Product metadata, the
 fixed 4 x 3 m bedroom Room Shell, its walls and derived Zones to the model.
 The browser supplies only `roomType: bedroom` and a reference ID.
 
-The frozen generation configuration is `ticket-6-generation-config-v9`.
+The current frozen generation configuration is `furnished-bedroom-generation-config-v1`.
 Earlier configuration and paid-probe bindings are historical after this
 source and live-selection-scope change and cannot authorize a new series.
 
@@ -20,15 +20,35 @@ example is explicitly grammar-only. One lone related Product uses one
 `adjacent_to` request instead. The generic placement grammar remains broader
 than this live stage.
 
-For the current technical-validity stage, the model receives only the
-Style-eligible beds and rugs and must return exactly one eligible bed plus zero
-or one eligible rug. FastAPI enforces `bed-plus-optional-rug-v1` on initial and
-repair drafts: another bed, a second rug, any other Product category, or repair
-identity expansion is rejected as a typed correction and is never silently
-filtered into a success. The broader Catalogue and arrangement engine remain
-available to non-live callers and their direct regressions; there is no wider
-live-generation bypass. This stage measures bed/rug technical validity, not a
-complete furnishing or owner-aesthetic pass.
+Confirmed Capture generation uses `furnished-bedroom-v1`: one required bed,
+up to two nightstands and one each wardrobe, dresser, chair, floor lamp and rug,
+at most eight requests total. Every Product remains Style/Room Type eligible.
+Category/count violations and repair identity expansion receive typed corrections.
+Every furnishing passes the existing graph, physical fit, Opening, access and
+circulation authority. Optional furnishings can be dropped only through the
+existing explicit dependency/atomic-pair rules after bounded valid solves.
+The required bed's Product identity remains protected throughout repairs/drops.
+One-bed outputs remain valid; they establish no complete furnishing/aesthetic pass.
+
+The legacy `generate_live_bedroom` fixture wrapper retains
+`bed-plus-optional-rug-v1` for old callers. Bedroom compatibility wrappers reject
+Living Room requests. The live HTTP/Capture paths use the expanded Room policy.
+No paid call/model/solver changes accompany the policy expansion.
+
+The provider window `room-style-category-window-v2-24` selects at most 24
+eligible Products. Each round visits required-anchor categories first, then
+optional categories, selecting the next sorted Product ID per category. Beds
+first offer the most compact pair sharing a centimetre depth bucket, placement
+class and allowed wall-contact faces, when such an eligible pair exists. This
+proposal heuristic preserves alternatives in small Rooms; it certifies neither
+fit nor Swap compatibility. The server still checks exact dimensions, access
+and circulation, and Swaps search the complete Catalogue. All
+available categories receive two alternatives before any receives a third.
+The window version is bound into prompts, continued conversation cache prefixes
+and frozen configuration. The complete published Catalogue remains available
+for eligibility and fitting Swaps. Missing required Style anchors fail before
+provider I/O; prompt and continued-context byte bounds remain enforced. Run
+`python scripts/catalogue-coverage.py` for explicit coverage and prompt bytes.
 
 The model selects Product IDs and coordinate-free Placement Intents. FastAPI retains the
 full public PlacementIntent validation, normalizes neutral defaults only at
@@ -67,7 +87,7 @@ The remaining probes test complete combinations. Every probe retains the 256-can
 identities. The gap ladder is derived from the current gap, required-access
 depth and 0.1 m solver step; it is not a universal 0.70 m rule. Pair witnesses
 are labelled pair-only. Only a successful solve and circulation check over the
-entire selected bed/rug identity set becomes a complete-Design witness for
+entire selected furnishing identity set becomes a complete-Design witness for
 this stage. Bounded
 failures remain unknown unless the underlying authority itself is exhaustive.
 The compact guide is capped at 8 KiB, contains no coordinates or raw model
@@ -225,4 +245,4 @@ Shadow-camera and single-fragment callbacks cannot complete the measurement.
 
 ## Confirmed Capture Rooms
 
-`generate_bedroom_for_room` accepts the authoritative confirmed Room explicitly. Capture validation, revision/hash liveness and lease checks surround generation and private session publication. The existing `generate_live_bedroom` wrapper still supplies its fixture Room for old callers. Catalogue, placement guidance, Zones, solver and circulation share the explicit Room; private guidance bypasses cross-request LRU retention. The supported bed/optional-rug scope and provider/ledger stay unchanged. Invalid/unconfirmed Room, computationally unsupported Room, provider failure and solver no-fit remain distinct. See [Capture](capture.md).
+`generate_bedroom_for_room` accepts the authoritative confirmed Room explicitly. Capture validation, revision/hash liveness and lease checks surround generation and private session publication. The existing `generate_live_bedroom` wrapper still supplies its fixture Room and strict bed/optional-rug policy for old callers. Catalogue, placement guidance, Zones, solver and circulation share the explicit Room; private guidance bypasses cross-request LRU retention. Confirmed Capture uses the expanded policy described above; provider/ledger authority stays unchanged. Invalid/unconfirmed Room, computationally unsupported Room, provider failure and solver no-fit remain distinct. See [Capture](capture.md).
