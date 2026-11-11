@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { fetchCatalogueGallery } from '@/shared/api/client';
 import type { CatalogueGallery } from '@/shared/api/types';
 import { startMeasurement } from './measurement';
@@ -11,6 +11,8 @@ export default function CatalogueGalleryPage() {
   const [gallery, setGallery] = useState<CatalogueGallery | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [page,setPage] = useState(() => Number(new URLSearchParams(window.location.search).get('page') ?? '0'));
+  const boundVersion = useRef<string|undefined>(new URLSearchParams(window.location.search).get('catalogueVersion') ?? undefined);
   const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
   const recordLoadError = useCallback((productId: string, cause: unknown) => {
     setLoadErrors((current) => ({
@@ -21,20 +23,22 @@ export default function CatalogueGalleryPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchCatalogueGallery(controller.signal).then((result) => {
+    setGallery(null); setError(null); setLoadErrors({});
+    fetchCatalogueGallery(controller.signal,page,boundVersion.current).then((result) => {
       if (controller.signal.aborted) return;
-      startMeasurement(BUILD_ID, result.catalogueVersion, result.products.map((product) => product.id));
+      startMeasurement(BUILD_ID, result.catalogueVersion, result.products.map((product) => product.id),result);
+      boundVersion.current = result.catalogueVersion;
       setGallery(result);
     }).catch((cause: unknown) => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause));
     });
     return () => controller.abort();
-  }, []);
+  }, [page]);
 
   function restartMeasurement() {
     if (!gallery) return;
     setLoadErrors({});
-    startMeasurement(BUILD_ID, gallery.catalogueVersion, gallery.products.map((product) => product.id));
+    startMeasurement(BUILD_ID, gallery.catalogueVersion, gallery.products.map((product) => product.id),gallery);
     setAttempt((value) => value + 1);
   }
 
@@ -64,14 +68,16 @@ export default function CatalogueGalleryPage() {
     <main className="catalogue-gallery" data-testid="catalogue-gallery">
       <header>
         <p className="gallery-kicker">Controlled measurement build</p>
-        <h1>{gallery.products.length} real-scale Products</h1>
+        <h1>{gallery.products.length} real-scale Products · page {gallery.page+1} of {gallery.pageCount}</h1>
         <p>This route is compiled only for approved device testing. No private Style names are exposed.</p>
         <dl>
           <div><dt>Build</dt><dd data-testid="measurement-build-id">{BUILD_ID}</dd></div>
           <div><dt>Catalogue</dt><dd data-testid="catalogue-version">{gallery.catalogueVersion}</dd></div>
           <div><dt>Products</dt><dd data-testid="product-count">{gallery.products.length}</dd></div>
+          <div><dt>Complete Catalogue</dt><dd>{gallery.totalProducts} Products · {gallery.pageCount} pages</dd></div>
         </dl>
         <div className="gallery-actions" aria-label="Measurement controls">
+          <label>Catalogue page <select aria-label="Catalogue page" value={page} onChange={(e)=>setPage(Number(e.target.value))}>{Array.from({length:gallery.pageCount},(_,i)=><option key={i} value={i}>Page {i+1}</option>)}</select></label>
           <button type="button" onClick={restartMeasurement}>Restart measurement</button>
           <button type="button" onClick={exportMeasurement}>Export run JSON</button>
         </div>

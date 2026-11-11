@@ -1,4 +1,6 @@
 import type { FitResult, Product, RoomShell } from '@/shared/api/types';
+import { AttributionLicense } from './AttributionLicense';
+export { attributionStatusPresentation } from './AttributionLicense';
 
 /**
  * The written half of the Design: what the Product is, where it ended up, what
@@ -10,12 +12,6 @@ const metres = (value: number) => `${value.toFixed(2)} m`;
 const centimetres = (value: number) => `${Math.round(value * 100)} cm`;
 const kilobytes = (bytes: number) => `${(bytes / 1024).toFixed(0)} kB`;
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-
-export function attributionStatusPresentation(status: Product['attribution']['licenseStatus']) {
-  return status === 'conflicting-source-records'
-    ? { className: 'warning', testId: 'license-conflict' }
-    : { className: 'subtle', testId: 'license-status' };
-}
 
 function WallLabel({ room, wallId }: { room: RoomShell; wallId: string }) {
   const wall = room.walls.find((candidate) => candidate.id === wallId);
@@ -47,7 +43,6 @@ export function DesignPanel({
 }) {
   const { widthM, heightM, depthM } = product.dimensionsM;
   const budgetLimit = 5_000_000;
-  const attributionStatus = attributionStatusPresentation(product.attribution.licenseStatus);
   const requiredAccess = product.accessRegions.filter((region) => region.required);
   const optionalAccess = product.accessRegions.filter((region) => !region.required);
 
@@ -216,12 +211,7 @@ export function DesignPanel({
           </a>
           . {product.attribution.modifications}
         </p>
-        <p
-          className={attributionStatus.className}
-          data-testid={attributionStatus.testId}
-        >
-          {product.attribution.licenseNote}
-        </p>
+        <AttributionLicense attribution={product.attribution} />
         <p className="subtle">
           Source file:{' '}
           <a

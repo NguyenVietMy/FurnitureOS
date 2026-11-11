@@ -30,6 +30,7 @@ from api.live_generation import (  # noqa: E402
 )
 from api.provider import AnthropicProvider, MODEL_ID, ProviderCallError, ProviderSettings  # noqa: E402
 from api.zones import derive_zones  # noqa: E402
+from api.room_policy import LEGACY_BEDROOM_POLICY  # noqa: E402
 from scripts.ticket6_evidence import files_digest, source_files  # noqa: E402
 
 
@@ -68,7 +69,7 @@ def production_material(reference_id: str) -> dict:
     image = verified_reference(reference)
     eligible = _live_selection_products(catalogue.list(CatalogueQuery(
         room_type="bedroom", private_style_id=reference.privateStyleId,
-    )))
+    )), LEGACY_BEDROOM_POLICY)
     if not any(product.category == "bed" for product in eligible):
         raise SystemExit("Selected production reference has no eligible bed and cannot be probed.")
     room = intent_fixture_room()
@@ -84,6 +85,7 @@ def production_material(reference_id: str) -> dict:
         provider_call_index=0,
         previous=None,
         session=None,
+        policy=LEGACY_BEDROOM_POLICY,
     )
     return {
         "reference": reference,
@@ -112,8 +114,8 @@ def production_binding(material: dict) -> dict:
         "schemaBytes": len(schema_bytes),
         "model": MODEL_ID,
         "settings": {"thinking": "adaptive", "effort": "high", "format": "json_schema", "maxTokens": 8192},
-        "validation": "ProviderSelection plus bed-plus-optional-rug-v1 scope and shared Product/Room capabilities and graph policy",
-        "placementGuidance": "authoritative-bed-only-v1 plus bounded bed/rug complete-Design repair feedback",
+        "validation": "ProviderSelection plus furnished-bedroom-v1 scope and shared Product/Room capabilities and graph policy",
+        "placementGuidance": "authoritative-bed-only-v1 plus bounded furnished-bedroom complete-Design repair feedback",
     }
 
 
@@ -196,6 +198,7 @@ def main() -> int:
                     selection_id="initial",
                     initial=None,
                     enforce_live_scope=True,
+                    policy=LEGACY_BEDROOM_POLICY,
                 )
                 schema_valid = True
                 rejection = None

@@ -10,7 +10,7 @@ from api.catalogue import CatalogueEntry, StaticCatalogue
 import api.main as main
 from api.main import create_app
 from api.models import Product
-from backend_tests.catalogue_expectations import expected_publication
+from backend_tests.catalogue_expectations import expected_publication, expected_expansion
 
 
 def validation_body(design: dict) -> dict:
@@ -51,8 +51,16 @@ def test_controlled_catalogue_gallery_exposes_products_but_not_private_styles() 
     body = response.json()
     legacy, living, version = expected_publication()
     assert body['catalogueVersion'] == version
-    assert {p['id'] for p in body['products']} == legacy | living
-    assert len(body['products']) == len(legacy | living)
+    ids = sorted(legacy | living | {e['record']['productId'] for e in expected_expansion()[0]})
+    assert [p['id'] for p in body['products']] == ids[:20]
+    pages = [controlled.get('/api/catalogue-gallery',params={'page':i,'catalogueVersion':version}).json() for i in range(body['pageCount'])]
+    assert [p['id'] for shard in pages for p in shard['products']] == ids
+    assert all(len(shard['products']) <= 20 for shard in pages)
+    assert len(pages[-1]['products']) == (len(ids)-1)%20+1
+    assert len({shard['productIdsSha256'] for shard in pages}) == 1
+    assert controlled.get('/api/catalogue-gallery?page=-1').status_code == 422
+    assert controlled.get(f'/api/catalogue-gallery?page={body["pageCount"]}').status_code == 422
+    assert controlled.get('/api/catalogue-gallery?catalogueVersion=stale').status_code == 409
     serialized = response.text
     assert "privateStyle" not in serialized
     assert "Warm Minimal" not in serialized

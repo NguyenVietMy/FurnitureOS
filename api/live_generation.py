@@ -55,7 +55,44 @@ from .provider import (
 )
 from .generation_context import Conversation, check_work
 from .zones import derive_zones
-from .room_policy import RoomPolicy, BEDROOM_POLICY, room_policy
+from .room_policy import RoomPolicy, BEDROOM_POLICY, LEGACY_BEDROOM_POLICY, room_policy
+
+CANDIDATE_WINDOW_VERSION = 'room-style-category-window-v2-24'
+CANDIDATE_WINDOW_LIMIT = 24
+
+
+def candidate_window(products: tuple[Product, ...], policy: RoomPolicy) -> tuple[Product, ...]:
+    """Stable category round-robin. Anchors lead every round, then optionals.
+
+    Retains at least two distinct available Products per category before any
+    category receives a third. Full eligibility and Swaps remain Catalogue-owned.
+    """
+    categories = list(dict.fromkeys([c for _, c in policy.anchors] + [c for c, _ in policy.optional]))
+    groups = {c: sorted((p for p in products if p.category == c), key=lambda p: p.id) for c in categories}
+    # Offer a compact bed pair with similar depth before the ID-ordered rest.
+    # This is proposal diversity, not a fit or Swap certificate: exact geometry,
+    # access, Style eligibility and the complete Catalogue remain authoritative.
+    beds = groups.get('bed', [])
+    depth_groups: dict[tuple, list[Product]] = {}
+    for product in beds:
+        key = (product.placementClass, tuple(sorted(product.wallContactFaces)), round(product.dimensionsM.depthM, 2))
+        depth_groups.setdefault(key, []).append(product)
+    pairs = []
+    for group in depth_groups.values():
+        if len(group) >= 2:
+            pairs.append(sorted(group, key=lambda p: (p.dimensionsM.widthM * p.dimensionsM.depthM, p.id))[:2])
+    if pairs:
+        pair = min(pairs, key=lambda pair: (sum(p.dimensionsM.widthM * p.dimensionsM.depthM for p in pair), tuple(p.id for p in pair)))
+        ids = {p.id for p in pair}
+        groups['bed'] = pair + [p for p in beds if p.id not in ids]
+    selected = []
+    for i in range(CANDIDATE_WINDOW_LIMIT):
+        for c in categories:
+            if i < len(groups[c]):
+                selected.append(groups[c][i])
+                if len(selected) == CANDIDATE_WINDOW_LIMIT:
+                    return tuple(selected)
+    return tuple(selected)
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_MANIFEST = Path(__file__).with_name("live-reference-manifest.json")
@@ -1115,6 +1152,20 @@ def _prompt(
         "correctionFeedback": correction.model_dump(mode="json") if correction else None,
         "rejectedDraft": rejected_draft,
     }
+    context['candidateWindowVersion'] = CANDIDATE_WINDOW_VERSION
+    if policy.version == 'furnished-bedroom-v1':
+        context['task'] = ('Select a furnished bedroom Design inspired by the attached reference pixels. '
+                           'Require exactly one eligible bed. Include useful nightstands, storage, chair, lamp and rug where supported and likely to fit. '
+                           'Return only eligible Product IDs and coordinate-free Placement Intents; never coordinates or policy.')
+        context['rules']['selectionScope'] = {
+            'version':policy.version,
+            'required':{'category':'bed','count':1,'requestId':ANCHOR_ID},
+            'optional':[{'category':c,'minimumCount':0,'maximumCount':n} for c,n in policy.optional],
+            'maximumRequests':policy.request_limit,'otherCategories':'forbidden',
+            'instruction':'Use up to eight requests total. Optional furnishings depend on fit. Repairs must preserve every request identity and category and the selected anchor bed Product.',
+        }
+        context['rules']['requestLimit'] = policy.request_limit
+        context['rules']['relativeGrammar']['flanking']['scope'] = 'Two optional nightstands may flank the required bed with the same referenceId and gapM; the full pair is atomic. Respect bed-side access.'
     if policy.room_type == "living-room":
         context["task"] = "Select a living-room seating Design inspired by the attached pixels. Return only eligible Product IDs and coordinate-free supported Intents."
         context["roomType"] = policy.room_type
@@ -1274,6 +1325,7 @@ def _validated_selection(
     initial: ArrangementSelection | None,
     enforce_live_scope: bool = False,
     policy: RoomPolicy = BEDROOM_POLICY,
+    offered_product_ids: frozenset[str] | None = None,
 ) -> ArrangementSelection:
     try:
         selection = ProviderSelection.model_validate(payload)
@@ -1295,7 +1347,12 @@ def _validated_selection(
             intentId=intent_id,
         )) from None
     products = {product.id: product for product in eligible}
-    unknown = sorted({intent.productId for intent in selection.intents} - set(products))
+    selected_ids = {intent.productId for intent in selection.intents}
+    unknown = sorted(selected_ids - set(products))
+    if not unknown and offered_product_ids is not None:
+        # Keep legacy out-of-category diagnostics while requiring every allowed
+        # Product to come from the exact bounded offer used by this request.
+        unknown = sorted(i for i in selected_ids if products[i].category in policy.categories and i not in offered_product_ids)
     if unknown:
         raise SelectionRejected(SelectionRejection(
             code="ineligible-product-error",
@@ -1364,7 +1421,7 @@ def _policies(selection: ArrangementSelection, eligible: tuple[Product, ...], po
 
 def _live_selection_products(products: tuple[Product, ...], policy: RoomPolicy = BEDROOM_POLICY) -> tuple[Product, ...]:
     """Narrow Style eligibility only at the live provider boundary."""
-    return tuple(product for product in products if product.category in policy.categories)
+    return candidate_window(tuple(product for product in products if product.category in policy.categories), policy)
 
 
 def _generate_for_room(
@@ -1378,9 +1435,12 @@ def _generate_for_room(
     deadline_at: float | None = None,
     provider: GenerationProvider | None = None,
     generation_id_factory: Callable[[], str] = lambda: str(uuid4()),
+    policy_override: RoomPolicy | None = None,
 ) -> LiveGenerationResultValue:
     check_work()
-    policy = room_policy(request.roomType)
+    policy = policy_override or room_policy(request.roomType)
+    if policy.room_type != request.roomType:
+        raise ValueError('Policy requires its explicit Room Type')
     generation_id = generation_id_factory()
     manifest = reference_manifest()
     reference = next((item for item in manifest.images if item.id == request.referenceId), None)
@@ -1405,7 +1465,8 @@ def _generate_for_room(
         return _failure(generation_id, request.referenceId, error.code, error.detail, 0, 0, [])
 
     zone_offer = derive_zones(room, "living-room") if request.roomType == "living-room" else derive_zones(room)
-    capabilities = _wall_capability_map(room, style_eligible)
+    selection_eligible = style_eligible if policy == LEGACY_BEDROOM_POLICY else eligible
+    capabilities = _wall_capability_map(room, selection_eligible)
     deadline_at = deadline_at if deadline_at is not None else clock() + OVERALL_DEADLINE_SECONDS
     bed_guidance = _bed_placement_guidance(source, room, zone_offer, eligible, capabilities, use_cache=not private_room) if policy.room_type == "bedroom" else {}
     calls = 0
@@ -1502,7 +1563,7 @@ def _generate_for_room(
         try:
             selection = _validated_selection(
                 reply.payload,
-                style_eligible,
+                selection_eligible,
                 room=room,
                 zone_offer=zone_offer,
                 capabilities=capabilities,
@@ -1510,6 +1571,7 @@ def _generate_for_room(
                 initial=session.selections[0] if session else None,
                 enforce_live_scope=True,
                 policy=policy,
+                offered_product_ids=frozenset(p.id for p in eligible),
             )
         except SelectionRejected as error:
             correction = error.rejection
@@ -1628,12 +1690,14 @@ def generate_live_bedroom(source: Catalogue, request: LiveGenerationRequest, *,
                           generation_id_factory: Callable[[], str] = lambda: str(uuid4())) -> LiveGenerationResultValue:
     """Legacy fixture caller; private Capture never calls this wrapper."""
     return generate_bedroom_for_room(source, request, room=intent_fixture_room(), provider=provider,
-                                    generation_id_factory=generation_id_factory)
+                                    generation_id_factory=generation_id_factory, policy_override=LEGACY_BEDROOM_POLICY)
 
 
-def frozen_generation_configuration(source: Catalogue, room_type: RoomType = "bedroom") -> dict[str, Any]:
+def frozen_generation_configuration(source: Catalogue, room_type: RoomType = "bedroom", *, policy_override: RoomPolicy | None = None) -> dict[str, Any]:
     """Versioned provider/solver policy inputs used by external gate tooling."""
-    policy = room_policy(room_type)
+    policy = policy_override or room_policy(room_type)
+    if policy.room_type != room_type:
+        raise ValueError('Frozen policy requires its explicit Room Type')
     manifest = reference_manifest()
     room = object_intent_fixture_room().model_copy(update={"id": "room-living-seating-v1"}) if room_type == "living-room" else intent_fixture_room()
     zone_offer = derive_zones(room, "living-room") if room_type == "living-room" else derive_zones(room)
@@ -1767,6 +1831,13 @@ def frozen_generation_configuration(source: Catalogue, room_type: RoomType = "be
             json.dumps(_output_schema(), separators=(",", ":"), sort_keys=True).encode("utf-8")
         ),
     }
+
+    result['candidateWindow'] = {'version':CANDIDATE_WINDOW_VERSION,'maximumProducts':CANDIDATE_WINDOW_LIMIT,'ordering':'required-anchor categories then optional categories; category round-robin; if available, lowest combined footprint bed pair sharing Placement class, allowed wall-contact faces and centimetre-rounded depth first, with Product identity tie-breaks; remaining beds and other categories by sorted Product identity','fullCatalogueForSwaps':True}
+    if room_type == 'bedroom' and policy != LEGACY_BEDROOM_POLICY:
+        result['version'] = 'furnished-bedroom-generation-config-v1'
+        result['policyVersion'] = policy.version
+        result['provider']['selectionGrammar'] = 'strict-anyOf-furnished-bedroom-v1'
+        result['provider']['selectionScope'] = {'version':policy.version,'requiredBedCount':1,'optional':[{'category':c,'maximumCount':n} for c,n in policy.optional],'maximumRequests':policy.request_limit,'allowedCategories':sorted(policy.categories),'enforcedOn':['initial','repair'],'silentFiltering':False}
 
     if room_type == "living-room":
         result.update(version="ticket-12-generation-config-v1", roomType=room_type,

@@ -1,6 +1,6 @@
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
+import { Component, type ErrorInfo, type ReactNode, Suspense, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import type { Placement, Product, RoomShell, Vec3, Zone } from '@/shared/api/types';
@@ -8,6 +8,7 @@ import { AccessRegions, ProductPlacement } from './ProductPlacement';
 import { RoomShellMesh } from './RoomShellMesh';
 import { clearSceneDebug, currentSceneDebug, resetSceneDebug } from './scene-debug';
 import type { NudgeController } from './useNudge';
+import { SceneFrames, useSceneFrames } from './SceneFrames';
 
 /** What the ordinary fixture camera orbits: roughly standing eye level. */
 const ORBIT_TARGET: Vec3 = [0, 0.7, 0];
@@ -19,8 +20,27 @@ const OVERVIEW_TARGET: Vec3 = [0, 0.55, -0.35];
  * browser proof to step the camera back and watch the level of detail change;
  * it does nothing to what a person sees.
  */
-function CameraBridge({ target, sceneRevision }: { target: Vec3; sceneRevision: number }) {
+function CameraBridge({ target, sceneRevision, frameRoom }: { target: Vec3; sceneRevision: number; frameRoom: boolean }) {
   const camera = useThree((state) => state.camera);
+  const size = useThree((state) => state.size);
+  const requestFrames = useSceneFrames();
+  const framing = useRef<{ camera: typeof camera; compact: boolean } | null>(null);
+  useLayoutEffect(() => {
+    if (!frameRoom || size.width <= 0 || size.height <= 0) return;
+    const compact = size.width < size.height * 1.2;
+    const previous = framing.current;
+    if (previous?.camera === camera && previous.compact === compact) return;
+    const priorScale = previous?.camera === camera && previous.compact ? 1.45 : 1;
+    const nextScale = compact ? 1.45 : 1;
+    framing.current = { camera, compact };
+    if (priorScale !== nextScale) {
+      const focus = new Vector3(...target);
+      camera.position.sub(focus).multiplyScalar(nextScale / priorScale).add(focus);
+      camera.lookAt(focus);
+      camera.updateMatrixWorld();
+    }
+    requestFrames();
+  }, [camera, frameRoom, requestFrames, size.height, size.width, target]);
   useEffect(() => {
     const debug = currentSceneDebug(sceneRevision);
     if (!debug) return;
@@ -30,12 +50,13 @@ function CameraBridge({ target, sceneRevision }: { target: Vec3; sceneRevision: 
       camera.position.copy(focus.clone().add(direction.multiplyScalar(distance)));
       camera.lookAt(focus);
       camera.updateMatrixWorld();
+      requestFrames();
     };
     return () => {
       const current = currentSceneDebug(sceneRevision);
       if (current) current.setCameraDistanceM = null;
     };
-  }, [camera, sceneRevision, target]);
+  }, [camera, requestFrames, sceneRevision, target]);
   return null;
 }
 
@@ -149,7 +170,7 @@ export default function RoomCanvas({
   const xs=room.floorPolygon.map(point=>point[0]), zs=room.floorPolygon.map(point=>point[1]);
   const span=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs),room.ceilingHeightM);
   const orbitTarget: Vec3 = frameRoom ? [(Math.min(...xs)+Math.max(...xs))/2,Math.min(.8,room.ceilingHeightM/3),(Math.min(...zs)+Math.max(...zs))/2] : overview ? OVERVIEW_TARGET : ORBIT_TARGET;
-  const cameraPosition: Vec3 = frameRoom ? [span*.9,span*1.2,-span*1.5] : overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
+  const cameraPosition: Vec3 = frameRoom ? [span*.6,span*.8,-span] : overview ? [6.5, 8.5, -9] : [3.1, 2.3, 3.7];
   const dragging = nudge?.status === 'dragging' || nudge?.status === 'clamped';
   const debug = currentSceneDebug(sceneRevision);
   if (debug) debug.nudge = nudge ? { status: nudge.status, instanceId: nudge.instanceId,
@@ -160,6 +181,7 @@ export default function RoomCanvas({
 
   return (
     <Canvas
+      frameloop="demand"
       shadows
       dpr={[1, 2]}
       gl={{ antialias: true, preserveDrawingBuffer: true }}
@@ -167,6 +189,7 @@ export default function RoomCanvas({
       data-testid="room-canvas"
       style={{ touchAction: nudge?.enabled ? 'none' : 'pan-y' }}
     >
+      <SceneFrames>
       <color attach="background" args={['#e9e6e0']} />
       <hemisphereLight args={['#fefdfa', '#c4bcae', 0.7]} />
       <ambientLight intensity={0.25} />
@@ -218,7 +241,7 @@ export default function RoomCanvas({
         );
       })}
 
-      <CameraBridge target={orbitTarget} sceneRevision={sceneRevision} />
+      <CameraBridge target={orbitTarget} sceneRevision={sceneRevision} frameRoom={frameRoom} />
       <UsefulViewReporter sceneRevision={sceneRevision} />
       <NudgeCameraReporter sceneRevision={sceneRevision} />
       <OrbitControls
@@ -229,11 +252,12 @@ export default function RoomCanvas({
         enableDamping
         dampingFactor={0.08}
         minDistance={1.6}
-        maxDistance={overview ? 18 : 14}
+        maxDistance={frameRoom ? Math.max(18, span * 2.2) : overview ? 18 : 14}
         // Stay above the floor: looking up from underneath the Room is never useful.
         maxPolarAngle={Math.PI / 2 - 0.03}
         minPolarAngle={0.15}
       />
+      </SceneFrames>
     </Canvas>
   );
 }

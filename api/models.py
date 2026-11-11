@@ -960,7 +960,12 @@ class PreviewDesign(ContractModel):
 
 class CatalogueGallery(ContractModel):
     catalogueVersion: str = Field(min_length=1)
-    products: tuple[Product, ...] = Field(min_length=1)
+    page: int = Field(ge=0)
+    pageSize: Literal[20] = 20
+    pageCount: int = Field(ge=1)
+    totalProducts: int = Field(ge=1)
+    productIdsSha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    products: tuple[Product, ...] = Field(min_length=1, max_length=20)
 
 
 class PlacementValidationRequest(ContractModel):

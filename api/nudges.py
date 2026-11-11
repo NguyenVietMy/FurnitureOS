@@ -12,7 +12,10 @@ from .circulation import (
     CIRCULATION_TOLERANCE_M,
     CirculationWitness,
     _collisions,
+    _collision_query,
+    _polygon_projection,
     _inside_prepared_room,
+    _room_query,
     _swept_polygon,
     _walker_polygon,
     validate_circulation_with_witness,
@@ -93,6 +96,16 @@ def _dot(first: Vec2, second: Vec2) -> float:
     return first[0] * second[0] + first[1] * second[1]
 
 
+def _walker_min_projection(point: Vec2, width_m: float, axis: Vec2) -> float:
+    # This is one of the original square's four corners. Choosing the minimum
+    # of each signed term gives the same minimum dot product, including for
+    # rotated axes, without allocating/projecting the other three corners.
+    half = width_m / 2
+    corner = (point[0]-half if axis[0] >= 0 else point[0]+half,
+              point[1]-half if axis[1] >= 0 else point[1]+half)
+    return _dot(corner, axis)
+
+
 def _axes(*polygons: tuple[Vec2, ...]) -> tuple[Vec2, ...]:
     values: dict[tuple[int, int], Vec2] = {}
     for polygon in polygons:
@@ -128,6 +141,46 @@ def _best_separator(
     if not candidates:
         raise NudgeProofError(f"No stable separating axis for {reason}.")
     return max(candidates, key=lambda value: (value.maximum, value.normal[0], value.normal[1]))
+
+
+def _separator_query(moving: tuple[Vec2, ...], slack_m: float):
+    """Prepare one fixed mover for the exact cardinal witness corridors.
+
+    Cardinal sweeps use this counterclockwise rectangle order. Its axes are
+    constant; all arbitrary connectors retain the original separator. Nothing
+    is memoized across certificates, and every original margin/tie is retained.
+    """
+    axes = _axes(moving, ((0., 0.), (1., 0.), (1., 1.), (0., 1.)))
+    prepared = tuple((axis, *_axis_projections(moving, axis)) for axis in axes)
+
+    def query(fixed: tuple[Vec2, ...], reason: str) -> HalfPlane:
+        if not (len(fixed) == 4
+                and fixed[0][0] == fixed[3][0] < fixed[1][0] == fixed[2][0]
+                and fixed[0][1] == fixed[1][1] < fixed[2][1] == fixed[3][1]
+                and fixed[1][0] - fixed[0][0] >= 1e-15
+                and fixed[2][1] - fixed[0][1] >= 1e-15):
+            return _best_separator(moving, fixed, slack_m, reason)
+        candidates = []
+        for axis, moving_min, moving_max in prepared:
+            # The other two corners duplicate these x/z projections. Rotated
+            # mover axes still project all four corners in the original order.
+            if axis == (0., 1.):
+                fixed_min, fixed_max = fixed[0][1], fixed[2][1]
+            elif axis == (1., 0.):
+                fixed_min, fixed_max = fixed[0][0], fixed[2][0]
+            else:
+                fixed_min, fixed_max = _axis_projections(fixed, axis)
+            first = fixed_min - moving_max + slack_m - CERTIFICATE_INWARD_MARGIN_M
+            if first > CLIENT_MEMBERSHIP_MARGIN_M:
+                candidates.append(HalfPlane(axis, first, reason))
+            second = moving_min - fixed_max + slack_m - CERTIFICATE_INWARD_MARGIN_M
+            if second > CLIENT_MEMBERSHIP_MARGIN_M:
+                candidates.append(HalfPlane((-axis[0], -axis[1]), second, reason))
+        if not candidates:
+            raise NudgeProofError(f"No stable separating axis for {reason}.")
+        return max(candidates, key=lambda value: (value.maximum, value.normal[0], value.normal[1]))
+
+    return query
 
 
 def _common_endpoint_separator(
@@ -263,8 +316,7 @@ def _choose_attachment(
             continue
         if time.monotonic() > deadline:
             raise NudgeProofError("Nudge region certification timed out.")
-        square = _walker_polygon(point, witness.clearance_width_m)
-        square_min, _square_max = _axis_projections(square, access_face_normal)
+        square_min = _walker_min_projection(point, witness.clearance_width_m, access_face_normal)
         headroom = square_min - selected_max + CIRCULATION_TOLERANCE_M
         if headroom >= MIN_USEFUL_TRANSLATION_M + CERTIFICATE_INWARD_MARGIN_M:
             # Prefer a useful but bounded amount of extra headroom, then the
@@ -339,18 +391,23 @@ def _safe_backbone(
     )
     if not fixed_accesses:
         raise NudgeProofError("No fixed circulation terminal can anchor the moved Product access.")
+    collisions = _collision_query(witness.obstacles)
+    inside = _room_query(witness.room_geometry)
+    separator = _separator_query(selected_footprint, CIRCULATION_TOLERANCE_M)
+    # This witness was computed immediately above for this exact certificate's
+    # immutable Design/Room/obstacles/width. Its parent edges already passed
+    # containment and collision checks in either traversal direction. Reuse
+    # only those edges; every other connector/edge takes the original checks.
+    validated_parents = dict(witness.parents)
 
-    def separator_for(start: Vec2, end: Vec2, reason: str) -> HalfPlane | None:
+    def separator_for(start: Vec2, end: Vec2, reason: str, known_clear: bool = False) -> HalfPlane | None:
         corridor = _swept_polygon(start, end, witness.clearance_width_m)
-        if not _inside_prepared_room(witness.room_geometry, corridor) or _collisions(corridor, witness.obstacles):
-            return None
+        if not known_clear:
+            projection = _polygon_projection(corridor)
+            if not inside(corridor, projection) or collisions(corridor, projection):
+                return None
         try:
-            plane = _best_separator(
-                selected_footprint,
-                corridor,
-                CIRCULATION_TOLERANCE_M,
-                reason,
-            )
+            plane = separator(corridor, reason)
         except NudgeProofError:
             return None
         return plane if plane.maximum >= MIN_USEFUL_TRANSLATION_M + CERTIFICATE_INWARD_MARGIN_M else None
@@ -383,7 +440,8 @@ def _safe_backbone(
             neighbour = (current[0] + delta_x, current[1] + delta_z)
             if neighbour in parents or neighbour not in grid:
                 continue
-            if separator_for(grid[current], grid[neighbour], "preserved circulation witness") is None:
+            known_clear = validated_parents.get(current) == neighbour or validated_parents.get(neighbour) == current
+            if separator_for(grid[current], grid[neighbour], "preserved circulation witness", known_clear) is None:
                 continue
             parents[neighbour] = current
             queue.append(neighbour)
@@ -409,6 +467,50 @@ def _safe_backbone(
     return _SafeBackbone(parents=parents, fixed_connectors=tuple(fixed_connectors))
 
 
+def _coalesce_witness_edges(edges, grid, deadline=float('inf')):
+    """Exact union of consecutive collinear swept rectangles; retain all turns.
+
+    The already validated tree has at most the original raw lattice node bound.
+    No edge, clearance or lattice point is omitted from the represented union.
+    Geometric bends, branches and unusual input coordinates stop coalescing.
+    """
+    adjacent = {}
+    for index, (first, second) in enumerate(edges):
+        if index % 256 == 0 and time.monotonic() > deadline:
+            raise NudgeProofError("Nudge region certification timed out.")
+        adjacent.setdefault(first, []).append(second)
+        adjacent.setdefault(second, []).append(first)
+
+    def straight(first, middle, last):
+        a, b, c = grid[first], grid[middle], grid[last]
+        return (a[0] == b[0] == c[0] and (b[1]-a[1])*(c[1]-b[1]) > 0
+                or a[1] == b[1] == c[1] and (b[0]-a[0])*(c[0]-b[0]) > 0)
+
+    stops = {key for key, values in adjacent.items()
+             if len(values) != 2 or not straight(values[0], key, values[1])}
+    remaining = set(edges)
+    segments = []
+    for start in sorted(stops):
+        for following in sorted(adjacent[start]):
+            edge = tuple(sorted((start, following)))
+            if edge not in remaining:
+                continue
+            remaining.remove(edge)
+            previous, current = start, following
+            while current not in stops:
+                if len(remaining) % 256 == 0 and time.monotonic() > deadline:
+                    raise NudgeProofError("Nudge region certification timed out.")
+                following = next(key for key in adjacent[current] if key != previous)
+                edge = tuple(sorted((current, following)))
+                if edge not in remaining:
+                    break
+                remaining.remove(edge)
+                previous, current = current, following
+            segments.append(tuple(sorted((start, current))))
+    # Defensive fallback for any non-tree input: retain its original sweeps.
+    return tuple(sorted((*segments, *remaining)))
+
+
 def _fixed_witness_polygons(
     witness: CirculationWitness,
     parents: dict[tuple[int, int], tuple[int, int] | None],
@@ -426,13 +528,15 @@ def _fixed_witness_polygons(
             raise NudgeProofError("Nudge region certification timed out.")
         path = _path_to_root(key, parents)
         for first, second in zip(path, path[1:]):
+            if len(used_edges) % 256 == 0 and time.monotonic() > deadline:
+                raise NudgeProofError("Nudge region certification timed out.")
             used_edges.add(tuple(sorted((first, second))))
-            if len(used_edges) + len(fixed_connectors) > MAX_WITNESS_POLYGONS:
-                raise NudgeProofError(f"The retained circulation witness exceeds {MAX_WITNESS_POLYGONS} polygons.")
+            if len(used_edges) >= len(grid):
+                raise NudgeProofError("The retained circulation witness is not a bounded tree.")
 
     polygons = [
         _swept_polygon(grid[first], grid[second], witness.clearance_width_m)
-        for first, second in sorted(used_edges)
+        for first, second in _coalesce_witness_edges(used_edges, grid, deadline)
     ]
     polygons.extend(
         _swept_polygon(start, end, witness.clearance_width_m)

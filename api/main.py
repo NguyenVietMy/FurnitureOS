@@ -215,10 +215,20 @@ def create_app(
 
     if gallery_enabled:
         @application.get("/api/catalogue-gallery", response_model=CatalogueGallery)
-        def get_catalogue_gallery() -> CatalogueGallery:
+        def get_catalogue_gallery(page: int = 0, catalogueVersion: str | None = None) -> CatalogueGallery:
+            import hashlib
+            import json
+            if catalogueVersion is not None and catalogueVersion != source.version:
+                raise HTTPException(status_code=409, detail='Stale Catalogue version')
+            products = tuple(sorted(source.list(),key=lambda p:p.id))
+            pages = (len(products)+19)//20
+            if page < 0 or page >= pages:
+                raise HTTPException(status_code=422, detail='Invalid Catalogue page')
             return CatalogueGallery(
                 catalogueVersion=source.version,
-                products=source.list(),
+                page=page,pageCount=pages,totalProducts=len(products),
+                productIdsSha256=hashlib.sha256(json.dumps([p.id for p in products],separators=(',',':')).encode()).hexdigest(),
+                products=products[page*20:(page+1)*20],
             )
 
     @application.post("/api/placement-validation", response_model=FitResult)

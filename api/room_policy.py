@@ -25,7 +25,8 @@ class RoomPolicy:
         return sum(c == category for _, c in self.anchors) + dict(self.optional).get(category, 0)
 
 
-BEDROOM_POLICY = RoomPolicy('bedroom', 'bed-plus-optional-rug-v1', (('anchor-bed', 'bed'),), (('rug', 1),), 2)
+LEGACY_BEDROOM_POLICY = RoomPolicy('bedroom', 'bed-plus-optional-rug-v1', (('anchor-bed', 'bed'),), (('rug', 1),), 2)
+BEDROOM_POLICY = RoomPolicy('bedroom', 'furnished-bedroom-v1', (('anchor-bed', 'bed'),), (('nightstand', 2), ('wardrobe', 1), ('dresser', 1), ('chair', 1), ('lamp', 1), ('rug', 1)), 8)
 LIVING_POLICY = RoomPolicy('living-room', 'seating-sofa-coffee-table-chair-v1', (('anchor-sofa', 'sofa'), ('anchor-table', 'table'), ('anchor-chair', 'chair')), (('chair', 1), ('rug', 1), ('lamp', 1)), 6)
 
 

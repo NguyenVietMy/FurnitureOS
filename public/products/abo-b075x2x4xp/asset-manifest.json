@@ -1,0 +1,300 @@
+{
+  "productId": "abo-b075x2x4xp",
+  "generatedBy": "scripts/build-product-assets.mjs",
+  "source": {
+    "url": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/P/B075X2X4XP.glb",
+    "sha256": "ac4447100c125b054465bcd11aa5c13da8b8b7cba671d8ea75b971f0cf2349ca",
+    "bytes": 4258488,
+    "bounds": {
+      "min": [
+        -0.808066,
+        0,
+        -0.495203
+      ],
+      "max": [
+        0.808066,
+        0.976481,
+        0.495179
+      ],
+      "size": [
+        1.616132,
+        0.976481,
+        0.990382
+      ]
+    },
+    "triangles": 42328
+  },
+  "normalization": {
+    "unit": "m",
+    "upAxis": "+y",
+    "frontAxis": "+z",
+    "originRule": "floor-centre",
+    "bounds": {
+      "min": [
+        -0.808066,
+        0,
+        -0.495191
+      ],
+      "max": [
+        0.808066,
+        0.976481,
+        0.495191
+      ],
+      "size": [
+        1.616132,
+        0.976481,
+        0.990382
+      ]
+    },
+    "appliedTransform": {
+      "translation": [
+        0,
+        0,
+        0.000012000000000012001
+      ],
+      "rotationYaw": 0,
+      "scale": 1
+    },
+    "note": "The upstream collection declares metres, +Y up and +Z front. The pipeline preserves scale and yaw, then applies the recorded measured translation so Y=0 is the floor and the X/Z footprint centre is the local origin."
+  },
+  "budget": {
+    "limitBytes": 5000000,
+    "totalCompressedBytes": 2477309,
+    "sharedBytes": 2077915
+  },
+  "sharedTextures": [
+    {
+      "file": "textures/source-tex0-9144cd17bae6.ktx2",
+      "bytes": 109963,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-bdc6a0827eda.ktx2",
+      "bytes": 574339,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex0-e117e2fe94fd.ktx2",
+      "bytes": 27068,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-04b47b6fdf2d.ktx2",
+      "bytes": 51609,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-ef663afb21dc.ktx2",
+      "bytes": 499361,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex1-f042de9dd736.ktx2",
+      "bytes": 158148,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-3565eae9d977.ktx2",
+      "bytes": 56550,
+      "vkFormat": 0,
+      "width": 512,
+      "height": 512,
+      "faceCount": 1,
+      "levelCount": 10,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-69c411510473.ktx2",
+      "bytes": 155170,
+      "vkFormat": 0,
+      "width": 1024,
+      "height": 1024,
+      "faceCount": 1,
+      "levelCount": 11,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    },
+    {
+      "file": "textures/source-tex2-fba1253c7b8e.ktx2",
+      "bytes": 445707,
+      "vkFormat": 0,
+      "width": 2048,
+      "height": 2048,
+      "faceCount": 1,
+      "levelCount": 12,
+      "supercompressionScheme": 1,
+      "supercompression": "BasisLZ"
+    }
+  ],
+  "lods": [
+    {
+      "level": 0,
+      "url": "/products/abo-b075x2x4xp/lod0.gltf",
+      "simplifyRatio": 1,
+      "textureMaxPx": 2048,
+      "triangles": 42328,
+      "vertices": 23429,
+      "files": [
+        "lod0.gltf",
+        "lod0.bin"
+      ],
+      "exclusiveBytes": 243557,
+      "bounds": {
+        "min": [
+          -0.808066,
+          0,
+          -0.495191
+        ],
+        "max": [
+          0.808066,
+          0.976485,
+          0.495203
+        ],
+        "size": [
+          1.616132,
+          0.976485,
+          0.990394
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 1,
+      "url": "/products/abo-b075x2x4xp/lod1.gltf",
+      "simplifyRatio": 0.4,
+      "textureMaxPx": 1024,
+      "triangles": 16930,
+      "vertices": 10005,
+      "files": [
+        "lod1.gltf",
+        "lod1.bin"
+      ],
+      "exclusiveBytes": 111947,
+      "bounds": {
+        "min": [
+          -0.808066,
+          0,
+          -0.495146
+        ],
+        "max": [
+          0.808066,
+          0.976461,
+          0.495198
+        ],
+        "size": [
+          1.616132,
+          0.976461,
+          0.990345
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.00004500000000001725
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    },
+    {
+      "level": 2,
+      "url": "/products/abo-b075x2x4xp/lod2.gltf",
+      "simplifyRatio": 0.12,
+      "textureMaxPx": 512,
+      "triangles": 5076,
+      "vertices": 3618,
+      "files": [
+        "lod2.gltf",
+        "lod2.bin"
+      ],
+      "exclusiveBytes": 43890,
+      "bounds": {
+        "min": [
+          -0.808066,
+          0,
+          -0.495146
+        ],
+        "max": [
+          0.808066,
+          0.976461,
+          0.495198
+        ],
+        "size": [
+          1.616132,
+          0.976461,
+          0.990345
+        ]
+      },
+      "postSimplificationNormalization": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "maxAbsTranslationM": 0,
+        "maxBoundsDeltaFromLod0M": 0.00004500000000001725
+      },
+      "extensionsRequired": [
+        "EXT_meshopt_compression",
+        "KHR_mesh_quantization",
+        "KHR_texture_basisu"
+      ]
+    }
+  ]
+}

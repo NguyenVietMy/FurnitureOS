@@ -203,6 +203,9 @@ test('actual captured Design and accepted Swap keep their Capture association th
   await page.getByRole('radio', { name: 'Soft neutrals and warm wood' }).check();
   await page.getByRole('button', { name: 'Generate confirmed Room', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Validated furnished Room' })).toBeVisible();
+  // The first streamed Variant is visible before the private generation lease
+  // closes. This association regression mutates only after the batch finishes.
+  await expect(page.getByText('Three distinct Variants are ready.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Check compatible Products', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Compatible Product' })).toBeVisible();
   const swapped = page.waitForResponse(response => new URL(response.url()).pathname === '/api/swaps' && response.request().method() === 'POST');

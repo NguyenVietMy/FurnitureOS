@@ -6,7 +6,7 @@ export function CaptureGeneration({result,available,confirmed,pending,generate,r
   useEffect(()=>{const abort=new AbortController();fetchLiveBedroomConfig(abort.signal).then(setConfig).catch(()=>{});return()=>abort.abort();},[]);
   useEffect(()=>setReference(''),[roomType]);
   const failed=result?.status==='generated'&&result.result.status==='failed'?result.result:null;
-  return <section><h2>Generate the confirmed Room</h2><p>{roomType === 'living-room' ? 'The generator requires one sofa, one coffee table and one chair, with an optional second chair, rug and floor lamp. Front access requires 0.60 m.' : 'The generator selects one real bed and optionally one rug.'} FurnitureOS checks fit and connected walking space.</p>
+  return <section><h2>Generate the confirmed Room</h2><p>{roomType === 'living-room' ? 'The generator requires one sofa, one coffee table and one chair, with an optional second chair, rug and floor lamp. Front access requires 0.60 m.' : 'The generator selects one real bed, with up to two nightstands and one wardrobe, dresser, chair, floor lamp and rug where they fit, up to eight Products total. Optional furnishings may be left out.'} FurnitureOS checks fit and connected walking space.</p>
     <fieldset disabled={pending}><legend>Style inspiration</legend><div className="capture-reference-grid">{config?.references.map(item=><label key={item.id}>
       <input type="radio" name="capture-reference" checked={reference===item.id} onChange={()=>{setReference(item.id);invalidate();}}/>
       <img src={item.imageUrl} alt={item.label}/><span>{item.label}</span></label>)}</div></fieldset>

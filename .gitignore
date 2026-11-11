@@ -18,6 +18,7 @@ tools/product-curator/*
 !tools/product-curator/*.ts
 !tools/product-curator/*.md
 !tools/product-curator/index.html
+!tools/product-curator/expansion.html
 !tools/product-curator/ui/
 !tools/product-curator/tests/
 tools/product-curator/ui/*
@@ -39,4 +40,8 @@ api/catalogue/providers/asset-manifest.json
 api/catalogue/providers/manifests/
 .venv/
 __pycache__/
+# Only the stable OS lock and UUID-shaped same-volume index write are process
+# inputs. Recovered raw bytes and receipts are retained in external transactions.
+/api/catalogue/providers/expansion/.promotion.lock
+/api/catalogue/providers/expansion/.index-????????-????-????-????-????????????.pending
 supabase/.temp/

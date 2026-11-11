@@ -184,6 +184,11 @@ export interface CaptureView {
 
 export interface CatalogueGallery {
   readonly catalogueVersion: string;
+  readonly page: number;
+  readonly pageSize?: 20;
+  readonly pageCount: number;
+  readonly totalProducts: number;
+  readonly productIdsSha256: string;
   readonly products: ReadonlyArray<Product>;
 }
 

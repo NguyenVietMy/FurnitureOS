@@ -10,7 +10,7 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 
 from .catalogue import Catalogue
-from .circulation import validate_circulation
+from .circulation import validate_circulation, reuse_static_clearance
 from .domain import validate_placement
 from .models import (
     CirculationClear,
@@ -416,25 +416,26 @@ class DesignSessionStore:
             current_product = record.design.products[instance_index]
         compatible: list[SwapCandidate] = []
         rejected: list[SwapRejectedCandidate] = []
-        for product in sorted(self._source.list(), key=lambda value: (value.displayName, value.id)):
-            if product.id == current_product.id:
-                continue
-            if (
-                product.category != current_product.category
-                or product.placementClass != current_product.placementClass
-                or record.room_type not in product.roomTypes
-            ):
-                continue
-            candidate, candidate_failure = self._evaluate_replacement(record, instance_index, product)
-            if candidate is not None:
-                compatible.append(SwapCandidate(product=product))
-            else:
-                assert candidate_failure is not None
-                rejected.append(SwapRejectedCandidate(
-                    product=product,
-                    code=candidate_failure.code,
-                    detail=candidate_failure.detail,
-                ))
+        with reuse_static_clearance(record.design, instance_id, record.clearance_width_m):
+            for product in sorted(self._source.list(), key=lambda value: (value.displayName, value.id)):
+                if product.id == current_product.id:
+                    continue
+                if (
+                    product.category != current_product.category
+                    or product.placementClass != current_product.placementClass
+                    or record.room_type not in product.roomTypes
+                ):
+                    continue
+                candidate, candidate_failure = self._evaluate_replacement(record, instance_index, product)
+                if candidate is not None:
+                    compatible.append(SwapCandidate(product=product))
+                else:
+                    assert candidate_failure is not None
+                    rejected.append(SwapRejectedCandidate(
+                        product=product,
+                        code=candidate_failure.code,
+                        detail=candidate_failure.detail,
+                    ))
         with self._lock:
             current, current_failure = self._lookup_locked(session_id)
             if current_failure is not None:

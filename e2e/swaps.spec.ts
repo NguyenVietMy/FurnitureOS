@@ -75,6 +75,7 @@ test('fixture Swap uses the real API and Mesh while preserving the exact transfo
   await checkCompatibleProducts(page);
   await expect(candidates).toBeVisible();
   await expect(candidates.locator('option[value="bed-rivet-jonathan-queen-walnut"]')).toHaveCount(1);
+  await candidates.selectOption('bed-rivet-jonathan-queen-walnut');
   const instanceId = await placement.inputValue();
   await page.waitForFunction((id) => window.__furnitureos?.instances[id]?.ready, instanceId, { timeout: 60_000 });
   const before = await sceneInstance(page, instanceId);
@@ -116,7 +117,8 @@ test('same-role rejection details and an explained empty candidate list are acce
   await reasons.click();
   await expect(page.getByTestId('swap-controls')).toContainText('is not touching wall-north');
 
-  await page.getByTestId('fixture-matching-nightstands').click();
+  await page.getByTestId('fixture-zoned-repairable').click();
+  await page.getByRole('combobox', { name: 'Placement to Swap' }).selectOption('c-barrier-right');
   await checkCompatibleProducts(page);
   await expect(page.getByTestId('swap-empty')).toContainText('No other Catalogue Product preserves this complete Design');
   await expect(page.locator('.swap-button')).toBeDisabled();

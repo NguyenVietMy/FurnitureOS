@@ -132,6 +132,8 @@ test('renders FastAPI data with the real Product, attribution, orbit, LODs and s
   const apiResponses: string[] = []; const responses: { url: string; status: number }[] = [];
   page.on('response', (response) => { responses.push({ url: response.url(), status: response.status() }); if (response.url().includes('/api/design-resolution')) apiResponses.push(response.url()); });
   await page.goto('/design'); await expect(page.getByTestId('api-preview')).toBeVisible(); await waitForProduct(page);
+  await expect(page.getByTestId('publisher-license-current')).toContainText('all asset licenses changed from CC BY-NC to CC BY in 2023');
+  await expect(page.getByTestId('license-conflict')).not.toBeVisible();
   expect(apiResponses.length).toBeGreaterThan(0); await expect(page.getByTestId('design-panel')).toContainText('Prudence Tufted Queen Bed'); await expect(page.getByTestId('fit-status')).toHaveAttribute('data-fit', 'fits'); await expect(page.getByTestId('dimensions')).toContainText(`front ${manifest.normalization.frontAxis}`);
   const initial = await scene(page); expect(initial.productId).toBe(productId); expect(initial.placement?.wallId).toBe('wall-north'); expect(initial.textures.decoded).toBeGreaterThan(0); for (let axis = 0; axis < 3; axis += 1) expect(Math.abs(initial.worldBounds!.size[axis]! - manifest.source.bounds.size[axis]!)).toBeLessThan(0.02); expect(Math.abs(initial.worldBounds!.min[1]!)).toBeLessThan(0.01); expect(Math.abs(initial.worldBounds!.min[2]! + 1.5)).toBeLessThan(0.01);
   const expectLevelAt = async (distance: number, activeLod: number) => {
@@ -148,6 +150,16 @@ test('renders FastAPI data with the real Product, attribution, orbit, LODs and s
     }, { timeout: 30_000 }).toEqual({ activeLod, cameraDistanceM: distance });
   };
   await expectLevelAt(3, 0); await expectLevelAt(7, 1); await expectLevelAt(12, 2);
+  // A settled static scene should release rendering work, then draw again
+  // when its camera changes. Keep the actual LOD/mesh assertions above.
+  await expect.poll(async () => {
+    const before = (await scene(page)).framesRendered;
+    await page.waitForTimeout(350);
+    return (await scene(page)).framesRendered - before;
+  }, { timeout: 10_000 }).toBe(0);
+  const settledFrames = (await scene(page)).framesRendered;
+  await expectLevelAt(3, 0);
+  expect((await scene(page)).framesRendered).toBeGreaterThan(settledFrames);
   const cameraBefore = (await scene(page)).camera!; const box = (await page.locator('canvas').boundingBox())!; await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 - 220, box.y + box.height / 2 - 40, { steps: 12 }); await page.mouse.up(); await page.waitForFunction((before) => { const camera = window.__furnitureos?.camera; return !!camera && Math.hypot(camera[0]! - before[0]!, camera[2]! - before[2]!) > 0.5; }, cameraBefore); await page.screenshot({ path: join(shots, 'room-orbited-view.png') });
   for (const response of responses.filter((item) => item.url.includes('/decoders/basis/') || item.url.endsWith('.ktx2') || /\/lod\d\.gltf$/.test(item.url))) expect(response.status).toBe(200);
   await expect(page.getByTestId('attribution-source')).toHaveAttribute('href', 'https://amazon-berkeley-objects.s3.amazonaws.com/index.html'); await expect(page.getByTestId('attribution-license')).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/'); await expect(page.getByTestId('attribution-material')).toHaveAttribute('href', manifest.source.url); await page.screenshot({ path: join(shots, 'room-default-view.png') });
